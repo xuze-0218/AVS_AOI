@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="CLIDelegate">
+      <HintPath>Camera\Comlib\CLIDelegate.dll</HintPath>
+    </Reference>
+    <Reference Include="DVPCameraCS64">
+      <HintPath>Camera\Comlib\DVPCameraCS64.dll</HintPath>
+    </Reference>
+    <Reference Include="GxIAPINET">
+      <HintPath>Camera\Comlib\GxIAPINET.dll</HintPath>
+    </Reference>
+    <Reference Include="MvCamCtrl.Net">
+      <HintPath>Camera\Comlib\MvCamCtrl.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="ThridLibray">
+      <HintPath>Camera\Comlib\ThridLibray.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

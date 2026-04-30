@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Prism.Wpf" Version="8.1.97" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AVS_Common\AVS_Common.csproj" />
+    <ProjectReference Include="..\AVS_Drivers\AVS_Drivers.csproj" />
+    <ProjectReference Include="..\AVS_VisionService\AVS_VisionService.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="halcondotnet">
+      <HintPath>..\AVS_Common\bin\Debug\net8.0-windows\halcondotnet.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
