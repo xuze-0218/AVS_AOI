@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AOI.Modules.Settings.ViewModels
+namespace AVS_Modules_Data.ViewModels
 {
     public class ViewAViewModel : BindableBase
     {

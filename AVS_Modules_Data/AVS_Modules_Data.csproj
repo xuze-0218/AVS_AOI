@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Prism.Wpf" Version="8.1.97" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Views\HistoryRecordView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+	<Target Name="CopyDllToPlugins" AfterTargets="Build">
+		<PropertyGroup>
+			<MainAppPluginsDir>$(SolutionDir)AVS_App\bin\Debug\net8.0-windows\Modules\</MainAppPluginsDir>
+		</PropertyGroup>
+		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MainAppPluginsDir)" SkipUnchangedFiles="true" />
+	</Target>
+</Project>

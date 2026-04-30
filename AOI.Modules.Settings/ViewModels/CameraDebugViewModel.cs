@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Media3D;
 
-namespace AOI.Modules.Settings.ViewModels
+namespace AVS_Modules_Settings.ViewModels
 {
     public class CameraDebugViewModel : BindableBase, IDialogAware
     {

@@ -16,4 +16,12 @@
       <HintPath>..\AVS_Common\bin\Debug\net8.0-windows\halcondotnet.dll</HintPath>
     </Reference>
   </ItemGroup>
+	<Target Name="CopyDllToPlugins" AfterTargets="Build">
+		<!-- 定义主程序的 Modules 目录 -->
+		<PropertyGroup>
+			<MainAppPluginsDir>$(SolutionDir)AVS_App\bin\Debug\net8.0-windows\Modules\</MainAppPluginsDir>
+		</PropertyGroup>
+		<!-- 复制当前模块的 DLL -->
+		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MainAppPluginsDir)" SkipUnchangedFiles="true" />
+	</Target>
 </Project>

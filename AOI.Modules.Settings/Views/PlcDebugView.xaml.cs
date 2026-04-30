@@ -13,14 +13,14 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace AOI.Modules.Settings.Views
+namespace AVS_Modules_Settings.Views
 {
     /// <summary>
-    /// Interaction logic for ViewA.xaml
+    /// PlcDebugView.xaml 的交互逻辑
     /// </summary>
-    public partial class ViewA : UserControl
+    public partial class PlcDebugView : UserControl
     {
-        public ViewA()
+        public PlcDebugView()
         {
             InitializeComponent();
         }

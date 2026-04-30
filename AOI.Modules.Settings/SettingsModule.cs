@@ -1,9 +1,9 @@
-﻿using AOI.Modules.Settings.Views;
+﻿using AVS_Modules_Settings.Views;
 using Prism.Ioc;
 using Prism.Modularity;
 using Prism.Regions;
 
-namespace AOI.Modules.Settings
+namespace AVS_Modules_Settings
 {
     public class SettingsModule : IModule
     {
@@ -14,7 +14,9 @@ namespace AOI.Modules.Settings
 
         public void RegisterTypes(IContainerRegistry containerRegistry)
         {
-
+            containerRegistry.RegisterForNavigation<ParameterConfigView>();
+            containerRegistry.RegisterForNavigation<CameraDebugView>();
+            containerRegistry.RegisterForNavigation<PlcDebugView>();
         }
     }
 }

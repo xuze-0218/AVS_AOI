@@ -3,6 +3,8 @@ using AVS_VisionService;
 using DryIoc;
 using Prism.DryIoc;
 using Prism.Ioc;
+using Prism.Modularity;
+using Prism.Regions;
 using Serilog;
 using System.Configuration;
 using System.Data;
@@ -24,27 +26,35 @@ namespace AVS_App
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
-            //相机配置
+          
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
 
+
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()
-                .WriteTo.Async(a => a.File("Logs/log_.txt",
-                rollingInterval: RollingInterval.Day,
-                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                retainedFileCountLimit: 30)).WriteTo.Sink(new UiLogSink()).CreateLogger();
+                    .WriteTo.Async(a => a.File("Logs/log_.txt",
+                    rollingInterval: RollingInterval.Day,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                    retainedFileCountLimit: 30)).WriteTo.Sink(new UiLogSink()).CreateLogger();
 
             containerRegistry.RegisterInstance<ILogger>(Log.Logger);
         }
 
         protected override async void OnInitialized()
         {
-            base.OnInitialized();           
+            base.OnInitialized();
+            var regionManager = Container.Resolve<IRegionManager>();
+            //regionManager.RequestNavigate("MainContentRegion", "InspectionView");
+        }
+
+        protected override IModuleCatalog CreateModuleCatalog()
+        {
+            return new DirectoryModuleCatalog() { ModulePath = @".\Modules" };
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
             base.OnExit(e);
-           
+
             if (_singleInstanceMutex != null)
             {
                 try
@@ -77,6 +87,6 @@ namespace AVS_App
         }
     }
 
-    
+
 
 }

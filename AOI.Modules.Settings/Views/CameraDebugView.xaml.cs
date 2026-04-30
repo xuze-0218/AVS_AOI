@@ -16,7 +16,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace AOI.Modules.Settings.Views
+namespace AVS_Modules_Settings.Views
 {
     /// <summary>
     /// CameraDebugView.xaml 的交互逻辑
