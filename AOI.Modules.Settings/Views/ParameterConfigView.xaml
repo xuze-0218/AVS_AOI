@@ -6,8 +6,6 @@
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
-    d:DesignHeight="450"
-    d:DesignWidth="800"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
     <UserControl.Resources>
@@ -62,6 +60,7 @@
             AutoGenerateColumns="False"
             CanUserAddRows="False"
             ColumnWidth="120"
+            HeadersVisibility="Column"
             ItemsSource="{Binding ParametersView}"
             SelectedItem="{Binding SelectedParameter}"
             SelectionMode="Single">
@@ -88,7 +87,7 @@
                     Header="表达式" />
 
                 <DataGridTextColumn
-                    Width="200"
+                    Width="100"
                     Binding="{Binding Note}"
                     Header="注释" />
 
@@ -105,7 +104,7 @@
                     Header="输出类型"
                     SelectedItemBinding="{Binding OutputType}" />
 
-                <DataGridTemplateColumn Width="50">
+                <DataGridTemplateColumn Width="100">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button
