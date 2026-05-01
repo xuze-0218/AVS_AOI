@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AVS_Common\AVS_Common.csproj" />
-    <ProjectReference Include="..\AVS_VisionService\AVS_VisionService.csproj" />
+    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
   </ItemGroup>
 
 </Project>

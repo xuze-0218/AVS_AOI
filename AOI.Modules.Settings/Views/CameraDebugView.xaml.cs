@@ -26,15 +26,16 @@ namespace AVS_Modules_Settings.Views
         public CameraDebugView(IEventAggregator eventAggregator)
         {
             InitializeComponent();
-            eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(img =>
+            //界面显示 
+            eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(payload =>
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (img != null)
+                    if (payload.Image != null)
                     {
-                        HOperatorSet.GetImageSize(img, out HTuple width, out HTuple height);
+                        HOperatorSet.GetImageSize(payload.Image, out HTuple width, out HTuple height);
                         HOperatorSet.SetPart(CameraDebugDisplay.HalconWindow, 0, 0, height - 1, width - 1);
-                        HOperatorSet.DispImage(img, CameraDebugDisplay.HalconWindow);
+                        HOperatorSet.DispImage(payload.Image, CameraDebugDisplay.HalconWindow);
                     }
                 });
             });

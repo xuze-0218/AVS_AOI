@@ -8,7 +8,13 @@ using System.Threading.Tasks;
 
 namespace AVS_Common
 {
-    public class HImageDisplayEvent : PubSubEvent<HObject>
+    public class CameraImagePayload
+    {
+        public string CameraSN { get; set; }
+        public HObject Image { get; set; }
+    }
+
+    public class HImageDisplayEvent : PubSubEvent<CameraImagePayload>
     {
 
     }

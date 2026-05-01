@@ -9,12 +9,15 @@
   <ItemGroup>
     <ProjectReference Include="..\AVS_Common\AVS_Common.csproj" />
     <ProjectReference Include="..\AVS_Drivers\AVS_Drivers.csproj" />
-    <ProjectReference Include="..\AVS_VisionService\AVS_VisionService.csproj" />
+    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="halcondotnet">
       <HintPath>..\AVS_Common\bin\Debug\net8.0-windows\halcondotnet.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Models\" />
   </ItemGroup>
 	<Target Name="CopyDllToPlugins" AfterTargets="Build">
 		<!-- 定义主程序的 Modules 目录 -->

@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_Common", "AVS_Common\AV
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_App", "AVS_App\AVS_App.csproj", "{5DB6F019-E423-4A2E-AD1B-8FD1F297804F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_VisionService", "AVS_VisionService\AVS_VisionService.csproj", "{F0F893DA-687D-4078-B3F5-F380498A3A0B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_Service", "AVS_VisionService\AVS_Service.csproj", "{F0F893DA-687D-4078-B3F5-F380498A3A0B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AOI.Modules.Inspection", "AOI.Modules.Inspection\AOI.Modules.Inspection.csproj", "{29D824EC-39D0-4F7B-8072-91ECE875A007}"
 EndProject

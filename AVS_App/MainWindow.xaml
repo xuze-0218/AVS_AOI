@@ -15,6 +15,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="150" />
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="200" />
         </Grid.ColumnDefinitions>
         <Border Grid.Column="0" Background="#2D2D30">
             <StackPanel Margin="0,20,0,0">
@@ -54,6 +55,17 @@
                     Background="#3E3E42"
                     BorderThickness="0"
                     Command="{Binding NavigateCommand}"
+                    CommandParameter="PlcDebugView"
+                    Content=" 通讯测试"
+                    FontSize="16"
+                    Foreground="White" />
+
+                <Button
+                    Height="40"
+                    Margin="10,5"
+                    Background="#3E3E42"
+                    BorderThickness="0"
+                    Command="{Binding NavigateCommand}"
                     CommandParameter="HistoryRecordView"
                     Content="📊 历史记录"
                     FontSize="16"
@@ -62,6 +74,41 @@
         </Border>
 
         <ContentControl Grid.Column="1" prism:RegionManager.RegionName="MainContentRegion" />
+
+        <GroupBox
+            Grid.Column="2"
+            BorderBrush="#555"
+            Foreground="White"
+            Header="系统日志">
+            <DataGrid
+                AutoGenerateColumns="False"
+                Background="AliceBlue"
+                BorderThickness="0"
+                IsReadOnly="True"
+                ItemsSource="{Binding LogSource}"
+                RowHeaderWidth="0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn
+                        Width="80"
+                        Binding="{Binding Timestamp}"
+                        Header="时间" />
+                    <DataGridTextColumn
+                        Width="50"
+                        Binding="{Binding Level}"
+                        Header="级别">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{Binding Color}" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn
+                        Width="*"
+                        Binding="{Binding Message}"
+                        Header="内容" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
 
     </Grid>
 </Window>

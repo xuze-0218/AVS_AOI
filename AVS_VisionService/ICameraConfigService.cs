@@ -1,22 +1,16 @@
 ﻿using AVS_Drivers.Camera;
 using AVS_Drivers.Camera.Common.Enum;
-using AVS_VisionService.Model;
+using AVS_Service.Models;
 using HalconDotNet;
 using Newtonsoft.Json;
 using Serilog;
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Media.Media3D;
-using System.Xml;
 using Formatting = Newtonsoft.Json.Formatting;
 
-namespace AVS_VisionService
+namespace AVS_Service
 {
     public interface ICameraConfigService
     {
@@ -85,7 +79,6 @@ namespace AVS_VisionService
             catch (Exception ex) { _logger.Error(ex, "保存相机JSON配置失败"); }
         }
 
-
         public void InitializeAllCameras()
         {
             foreach (var setting in _settingsCache)
@@ -114,8 +107,6 @@ namespace AVS_VisionService
                 }
             }
         }
-
-
 
         private void StartCameraGrabbing(string sn)
         {

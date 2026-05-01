@@ -1,5 +1,5 @@
 
-namespace AVS_VisionService
+namespace AVS_Service
 {
     public class Class1
     {

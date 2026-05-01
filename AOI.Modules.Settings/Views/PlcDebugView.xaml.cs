@@ -24,5 +24,13 @@ namespace AVS_Modules_Settings.Views
         {
             InitializeComponent();
         }
+
+        private void ReceivedTextLog_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                textBox.ScrollToEnd();
+            }
+        }
     }
 }

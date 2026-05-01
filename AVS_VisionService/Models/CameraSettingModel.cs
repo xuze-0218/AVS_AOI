@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AVS_VisionService.Model
+namespace AVS_Service.Models
 {
     public class CameraSettingModel
     {

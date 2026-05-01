@@ -2,13 +2,14 @@
 using AVS_Drivers.Camera;
 using AVS_Drivers.Camera.Common.Enum;
 using AVS_Drivers.Camera.Common.Model;
-using AVS_VisionService;
-using AVS_VisionService.Model;
+using AVS_Service;
+using AVS_Service.Models;
 using HalconDotNet;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using Prism.Services.Dialogs;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,9 +20,10 @@ using System.Windows.Media.Media3D;
 
 namespace AVS_Modules_Settings.ViewModels
 {
-    public class CameraDebugViewModel : BindableBase, IDialogAware
+    public class CameraDebugViewModel : BindableBase
     {
         private ICamera _camera;
+        private ILogger _logger;
         private ICameraConfigService _cameraConfigService;
         private CameraSettingModel _currentConfig;
         private IEventAggregator _eventAggregator;
@@ -105,8 +107,9 @@ namespace AVS_Modules_Settings.ViewModels
         #endregion
 
 
-        public CameraDebugViewModel(IEventAggregator eventAggregator, ICameraConfigService cameraConfigService)
+        public CameraDebugViewModel(IEventAggregator eventAggregator, ICameraConfigService cameraConfigService, ILogger logger)
         {
+            _logger = logger;
             _eventAggregator = eventAggregator;
             _cameraConfigService = cameraConfigService;
 
@@ -144,7 +147,11 @@ namespace AVS_Modules_Settings.ViewModels
                 Application.Current.Dispatcher.Invoke(() =>
                 {
 
-                    _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(img);
+                    _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
+                    {
+                        CameraSN = camSN,
+                        Image = img
+                    });
                 });
             }
         }
@@ -161,8 +168,7 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand<string> SaveImageCommand { get; }
         #endregion
 
-        public string Title => "相机调试界面";
-        public event Action<IDialogResult> RequestClose;
+      
 
 
         #region 执行逻辑
@@ -179,6 +185,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void ExecuteInit()
         {
+            _logger.Information("init Cameras");
             if (string.IsNullOrEmpty(SelectedDevice)) return;
             _camera = _cameraConfigService.GetCameraInstance(SelectedDevice);
             _isBorrowedCamera = (_camera != null);
@@ -274,17 +281,7 @@ namespace AVS_Modules_Settings.ViewModels
             if (ushort.TryParse(_currentConfig.ExposureTime.ToString(), out ushort exp)) ExposureTime = (short)exp;
             if (short.TryParse(_currentConfig.Gain.ToString(), out short gn)) Gain = gn;
         }
-
-
-        public bool CanCloseDialog() => true;
-
-        public void OnDialogClosed()
-        {
-            ExecuteClose();
-            _cameraConfigService.OnImageCaptured -= OnImageCaptured; // 退出界面取消订阅
-        }
-
-        public void OnDialogOpened(IDialogParameters parameters) { }
+       
         #endregion
 
     }

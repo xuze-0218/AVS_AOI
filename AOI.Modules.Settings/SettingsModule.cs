@@ -1,4 +1,5 @@
-﻿using AVS_Modules_Settings.Views;
+﻿using AVS_Modules_Settings.ViewModels;
+using AVS_Modules_Settings.Views;
 using Prism.Ioc;
 using Prism.Modularity;
 using Prism.Regions;

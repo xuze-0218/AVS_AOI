@@ -1,5 +1,5 @@
 ﻿using AVS_Common;
-using AVS_VisionService;
+using AVS_Service;
 using DryIoc;
 using Prism.DryIoc;
 using Prism.Ioc;
@@ -26,9 +26,10 @@ namespace AVS_App
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
-          
-            containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
 
+            containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
+            containerRegistry.RegisterSingleton<IParametersConfigService, ParametersConfigService>();
+            containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()
                     .WriteTo.Async(a => a.File("Logs/log_.txt",
