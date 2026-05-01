@@ -30,6 +30,8 @@ namespace AVS_Service.Models
         [Description("相机序列号")]
         public string? SerilalNum { get; set; }
 
+        [Description("相机逻辑角色(如: TopCam, LeftCam)")]
+        public string CameraRole { get; set; } = "DefaultCam";
         [Description("IP")]
         public string? IP { get; set; }
 

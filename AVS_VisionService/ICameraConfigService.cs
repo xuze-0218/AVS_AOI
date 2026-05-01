@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Threading.Tasks;
 using Formatting = Newtonsoft.Json.Formatting;
 
 namespace AVS_Service
@@ -20,7 +21,7 @@ namespace AVS_Service
 
         void SaveSettings();
         void LoadSettings();
-        void InitializeAllCameras();
+        Task InitializeAllCameras();
 
         ICamera GetCameraInstance(string sn);
         CameraSettingModel GetCameraSetting(string sn);
@@ -79,35 +80,43 @@ namespace AVS_Service
             catch (Exception ex) { _logger.Error(ex, "保存相机JSON配置失败"); }
         }
 
-        public void InitializeAllCameras()
+        public async Task InitializeAllCameras()
         {
-            foreach (var setting in _settingsCache)
+           await  Task.Run(() => 
             {
-                if (string.IsNullOrEmpty(setting.SerilalNum)) continue;
-
-                try
+                foreach (var setting in _settingsCache)
                 {
-                    ICamera camera = CamFactory.CreatCamera((CameraBrand)setting.CameraType);
+                    if (string.IsNullOrEmpty(setting.SerilalNum)) continue;
 
-                    if (camera != null && camera.InitDevice(setting.SerilalNum))
+                    try
                     {
-                        if (!_connectedCameras.ContainsKey(setting.SerilalNum))
-                        {
-                            _connectedCameras.Add(setting.SerilalNum, camera);
-                            ApplySettingToDevice(setting.SerilalNum);
-                            StartCameraGrabbing(setting.SerilalNum);
+                        ICamera camera = CamFactory.CreatCamera((CameraBrand)setting.CameraType);
 
-                            _logger.Information("相机 {SN} (索引:{Index}) 初始化并启动取图成功", setting.SerilalNum, setting.CamSelectIndex);
+                        if (camera != null && camera.InitDevice(setting.SerilalNum))
+                        {
+                            if (!_connectedCameras.ContainsKey(setting.SerilalNum))
+                            {
+                                _connectedCameras.Add(setting.SerilalNum, camera);
+                                ApplySettingToDevice(setting.SerilalNum);
+                                StartCameraGrabbing(setting.SerilalNum);
+
+                                _logger.Information("相机 {SN} (索引:{Index}) 初始化并启动取图成功", setting.SerilalNum, setting.CamSelectIndex);
+                            }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "相机 {SN} 初始化失败", setting.SerilalNum);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "相机 {SN} 初始化失败", setting.SerilalNum);
-                }
-            }
+            });
+          
         }
 
+        /// <summary>
+        /// 相机启动，等待信号取图，取图后放入队列
+        /// </summary>
+        /// <param name="sn"></param>
         private void StartCameraGrabbing(string sn)
         {
             if (!_connectedCameras.TryGetValue(sn, out var camera)) return;
@@ -123,7 +132,6 @@ namespace AVS_Service
                     ctx.PtrQueue.Add(ptr);
                 }
             };
-
 
             _grabContexts[sn] = ctx;
             ctx.ProcessingTask = Task.Run(() =>

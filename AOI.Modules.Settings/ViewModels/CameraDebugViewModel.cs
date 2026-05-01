@@ -69,6 +69,12 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
+        private string _ip;
+        public string IP { get => _ip; set => SetProperty(ref _ip, value); }
+
+        private int _port;
+        public int Port { get => _port; set => SetProperty(ref _port, value); }
+
         private bool _isContinuousMode = true;
         public bool IsContinuousMode { get => _isContinuousMode; set { if (SetProperty(ref _isContinuousMode, value) && value) IsTriggerMode = false; } }
 
@@ -94,7 +100,11 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 if (SetProperty(ref _selectedBrand, value))
                 {
-                    if (_currentConfig != null) { _currentConfig.CameraType = (int)value; _cameraConfigService.UpdateCameraSetting(_currentConfig); }
+                    if (_currentConfig != null)
+                    {
+                        _currentConfig.CameraType = (int)value;
+                        _cameraConfigService.UpdateCameraSetting(_currentConfig);
+                    }
                 }
             }
         }
@@ -168,8 +178,6 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand<string> SaveImageCommand { get; }
         #endregion
 
-      
-
 
         #region 执行逻辑
         private void ExecuteSearch()
@@ -185,7 +193,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void ExecuteInit()
         {
-            _logger.Information("init Cameras");
+            _logger.Information("初始化相机");
             if (string.IsNullOrEmpty(SelectedDevice)) return;
             _camera = _cameraConfigService.GetCameraInstance(SelectedDevice);
             _isBorrowedCamera = (_camera != null);
@@ -259,8 +267,13 @@ namespace AVS_Modules_Settings.ViewModels
                 _camera.SetGain(Gain);
                 if (_currentConfig != null)
                 {
-                    _currentConfig.ExposureTime = ExposureTime; _currentConfig.Gain = Gain; _currentConfig.imgpath = SaveImagePath;
-                    _currentConfig.CameraType = (int)SelectedBrand; _currentConfig.SerilalNum = SelectedDevice;
+                    _currentConfig.ExposureTime = ExposureTime;
+                    _currentConfig.Gain = Gain;
+                    _currentConfig.imgpath = SaveImagePath;
+                    _currentConfig.CameraType = (int)SelectedBrand;
+                    _currentConfig.SerilalNum = SelectedDevice;
+                    _currentConfig.IP = IP;
+                    _currentConfig.Port = Port;
                     _cameraConfigService.UpdateCameraSetting(_currentConfig);
                 }
                 StatusMessage = "参数已保存到本地";
@@ -280,8 +293,10 @@ namespace AVS_Modules_Settings.ViewModels
             SaveImagePath = _currentConfig.imgpath;
             if (ushort.TryParse(_currentConfig.ExposureTime.ToString(), out ushort exp)) ExposureTime = (short)exp;
             if (short.TryParse(_currentConfig.Gain.ToString(), out short gn)) Gain = gn;
+            IP = _currentConfig.IP;
+            Port = _currentConfig.Port;
         }
-       
+
         #endregion
 
     }

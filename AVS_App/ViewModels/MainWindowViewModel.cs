@@ -10,7 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AVS_App
+namespace AVS_App.ViewModels
 {
     public class MainWindowViewModel : BindableBase
     {

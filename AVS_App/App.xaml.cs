@@ -1,4 +1,5 @@
-﻿using AVS_Common;
+﻿using AVS_App.Views;
+using AVS_Common;
 using AVS_Service;
 using DryIoc;
 using Prism.DryIoc;
@@ -26,10 +27,11 @@ namespace AVS_App
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
-
+            containerRegistry.RegisterForNavigation<InspectionView>();
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
             containerRegistry.RegisterSingleton<IParametersConfigService, ParametersConfigService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
+            containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()
                     .WriteTo.Async(a => a.File("Logs/log_.txt",
@@ -43,8 +45,20 @@ namespace AVS_App
         protected override async void OnInitialized()
         {
             base.OnInitialized();
+            try
+            {
+                var startupService = Container.Resolve<IApplicationStartupService>();
+                await startupService.InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "应用启动失败");
+                MessageBox.Show("应用初始化失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+            }
+
             var regionManager = Container.Resolve<IRegionManager>();
-            //regionManager.RequestNavigate("MainContentRegion", "InspectionView");
+            regionManager.RequestNavigate("MainContentRegion", "InspectionView");
         }
 
         protected override IModuleCatalog CreateModuleCatalog()
@@ -55,7 +69,15 @@ namespace AVS_App
         protected override void OnExit(ExitEventArgs e)
         {
             base.OnExit(e);
-
+            try
+            {
+                var startupService = Container.Resolve<IApplicationStartupService>();
+                startupService.ShutdownAsync().Wait();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "应用关闭时保存配置失败");
+            }
             if (_singleInstanceMutex != null)
             {
                 try
