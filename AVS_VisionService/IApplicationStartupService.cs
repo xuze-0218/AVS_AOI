@@ -20,15 +20,18 @@ namespace AVS_Service
         /// </summary>
         private Task _backgroundInitializationTask;
         private readonly ICommunicationService _communicationService;
+        private readonly IParametersConfigService _parametersConfigService;
         private readonly ICameraConfigService _cameraConfigService;
         private readonly ILogger _logger;
 
         public ApplicationStartupService(
            ILogger logger,
            ICommunicationService communicationService,
+           IParametersConfigService parametersConfigService,
            ICameraConfigService cameraConfigService)
         {
             _logger = logger;
+            _parametersConfigService = parametersConfigService;
             _communicationService = communicationService;
             _cameraConfigService = cameraConfigService;
         }
