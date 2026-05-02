@@ -34,7 +34,7 @@ namespace AVS_Service
 
         void ApplySettingToDevice(string sn);
         void UpdateCameraSetting(CameraSettingModel setting);
-        void RaiseImageCaptured(string cameraKey, HObject image);
+        //void RaiseImageCaptured(string cameraKey, HObject image);
 
     }
 
@@ -195,7 +195,7 @@ namespace AVS_Service
         }
 
         /// <summary>
-        /// 处理图像指针，转为ICogImage格式
+        /// 处理图像指针，转为HObject格式
         /// </summary>
         /// <param name="camera"></param>
         /// <param name="ptr"></param>
@@ -210,7 +210,8 @@ namespace AVS_Service
                 else if (info.PixelFormat == CamPixelFormat.Rgb8)
                     img = ConvertToImage24(ptr, info.Width, info.Height);
                 if (img != null)
-                    RaiseImageCaptured(camera.SN, img);
+                    OnImageCaptured?.Invoke(camera.SN, img);
+                //RaiseImageCaptured(camera.SN, img);
             }
             catch (Exception ex) { _logger.Error(ex, "图像解析失败"); }
         }
@@ -241,10 +242,10 @@ namespace AVS_Service
 
         public CameraSettingModel GetCameraSetting(string sn) => _settingsCache.FirstOrDefault(x => x.SerilalNum == sn);
 
-        public void RaiseImageCaptured(string cameraKey, HObject image)
-        {
-            OnImageCaptured?.Invoke(cameraKey, image);
-        }
+        //public void RaiseImageCaptured(string cameraKey, HObject image)
+        //{
+        //    OnImageCaptured?.Invoke(cameraKey, image);
+        //}
 
         public bool ExecuteSoftTrigger(string identifier)
         {
