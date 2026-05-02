@@ -170,7 +170,8 @@ namespace AVS_Modules_Settings.ViewModels
                     _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
                     {
                         CameraSN = camSN,
-                        Image = img
+                        Image = img,
+                        IsFromDebug = this.IsGrabbing
                     });
                 });
             }
