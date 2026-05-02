@@ -8,6 +8,7 @@ using HalconDotNet;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using Prism.Regions;
 using Prism.Services.Dialogs;
 using Serilog;
 using System;
@@ -20,13 +21,13 @@ using System.Windows.Media.Media3D;
 
 namespace AVS_Modules_Settings.ViewModels
 {
-    public class CameraDebugViewModel : BindableBase
+    public class CameraDebugViewModel : BindableBase, INavigationAware
     {
         private ICamera _camera;
         private ILogger _logger;
-        private ICameraConfigService _cameraConfigService;
         private CameraSettingModel _currentConfig;
         private IEventAggregator _eventAggregator;
+        private ICameraConfigService _cameraConfigService;
         private bool _isBorrowedCamera = false;
 
         #region 状态控制属性
@@ -316,6 +317,35 @@ namespace AVS_Modules_Settings.ViewModels
             Port = _currentConfig.Port;
         }
 
+        public void OnNavigatedTo(NavigationContext navigationContext)
+        {
+            SyncDeviceStatusFromService();
+        }
+
+        public bool IsNavigationTarget(NavigationContext navigationContext) => true;
+
+        public void OnNavigatedFrom(NavigationContext navigationContext) { }
+
+        private void SyncDeviceStatusFromService()
+        {
+            if (_cameraConfigService.ConnectedCameras.Count > 0)
+            {
+                var connectedSns = _cameraConfigService.ConnectedCameras.Keys.ToList();
+                DeviceList = connectedSns;
+
+                if (string.IsNullOrEmpty(SelectedDevice) || !connectedSns.Contains(SelectedDevice))
+                {
+                    SelectedDevice = connectedSns[0];
+                }
+
+                IsConnected = true;
+                _camera = _cameraConfigService.GetCameraInstance(SelectedDevice);
+                _isBorrowedCamera = true; // 标记为借用后台已连接的实例
+                StatusMessage = $"已自动绑定后台运行相机: {SelectedDevice}";
+
+                ExecuteGetParam();
+            }
+        }
         #endregion
 
     }

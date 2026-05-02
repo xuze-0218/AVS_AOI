@@ -36,8 +36,9 @@ namespace AVS_Modules_Settings.Views
                         HOperatorSet.GetImageSize(payload.Image, out HTuple width, out HTuple height);
                         HOperatorSet.SetPart(CameraDebugDisplay.HalconWindow, 0, 0, height - 1, width - 1);
                         HOperatorSet.DispObj(payload.Image,CameraDebugDisplay.HalconWindow);
+                        //DispImage有bug，只显示灰色图
                         //HOperatorSet.DispImage(payload.Image, CameraDebugDisplay.HalconWindow);
-                        payload.Image.Dispose();
+                        //payload.Image.Dispose();
                     }
                 });
             });

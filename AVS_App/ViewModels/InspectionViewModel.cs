@@ -2,8 +2,10 @@
 using AVS_Service;
 using AVS_Service.Models;
 using HalconDotNet;
+using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using Prism.Regions;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -13,13 +15,24 @@ using System.Threading.Tasks;
 
 namespace AVS_App.ViewModels
 {
-    public class InspectionViewModel : BindableBase
+    public class InspectionViewModel : BindableBase, INavigationAware
     {
+        /// <summary>
+        /// 导航日志，记录页面内的导航历史，支持前进后退
+        /// </summary>
+        private IRegionNavigationJournal _journal;
         private readonly IEventAggregator _eventAggregator;
         private int _layoutColumns = 2;
         public int LayoutColumns { get => _layoutColumns; set => SetProperty(ref _layoutColumns, value); }
         // 绑定给 ItemsControl 的相机数据集合
         public ObservableCollection<CameraDisplayItem> CameraDisplayList { get; set; }
+        public DelegateCommand GoBackCommand => new DelegateCommand(() =>
+        {
+            if (_journal != null && _journal.CanGoBack)
+                _journal.GoBack();
+        });
+
+
 
         public InspectionViewModel(IEventAggregator eventAggregator, ICameraConfigService cameraService)
         {
@@ -28,7 +41,6 @@ namespace AVS_App.ViewModels
 
             //根据配置加载相机窗体数量
             InitializeLayout(cameraService.AllSettings);
-
             //订阅图像到达事件
             _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageReceived);
         }
@@ -60,6 +72,19 @@ namespace AVS_App.ViewModels
             LayoutColumns = CameraDisplayList.Count <= 1 ? 1 :
                             CameraDisplayList.Count <= 4 ? 2 : 3;
         }
+
+        public void OnNavigatedTo(NavigationContext navigationContext)
+        {
+            //获取导航日志
+            _journal = navigationContext.NavigationService.Journal;
+            //刷新命令的状态
+            GoBackCommand.RaiseCanExecuteChanged();
+        }
+
+        public bool IsNavigationTarget(NavigationContext navigationContext) => true;
+
+        public void OnNavigatedFrom(NavigationContext navigationContext) { }
+
     }
 
     public class CameraDisplayItem : BindableBase

@@ -2,6 +2,7 @@
 using AVS_Service.Models;
 using Prism.Commands;
 using Prism.Mvvm;
+using Prism.Regions;
 using Prism.Services.Dialogs;
 using Serilog;
 using System;
@@ -22,7 +23,7 @@ namespace AVS_Modules_Settings.ViewModels
         public string DisplayText => $"[{Timestamp:HH:mm:ss}] {Sender}: {Content}";
     }
 
-    public class PlcDebugViewModel : BindableBase
+    public class PlcDebugViewModel : BindableBase,INavigationAware
     {
         private readonly IParametersConfigService _configService;
         private readonly ICommunicationService _service;
@@ -210,5 +211,16 @@ namespace AVS_Modules_Settings.ViewModels
             StatusMessage = IsConnected ? "已连接" : "未连接";
         }
 
+
+        public void OnNavigatedTo(NavigationContext navigationContext)
+        {
+            // 每次导航到此页面时触发
+        }
+
+        public bool IsNavigationTarget(NavigationContext navigationContext)=>true;
+
+
+        public void OnNavigatedFrom(NavigationContext navigationContext) { }
+       
     }
 }

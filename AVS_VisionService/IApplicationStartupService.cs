@@ -75,9 +75,16 @@ namespace AVS_Service
                 _communicationService.Start();
                 _communicationService.MessageReceived += async (sender, message) =>
                 {
-                    _logger.Debug("接收来自 {Sender} 的消息: {Message}", sender, message);
+                    _logger.Information("接收来自 {Sender} 的消息: {Message}", sender, message);
                     try
                     {
+                        _cameraConfigService.AllSettings.ForEach(cam =>
+                        {
+
+                            _logger.Debug($"触发相机{cam.SerilalNum}拍照");
+                            _cameraConfigService.ExecuteSoftTrigger(cam.SerilalNum);
+
+                        });
                         await Task.Delay(100);
 
                     }
