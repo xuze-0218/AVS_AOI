@@ -21,6 +21,8 @@ namespace AVS_Service
 
         void SaveSettings();
         void LoadSettings();
+        bool ConnectAndStartCamera(string sn, int cameraType);
+        void DisconnectCamera(string sn);
         Task InitializeAllCameras();
 
         ICamera GetCameraInstance(string sn);
@@ -58,6 +60,48 @@ namespace AVS_Service
             LoadSettings();
         }
 
+        public bool ConnectAndStartCamera(string sn, int cameraType)
+        {
+            if (_connectedCameras.ContainsKey(sn)) return true; 
+
+            try
+            {
+                ICamera camera = CamFactory.CreatCamera((CameraBrand)cameraType);
+                if (camera != null && camera.InitDevice(sn))
+                {
+                    _connectedCameras.Add(sn, camera);
+
+                    var setting = GetCameraSettingBySnOrIndex(sn, -1);
+                    setting.CameraType = cameraType;
+
+                    ApplySettingToDevice(sn);
+                    StartCameraGrabbing(sn);
+
+                    _logger.Information("调试界面接入新相机 {SN}，初始化并启动取图成功", sn);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "调试界面接入新相机 {SN} 失败", sn);
+            }
+            return false;
+        }
+
+        public void DisconnectCamera(string sn)
+        {
+            if (_grabContexts.TryGetValue(sn, out var ctx))
+            {
+                ctx.Cts?.Cancel();
+                ctx.PtrQueue?.CompleteAdding(); // 释放阻塞队列
+                _grabContexts.Remove(sn);
+            }
+            if (_connectedCameras.TryGetValue(sn, out var camera))
+            {
+                camera.CloseDevice();
+                _connectedCameras.Remove(sn);
+            }
+        }
 
         public void LoadSettings()
         {
@@ -278,8 +322,11 @@ namespace AVS_Service
         {
             HObject colorImage;
             HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "bgr", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
-            //HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
-            //HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, -1, "byte", 0, 0, 0, 0, -1, 0);
+            HOperatorSet.WriteImage(colorImage,"bmp",0,"D:\\1.bmp");
+            HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
+            HOperatorSet.WriteImage(colorImage, "bmp", 0, "D:\\2.bmp");
+            HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, -1, "byte", 0, 0, 0, 0, -1, 0);
+            HOperatorSet.WriteImage(colorImage, "bmp", 0, "D:\\3.bmp");
             return colorImage;
         }
 

@@ -199,8 +199,13 @@ namespace AVS_Modules_Settings.ViewModels
             _isBorrowedCamera = (_camera != null);
             if (!_isBorrowedCamera)
             {
-                _camera = CamFactory.CreatCamera(SelectedBrand);
-                if (!_camera.InitDevice(SelectedDevice)) { StatusMessage = "连接失败"; return; }
+                bool isSuccess = _cameraConfigService.ConnectAndStartCamera(SelectedDevice, (int)SelectedBrand);
+                if (!isSuccess)
+                {
+                    StatusMessage = "连接失败";
+                    return;
+                }
+                _camera = _cameraConfigService.GetCameraInstance(SelectedDevice);
             }
 
             IsConnected = true;
@@ -220,8 +225,12 @@ namespace AVS_Modules_Settings.ViewModels
             if (_camera != null)
             {
                 ExecuteStopGrab(); // 确保退出时恢复模式
-                if (!_isBorrowedCamera) _camera.CloseDevice();
+                if (!_isBorrowedCamera)
+                {
+                    _cameraConfigService.DisconnectCamera(SelectedDevice);
+                }
                 IsConnected = false;
+                _camera = null;
                 StatusMessage = "调试连接已断开";
             }
         }
