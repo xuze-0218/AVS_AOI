@@ -38,7 +38,7 @@ namespace AVS_App.ViewModels
             var targetCam = CameraDisplayList.FirstOrDefault(x => x.PhysicalSN == payload.CameraSN);
             if (targetCam != null)
             {
-                targetCam.UpdateImage(payload.Image);
+                targetCam.CurrentImage = payload.Image;
             }
         }
 
@@ -67,9 +67,11 @@ namespace AVS_App.ViewModels
         public string CameraRoleName { get; set; }
         public string PhysicalSN { get; set; }
 
-        public void UpdateImage(HObject img)
+        private HObject _currentImage;
+        public HObject CurrentImage
         {
-
+            get => _currentImage;
+            set => SetProperty(ref _currentImage, value);
         }
     }
 }

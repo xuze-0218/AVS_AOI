@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HalconDotNet;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,5 +25,32 @@ namespace AVS_Common
         {
             InitializeComponent();
         }
+      
+
+        public HObject DispImage
+        {
+            get { return (HObject)GetValue(DispImageProperty); }
+            set { SetValue(DispImageProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for DispImage.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty DispImageProperty =
+            DependencyProperty.Register("DispImage", typeof(HObject), typeof(CameraDisplayUnit), new PropertyMetadata(null, OnHImageChanged));
+
+
+        private static void OnHImageChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var control = d as CameraDisplayUnit;
+            var img =e.NewValue as HObject;
+            if (control!=null && img!=null && img.IsInitialized())
+            {
+                HOperatorSet.GetImageSize(img, out HTuple width, out HTuple height);
+                control.HWindow.HalconWindow.SetPart(0, 0, (int)height - 1, (int)width - 1);
+                control.HWindow.HalconWindow.DispObj(img);
+            }
+        }
+
+
+
     }
 }

@@ -62,7 +62,7 @@ namespace AVS_Modules_Settings.ViewModels
                 if (SetProperty(ref _selectedDevice, value))
                 {
                     int idx = DeviceList.IndexOf(value);
-                    _currentConfig = _cameraConfigService.GetCameraSettingBySnOrIndex(null, idx);
+                    _currentConfig = _cameraConfigService.GetCameraSettingBySnOrIndex(value, idx);
                     SaveImagePath = _currentConfig.imgpath;
                     SyncConfigToUI();
                 }
@@ -90,6 +90,15 @@ namespace AVS_Modules_Settings.ViewModels
 
         private short _gain;
         public short Gain { get => _gain; set => SetProperty(ref _gain, value); }
+
+        private string _cameraRoleName;
+
+        public string CameraRoleName
+        {
+            get => _cameraRoleName;
+            set => SetProperty(ref _cameraRoleName, value);
+        }
+
 
         public List<CameraBrand> CameraBrands { get; set; }
         private CameraBrand _selectedBrand;
@@ -283,6 +292,7 @@ namespace AVS_Modules_Settings.ViewModels
                     _currentConfig.SerilalNum = SelectedDevice;
                     _currentConfig.IP = IP;
                     _currentConfig.Port = Port;
+                    _currentConfig.CameraRole = CameraRoleName;
                     _cameraConfigService.UpdateCameraSetting(_currentConfig);
                 }
                 StatusMessage = "参数已保存到本地";

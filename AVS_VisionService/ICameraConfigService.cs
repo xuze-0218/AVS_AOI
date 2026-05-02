@@ -33,6 +33,10 @@ namespace AVS_Service
         void SetCameraAcquisitionMode(string sn, AcquisitionMode mode);
 
         void ApplySettingToDevice(string sn);
+        /// <summary>
+        /// 更新并保存相机设置，应用到设备
+        /// </summary>
+        /// <param name="setting"></param>
         void UpdateCameraSetting(CameraSettingModel setting);
         //void RaiseImageCaptured(string cameraKey, HObject image);
 
@@ -301,15 +305,40 @@ namespace AVS_Service
 
         public CameraSettingModel GetCameraSettingBySnOrIndex(string sn, int index)
         {
-            var setting = _settingsCache.FirstOrDefault(x => (!string.IsNullOrEmpty(sn) && x.SerilalNum == sn));
-            if (setting == null)
-                setting = _settingsCache.FirstOrDefault(x => x.CamSelectIndex == index && string.IsNullOrEmpty(x.SerilalNum));
+            CameraSettingModel setting = null;
+            // 如果提供了有效的 SN，优先按 SN 查找
+            if (!string.IsNullOrEmpty(sn))
+            {
+                setting = _settingsCache.FirstOrDefault(x => x.SerilalNum == sn);
+            }
+            // 如果没找到，且传入了有效的 Index (>= 0)，尝试按 Index 查找
+            // （这通常发生在新连上一个相机，已知下拉框索引，但配置文件里还没记录它 SN 的时候）
+            if (setting == null && index >= 0)
+            {
+                setting = _settingsCache.FirstOrDefault(x => x.CamSelectIndex == index);
+            }
 
+            // 如果还是没有，新建一个
             if (setting == null)
             {
-                setting = new CameraSettingModel { SerilalNum = sn, CamSelectIndex = index };
+                setting = new CameraSettingModel
+                {
+                    SerilalNum = sn,
+                    // 如果 index 无效，自动分配一个最大的 index
+                    CamSelectIndex = index >= 0 ? index : (_settingsCache.Count > 0 ? _settingsCache.Max(x => x.CamSelectIndex) + 1 : 0)
+                };
                 _settingsCache.Add(setting);
             }
+            else
+            {
+                // 如果刚才通过 Index 找到了对象，但是该对象里还没有记录 SN，
+                // 且当前方法传入了真实的 SN，就顺手把 SN 更新上去，完成“占位符”到“实体”的绑定。
+                if (string.IsNullOrEmpty(setting.SerilalNum) && !string.IsNullOrEmpty(sn))
+                {
+                    setting.SerilalNum = sn;
+                }
+            }
+
             return setting;
         }
 
@@ -321,6 +350,7 @@ namespace AVS_Service
 
         private HObject ConvertToImage24(IntPtr pImageBuf, int nWidth, int nHeight)
         {
+
             HObject colorImage;
             HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "bgr", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
             HOperatorSet.WriteImage(colorImage,"bmp",0,"D:\\1.bmp");
