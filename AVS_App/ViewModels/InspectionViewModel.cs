@@ -106,7 +106,7 @@ namespace AVS_App.ViewModels
             {
                 if (_currentImage != null)
                     _currentImage.Dispose();
-                HObject newImage = value.Clone();
+                HObject newImage = value?.Clone();
                 SetProperty(ref _currentImage, newImage);
             }
         }

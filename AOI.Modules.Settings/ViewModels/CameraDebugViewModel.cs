@@ -29,6 +29,7 @@ namespace AVS_Modules_Settings.ViewModels
         private IEventAggregator _eventAggregator;
         private ICameraConfigService _cameraConfigService;
         private bool _isBorrowedCamera = false;
+        private bool _isActiveView = false; // 标记当前页面是否处于激活显示状态
 
         #region 状态控制属性
         private bool _isConnected = false;
@@ -125,7 +126,18 @@ namespace AVS_Modules_Settings.ViewModels
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
         private HObject _currentDebugImage;
-        public HObject CurrentDebugImage { get => _currentDebugImage; set => SetProperty(ref _currentDebugImage, value); }
+        public HObject CurrentDebugImage 
+        {
+            get => _currentDebugImage;
+            set
+            {
+                if (_currentDebugImage != null && _currentDebugImage.IsInitialized())
+                {
+                    _currentDebugImage.Dispose();
+                }
+                SetProperty(ref _currentDebugImage, value?.Clone());
+            }
+        }
 
         #endregion
 
@@ -155,9 +167,9 @@ namespace AVS_Modules_Settings.ViewModels
             _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(payload =>
             {
                 //若界面不可见，则不订阅图像显示事件，避免后台占用过多资源
-                //if (!Application.Current.MainWindow.IsActive) return;
+                if (!_isActiveView) return;
                 //如果是PLC触发拍照，调试界面不刷新
-                //if (!payload.IsFromDebug) return;
+                if (!this.IsGrabbing) return;
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (payload.CameraSN == SelectedDevice)
@@ -169,28 +181,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         }
 
-
-        ///// <summary>
-        ///// 窗体显示
-        ///// </summary>
-        ///// <param name="camSN"></param>
-        ///// <param name="cogImg"></param>
-        //private void OnImageCaptured(string camSN, HObject img)
-        //{
-        //    if (camSN == SelectedDevice || _currentConfig?.SerilalNum == camSN)
-        //    {
-        //        Application.Current.Dispatcher.Invoke(() =>
-        //        {
-
-        //            _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
-        //            {
-        //                CameraSN = camSN,
-        //                Image = img,
-        //                IsFromDebug = this.IsGrabbing
-        //            });
-        //        });
-        //    }
-        //}
 
         #region Commands
         public DelegateCommand SearchCommand { get; }
@@ -335,12 +325,16 @@ namespace AVS_Modules_Settings.ViewModels
 
         public void OnNavigatedTo(NavigationContext navigationContext)
         {
+            _isActiveView = true; // 页面切入时激活
             SyncDeviceStatusFromService();
         }
 
         public bool IsNavigationTarget(NavigationContext navigationContext) => true;
 
-        public void OnNavigatedFrom(NavigationContext navigationContext) { }
+        public void OnNavigatedFrom(NavigationContext navigationContext) 
+        {
+            _isActiveView = false; // 页面切出时停用
+        }
 
         private void SyncDeviceStatusFromService()
         {

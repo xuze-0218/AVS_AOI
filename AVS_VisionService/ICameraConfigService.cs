@@ -220,7 +220,6 @@ namespace AVS_Service
                     {
                         CameraSN = camera.SN,
                         Image = img, //谁订阅谁Clone，最后Dispose
-                        IsFromDebug = false //
                     });
                 }
             }
