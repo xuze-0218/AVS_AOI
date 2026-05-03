@@ -86,7 +86,7 @@ namespace AVS_Service
                         {
 
                             _logger.Debug($"触发相机{cam.SerilalNum}拍照");
-                            //_cameraConfigService.ExecuteSoftTrigger(cam.SerilalNum);
+                            //_cameraConfigService.ExecuteSoftTrigger(cam.SerilalNum);//调用业务处理流程,2d和3d相机可能不是同时触发，要更改为在业务流程中根据配置触发对应相机
                             await _workflowService.ProcessPlcTriggerAsync(message);
 
                         });
