@@ -22,6 +22,7 @@ namespace AVS_App.ViewModels
         /// </summary>
         private IRegionNavigationJournal _journal;
         private readonly IEventAggregator _eventAggregator;
+        private readonly ICameraConfigService _cameraConfigService;
         private int _layoutColumns = 2;
         public int LayoutColumns { get => _layoutColumns; set => SetProperty(ref _layoutColumns, value); }
         // 绑定给 ItemsControl 的相机数据集合
@@ -34,13 +35,18 @@ namespace AVS_App.ViewModels
 
 
 
-        public InspectionViewModel(IEventAggregator eventAggregator, ICameraConfigService cameraService)
+        public InspectionViewModel(IEventAggregator eventAggregator, ICameraConfigService cameraService, ICameraConfigService cameraConfigService)
         {
             _eventAggregator = eventAggregator;
+            _cameraConfigService = cameraConfigService;
             CameraDisplayList = new ObservableCollection<CameraDisplayItem>();
 
             //根据配置加载相机窗体数量
             InitializeLayout(cameraService.AllSettings);
+            //_cameraConfigService.OnImageCaptured += (sn, img) =>
+            //{ OnImageReceived(new CameraImagePayload() { CameraSN = sn, Image = img }); };
+
+
             //订阅图像到达事件
             _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageReceived);
         }

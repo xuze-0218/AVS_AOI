@@ -20,5 +20,6 @@ namespace AVS_App.Views
         {
             InitializeComponent();
         }
+
     }
 }

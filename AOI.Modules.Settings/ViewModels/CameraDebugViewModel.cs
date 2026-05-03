@@ -100,7 +100,6 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _cameraRoleName, value);
         }
 
-
         public List<CameraBrand> CameraBrands { get; set; }
         private CameraBrand _selectedBrand;
         public CameraBrand SelectedBrand
@@ -124,6 +123,10 @@ namespace AVS_Modules_Settings.ViewModels
 
         private string _statusMessage = "请先查找设备...";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
+
+        private HObject _currentDebugImage;
+        public HObject CurrentDebugImage { get => _currentDebugImage; set => SetProperty(ref _currentDebugImage, value); }
+
         #endregion
 
 
@@ -149,33 +152,45 @@ namespace AVS_Modules_Settings.ViewModels
 
             _currentConfig = _cameraConfigService.GetCameraSettingBySnOrIndex(null, 0);
             SyncConfigToUI();
-
-            // 订阅底层图像事件用于显示
-            _cameraConfigService.OnImageCaptured += OnImageCaptured;
-        }
-
-
-        /// <summary>
-        /// 窗体显示
-        /// </summary>
-        /// <param name="camSN"></param>
-        /// <param name="cogImg"></param>
-        private void OnImageCaptured(string camSN, HObject img)
-        {
-            if (camSN == SelectedDevice || _currentConfig?.SerilalNum == camSN)
+            _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(payload =>
             {
+                //若界面不可见，则不订阅图像显示事件，避免后台占用过多资源
+                //if (!Application.Current.MainWindow.IsActive) return;
+                //如果是PLC触发拍照，调试界面不刷新
+                //if (!payload.IsFromDebug) return;
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-
-                    _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
+                    if (payload.CameraSN == SelectedDevice)
                     {
-                        CameraSN = camSN,
-                        Image = img,
-                        IsFromDebug = this.IsGrabbing
-                    });
+                        CurrentDebugImage = payload.Image;
+                    }
                 });
-            }
+            });
+
         }
+
+
+        ///// <summary>
+        ///// 窗体显示
+        ///// </summary>
+        ///// <param name="camSN"></param>
+        ///// <param name="cogImg"></param>
+        //private void OnImageCaptured(string camSN, HObject img)
+        //{
+        //    if (camSN == SelectedDevice || _currentConfig?.SerilalNum == camSN)
+        //    {
+        //        Application.Current.Dispatcher.Invoke(() =>
+        //        {
+
+        //            _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
+        //            {
+        //                CameraSN = camSN,
+        //                Image = img,
+        //                IsFromDebug = this.IsGrabbing
+        //            });
+        //        });
+        //    }
+        //}
 
         #region Commands
         public DelegateCommand SearchCommand { get; }

@@ -1,8 +1,10 @@
-﻿using AVS_Drivers.Camera;
+﻿using AVS_Common;
+using AVS_Drivers.Camera;
 using AVS_Drivers.Camera.Common.Enum;
 using AVS_Service.Models;
 using HalconDotNet;
 using Newtonsoft.Json;
+using Prism.Events;
 using Serilog;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -17,7 +19,7 @@ namespace AVS_Service
     {
         IReadOnlyDictionary<string, ICamera> ConnectedCameras { get; }
         List<CameraSettingModel> AllSettings { get; }
-        event Action<string, HObject> OnImageCaptured;
+        //event Action<string, HObject> OnImageCaptured;
 
         void SaveSettings();
         void LoadSettings();
@@ -38,7 +40,6 @@ namespace AVS_Service
         /// </summary>
         /// <param name="setting"></param>
         void UpdateCameraSetting(CameraSettingModel setting);
-        //void RaiseImageCaptured(string cameraKey, HObject image);
 
     }
 
@@ -46,6 +47,7 @@ namespace AVS_Service
     public class CameraConfigService : ICameraConfigService
     {
         private readonly ILogger _logger;
+        private readonly IEventAggregator _eventAggregator;
         private readonly string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CameraSettings.json");
         private Dictionary<string, ICamera> _connectedCameras = new Dictionary<string, ICamera>();
         private List<CameraSettingModel> _settingsCache = new List<CameraSettingModel>();
@@ -56,17 +58,16 @@ namespace AVS_Service
         public IReadOnlyDictionary<string, ICamera> ConnectedCameras => _connectedCameras;
         public List<CameraSettingModel> AllSettings => _settingsCache;
 
-        public event Action<string, HObject> OnImageCaptured;
-
-        public CameraConfigService(ILogger logger)
+        public CameraConfigService(ILogger logger, IEventAggregator eventAggregator)
         {
             _logger = logger;
+            _eventAggregator = eventAggregator;
             LoadSettings();
         }
 
         public bool ConnectAndStartCamera(string sn, int cameraType)
         {
-            if (_connectedCameras.ContainsKey(sn)) return true; 
+            if (_connectedCameras.ContainsKey(sn)) return true;
 
             try
             {
@@ -130,35 +131,35 @@ namespace AVS_Service
 
         public async Task InitializeAllCameras()
         {
-           await  Task.Run(() => 
-            {
-                foreach (var setting in _settingsCache)
-                {
-                    if (string.IsNullOrEmpty(setting.SerilalNum)) continue;
+            await Task.Run(() =>
+             {
+                 foreach (var setting in _settingsCache)
+                 {
+                     if (string.IsNullOrEmpty(setting.SerilalNum)) continue;
 
-                    try
-                    {
-                        ICamera camera = CamFactory.CreatCamera((CameraBrand)setting.CameraType);
+                     try
+                     {
+                         ICamera camera = CamFactory.CreatCamera((CameraBrand)setting.CameraType);
 
-                        if (camera != null && camera.InitDevice(setting.SerilalNum))
-                        {
-                            if (!_connectedCameras.ContainsKey(setting.SerilalNum))
-                            {
-                                _connectedCameras.Add(setting.SerilalNum, camera);
-                                ApplySettingToDevice(setting.SerilalNum);
-                                StartCameraGrabbing(setting.SerilalNum);
+                         if (camera != null && camera.InitDevice(setting.SerilalNum))
+                         {
+                             if (!_connectedCameras.ContainsKey(setting.SerilalNum))
+                             {
+                                 _connectedCameras.Add(setting.SerilalNum, camera);
+                                 ApplySettingToDevice(setting.SerilalNum);
+                                 StartCameraGrabbing(setting.SerilalNum);
 
-                                _logger.Information("相机 {SN} (索引:{Index}) 初始化并启动取图成功", setting.SerilalNum, setting.CamSelectIndex);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "相机 {SN} 初始化失败", setting.SerilalNum);
-                    }
-                }
-            });
-          
+                                 _logger.Information("相机 {SN} (索引:{Index}) 初始化并启动取图成功", setting.SerilalNum, setting.CamSelectIndex);
+                             }
+                         }
+                     }
+                     catch (Exception ex)
+                     {
+                         _logger.Error(ex, "相机 {SN} 初始化失败", setting.SerilalNum);
+                     }
+                 }
+             });
+
         }
 
         /// <summary>
@@ -206,20 +207,26 @@ namespace AVS_Service
         private void ProcessImagePointer(ICamera camera, IntPtr ptr)
         {
             var info = camera.ImageInfo;
-            HObject img = new HObject();
+            HObject img = null;
             try
             {
                 if (info.PixelFormat == CamPixelFormat.Mono8)
                     img = ConvertToImage8(ptr, info.Width, info.Height);
                 else if (info.PixelFormat == CamPixelFormat.Rgb8)
                     img = ConvertToImage24(ptr, info.Width, info.Height);
-                if (img != null)
-                    OnImageCaptured?.Invoke(camera.SN, img);
-                //RaiseImageCaptured(camera.SN, img);
+                if (img != null && img.IsInitialized())
+                {
+                    _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
+                    {
+                        CameraSN = camera.SN,
+                        Image = img, //谁订阅谁Clone，最后Dispose
+                        IsFromDebug = false //
+                    });
+                }
             }
             catch (Exception ex) { _logger.Error(ex, "图像解析失败"); }
+            finally { img?.Dispose(); }
         }
-
 
         public void SetCameraAcquisitionMode(string sn, AcquisitionMode mode)
         {
@@ -245,11 +252,6 @@ namespace AVS_Service
         public ICamera GetCameraInstance(string sn) => _connectedCameras.TryGetValue(sn, out var cam) ? cam : null;
 
         public CameraSettingModel GetCameraSetting(string sn) => _settingsCache.FirstOrDefault(x => x.SerilalNum == sn);
-
-        //public void RaiseImageCaptured(string cameraKey, HObject image)
-        //{
-        //    OnImageCaptured?.Invoke(cameraKey, image);
-        //}
 
         public bool ExecuteSoftTrigger(string identifier)
         {
@@ -352,12 +354,9 @@ namespace AVS_Service
         {
 
             HObject colorImage;
-            HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "bgr", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
-            HOperatorSet.WriteImage(colorImage,"bmp",0,"D:\\1.bmp");
-            HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
-            HOperatorSet.WriteImage(colorImage, "bmp", 0, "D:\\2.bmp");
+            //HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "bgr", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
+            //HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
             HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, -1, "byte", 0, 0, 0, 0, -1, 0);
-            HOperatorSet.WriteImage(colorImage, "bmp", 0, "D:\\3.bmp");
             return colorImage;
         }
 

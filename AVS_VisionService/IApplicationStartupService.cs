@@ -109,32 +109,33 @@ namespace AVS_Service
         {
             try
             {
-
                 if (_backgroundInitializationTask != null && !_backgroundInitializationTask.IsCompleted)
                 {
                     _logger.Debug("等待后台初始化任务完成...");
-                    try
+                    var timeoutTask = Task.Delay(5000);
+                    var completedTask = await Task.WhenAny(_backgroundInitializationTask, timeoutTask);
+                    if (completedTask == timeoutTask)
                     {
-                        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
-                        {
-                            await Task.WhenAll(
-                                _backgroundInitializationTask,
-                                Task.Delay(Timeout.Infinite, cts.Token)
-                            );
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warning(ex, "等待后台初始化任务失败");
+                        _logger.Warning("后台初始化任务超时未完成，强制继续关闭流程");
                     }
                 }
+                _logger.Debug("开始释放所有相机资源...");
+                var connectedSNs = _cameraConfigService.ConnectedCameras.Keys.ToList();
+                foreach (var sn in connectedSNs)
+                {
+                    _cameraConfigService.DisconnectCamera(sn);
+                    _logger.Information($"相机 {sn} 已断开连接");
+                }
 
-                //停止通讯
                 _logger.Debug("停止通讯服务");
                 _communicationService?.Stop();
                 await Task.Delay(300);
 
+                //确保Halcon非托管内存被回收
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
                 _logger.Information("应用关闭流程完成");
+             
             }
             catch (Exception ex)
             {
