@@ -17,7 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_Drivers", "AVS_Drivers\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_Modules_Data", "AVS_Modules_Data\AVS_Modules_Data.csproj", "{0121590E-A577-4C5F-9DD5-9A3DE63B3873}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS", "焊后检测V2.1.0-halcon13\AVS\AVS.csproj", "{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS", "another\AVS\AVS.csproj", "{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
