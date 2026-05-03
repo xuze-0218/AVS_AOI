@@ -9,7 +9,6 @@ using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using Prism.Regions;
-using Prism.Services.Dialogs;
 using Serilog;
 using System;
 using System.Collections.Generic;
