@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="halcondotnet">
       <HintPath>..\AVS_Common\bin\Debug\net8.0-windows\halcondotnet.dll</HintPath>
     </Reference>

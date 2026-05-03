@@ -1,4 +1,5 @@
-﻿using Serilog;
+﻿using AVS_Core.Services;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +20,7 @@ namespace AVS_Service
         /// 记录后台初始化任务，确保在应用关闭时可以等待其完成或安全取消
         /// </summary>
         private Task _backgroundInitializationTask;
+        private readonly IWorkflowService _workflowService;
         private readonly ICommunicationService _communicationService;
         private readonly IParametersConfigService _parametersConfigService;
         private readonly ICameraConfigService _cameraConfigService;
@@ -27,10 +29,12 @@ namespace AVS_Service
         public ApplicationStartupService(
            ILogger logger,
            ICommunicationService communicationService,
+           IWorkflowService workflowService,
            IParametersConfigService parametersConfigService,
            ICameraConfigService cameraConfigService)
         {
             _logger = logger;
+            _workflowService = workflowService;
             _parametersConfigService = parametersConfigService;
             _communicationService = communicationService;
             _cameraConfigService = cameraConfigService;
@@ -78,11 +82,12 @@ namespace AVS_Service
                     _logger.Information("接收来自 {Sender} 的消息: {Message}", sender, message);
                     try
                     {
-                        _cameraConfigService.AllSettings.ForEach(cam =>
+                        _cameraConfigService.AllSettings.ForEach(async cam =>
                         {
 
                             _logger.Debug($"触发相机{cam.SerilalNum}拍照");
-                            _cameraConfigService.ExecuteSoftTrigger(cam.SerilalNum);
+                            //_cameraConfigService.ExecuteSoftTrigger(cam.SerilalNum);
+                            await _workflowService.ProcessPlcTriggerAsync(message);
 
                         });
                         await Task.Delay(100);
