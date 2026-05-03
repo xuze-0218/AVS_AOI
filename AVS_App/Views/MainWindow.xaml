@@ -91,7 +91,10 @@
                         Command="{Binding NavigateCommand}"
                         CommandParameter="PlcDebugView"
                         Content=" 通讯测试" />
-
+                    <Button
+                        Command="{Binding NavigateCommand}"
+                        CommandParameter="ProtocolConfigView"
+                        Content="📊 报文测试" />
                     <Button
                         Command="{Binding NavigateCommand}"
                         CommandParameter="HistoryRecordView"

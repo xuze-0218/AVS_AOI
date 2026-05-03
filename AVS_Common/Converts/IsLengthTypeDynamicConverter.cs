@@ -1,23 +1,26 @@
-﻿using System;
+﻿using AVS_Common.Model;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Data;
-using System.Windows.Media;
 
-namespace AVS_Common
+namespace AVS_Common.Converts
 {
-    public class BoolToColorConverter : IValueConverter
+    /// <summary>
+    /// 当长度类型为 Dynamic 时启用输入框
+    /// </summary>
+    public class IsLengthTypeDynamicConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is bool isConnected)
+            if (value is LengthType lengthType)
             {
-                return isConnected ? new SolidColorBrush(Colors.Green) : new SolidColorBrush(Colors.Red);
+                return lengthType == LengthType.Dynamic;
             }
-            return new SolidColorBrush(Colors.Gray);
+            return false;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

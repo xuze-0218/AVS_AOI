@@ -2,11 +2,12 @@
     x:Class="AVS_Modules_Settings.Views.ProtocolConfigView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converts="clr-namespace:AVS_Common.Converts;assembly=AVS_Common"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:mo="clr-namespace:AVS_Common.Model;assembly=AVS_Common"
     xmlns:prism="http://prismlibrary.com/"
-    xmlns:mo="clr-namespace:AVS_Service.Models;assembly=AVS_Service"
     d:DesignHeight="450"
     d:DesignWidth="800"
     prism:ViewModelLocator.AutoWireViewModel="True"
@@ -16,14 +17,14 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="RowHeight" Value="28" />
         </Style>
-        <!--<common:IsListeningToBrushConverter x:Key="IsListeningToBrushConverter" />
-        <common:LengthTypeForegroundConverter x:Key="LengthTypeForegroundConverter" />
-        <common:IsLengthTypeDynamicConverter x:Key="IsLengthTypeDynamicConverter" />-->
+        <converts:IsListeningToBrushConverter x:Key="IsListeningToBrushConverter" />
+        <converts:LengthTypeForegroundConverter x:Key="LengthTypeForegroundConverter" />
+        <converts:IsLengthTypeDynamicConverter x:Key="IsLengthTypeDynamicConverter" />
     </UserControl.Resources>
     <Grid
-    MaxHeight="1600"
-    Margin="10"
-    Background="#F5F5F5">
+        MaxHeight="1600"
+        Margin="10"
+        Background="#F5F5F5">
         <Grid.RowDefinitions>
             <RowDefinition Height="auto" />
             <RowDefinition Height="*" />
@@ -31,33 +32,33 @@
         </Grid.RowDefinitions>
         <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
             <TextBlock
-            VerticalAlignment="Center"
-            FontSize="14"
-            FontWeight="Bold"
-            Foreground="#333"
-            Text="电文配置编辑器" />
+                VerticalAlignment="Center"
+                FontSize="14"
+                FontWeight="Bold"
+                Foreground="#333"
+                Text="电文配置编辑器" />
             <Button
-            Margin="20,0,0,0"
-            Padding="8,4"
-            Background="{Binding IsListeningPlc, Converter={StaticResource IsListeningToBrushConverter}}"
-            Command="{Binding ToggleListenCommand}"
-            Content="{Binding ListenButtonText}"
-            FontSize="11"
-            ToolTip="点击开始/停止监听来自PLC的实时电文" />
+                Margin="20,0,0,0"
+                Padding="8,4"
+                Background="{Binding IsListeningPlc, Converter={StaticResource IsListeningToBrushConverter}}"
+                Command="{Binding ToggleListenCommand}"
+                Content="{Binding ListenButtonText}"
+                FontSize="11"
+                ToolTip="点击开始/停止监听来自PLC的实时电文" />
             <Button
-            Margin="20,0,0,0"
-            Padding="8,4"
-            Command="{Binding LoadConfigCommand}"
-            Content="加载配置"
-            FontSize="11"
-            ToolTip="从 Config/ProtocolConfig.json 加载现有配置" />
+                Margin="20,0,0,0"
+                Padding="8,4"
+                Command="{Binding LoadConfigCommand}"
+                Content="加载配置"
+                FontSize="11"
+                ToolTip="从 Config/ProtocolConfig.json 加载现有配置" />
             <Button
-            Margin="5,0,0,0"
-            Padding="8,4"
-            Command="{Binding SaveConfigCommand}"
-            Content="保存配置"
-            FontSize="11"
-            ToolTip="保存当前配置到 Config/ProtocolConfig.json" />
+                Margin="5,0,0,0"
+                Padding="8,4"
+                Command="{Binding SaveConfigCommand}"
+                Content="保存配置"
+                FontSize="11"
+                ToolTip="保存当前配置到 Config/ProtocolConfig.json" />
             <Separator Margin="15,0,15,0" Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
             <!--<TextBlock
             Margin="10,0,5,0"
@@ -77,158 +78,158 @@
                 <ColumnDefinition Width="1.2*" />
             </Grid.ColumnDefinitions>
             <GroupBox
-            Margin="5,0,5,0"
-            Padding="8"
-            Background="White"
-            FontSize="11"
-            Header="接收解析">
+                Margin="5,0,5,0"
+                Padding="8"
+                Background="White"
+                FontSize="11"
+                Header="接收解析">
                 <DockPanel>
                     <TextBlock
-                    Margin="0,0,0,8"
-                    DockPanel.Dock="Top"
-                    FontSize="10"
-                    Foreground="#666"
-                    Text="定义如何从原始电文中提取字段。根据『起始位』和『长度』截取子字符串，存入变量池。"
-                    TextWrapping="Wrap" />
+                        Margin="0,0,0,8"
+                        DockPanel.Dock="Top"
+                        FontSize="10"
+                        Foreground="#666"
+                        Text="定义如何从原始电文中提取字段。根据『起始位』和『长度』截取子字符串，存入变量池。"
+                        TextWrapping="Wrap" />
 
                     <Border
-                    Margin="0,0,0,5"
-                    Padding="5"
-                    BorderBrush="#DDD"
-                    BorderThickness="1"
-                    CornerRadius="3"
-                    DockPanel.Dock="Top">
-                        <Border
                         Margin="0,0,0,5"
                         Padding="5"
                         BorderBrush="#DDD"
                         BorderThickness="1"
                         CornerRadius="3"
                         DockPanel.Dock="Top">
+                        <Border
+                            Margin="0,0,0,5"
+                            Padding="5"
+                            BorderBrush="#DDD"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            DockPanel.Dock="Top">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock
-                                Margin="0,0,5,0"
-                                VerticalAlignment="Center"
-                                FontWeight="Bold"
-                                Text="当前编辑:" />
+                                    Margin="0,0,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="当前编辑:" />
                                 <Button
-                                Width="70"
-                                Margin="0,0,5,0"
-                                Padding="4,3"
-                                Command="{Binding SelectCommonHeaderCommand}"
-                                Content="公共头"
-                                FontSize="10" />
+                                    Width="70"
+                                    Margin="0,0,5,0"
+                                    Padding="4,3"
+                                    Command="{Binding SelectCommonHeaderCommand}"
+                                    Content="公共头"
+                                    FontSize="10" />
                                 <ComboBox
-                                Width="80"
-                                DisplayMemberPath="FuncCode"
-                                FontSize="10"
-                                ItemsSource="{Binding Sessions}"
-                                SelectedItem="{Binding SelectedSession}" />
+                                    Width="80"
+                                    DisplayMemberPath="FuncCode"
+                                    FontSize="10"
+                                    ItemsSource="{Binding Sessions}"
+                                    SelectedItem="{Binding SelectedSession}" />
                                 <TextBlock
-                                Margin="10,0,3,0"
-                                VerticalAlignment="Center"
-                                FontSize="10"
-                                Text="FuncCode:" />
+                                    Margin="10,0,3,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="10"
+                                    Text="FuncCode:" />
                                 <TextBox
-                                Width="80"
-                                VerticalAlignment="Center"
-                                Background="{Binding IsEditingCommonHeader, Converter={StaticResource IsListeningToBrushConverter}}"
-                                FontSize="10"
-                                IsReadOnly="{Binding IsEditingCommonHeader}"
-                                Text="{Binding EditableFuncCode, UpdateSourceTrigger=PropertyChanged}" />
+                                    Width="80"
+                                    VerticalAlignment="Center"
+                                    Background="{Binding IsEditingCommonHeader, Converter={StaticResource IsListeningToBrushConverter}}"
+                                    FontSize="10"
+                                    IsReadOnly="{Binding IsEditingCommonHeader}"
+                                    Text="{Binding EditableFuncCode, UpdateSourceTrigger=PropertyChanged}" />
                                 <Button
-                                Width="50"
-                                Margin="5,0,0,0"
-                                Padding="4,3"
-                                Command="{Binding DeleteSessionCommand}"
-                                Content="删除"
-                                FontSize="10" />
+                                    Width="50"
+                                    Margin="5,0,0,0"
+                                    Padding="4,3"
+                                    Command="{Binding DeleteSessionCommand}"
+                                    Content="删除"
+                                    FontSize="10" />
                                 <Button
-                                Width="50"
-                                Margin="5,0,0,0"
-                                Padding="4,3"
-                                Command="{Binding AddSessionCommand}"
-                                Content="新增"
-                                FontSize="10" />
+                                    Width="50"
+                                    Margin="5,0,0,0"
+                                    Padding="4,3"
+                                    Command="{Binding AddSessionCommand}"
+                                    Content="新增"
+                                    FontSize="10" />
                             </StackPanel>
                         </Border>
                     </Border>
 
                     <StackPanel
-                    Margin="0,8,0,0"
-                    DockPanel.Dock="Bottom"
-                    Orientation="Vertical">
+                        Margin="0,8,0,0"
+                        DockPanel.Dock="Bottom"
+                        Orientation="Vertical">
                         <StackPanel Margin="0,0,0,5" Orientation="Horizontal">
                             <Button
-                            Width="60"
-                            Margin="0,0,3,0"
-                            Padding="4,3"
-                            Command="{Binding AddInputFieldCommand}"
-                            Content="+ 添加"
-                            FontSize="10"
-                            ToolTip="新增一个接收字段定义" />
+                                Width="60"
+                                Margin="0,0,3,0"
+                                Padding="4,3"
+                                Command="{Binding AddInputFieldCommand}"
+                                Content="+ 添加"
+                                FontSize="10"
+                                ToolTip="新增一个接收字段定义" />
                             <Button
-                            Width="60"
-                            Margin="0,0,0,0"
-                            Padding="4,3"
-                            Content="- 删除"
-                            FontSize="10"
-                            ToolTip="删除所选接收字段（在表格中选中后点击）" />
+                                Width="60"
+                                Margin="0,0,0,0"
+                                Padding="4,3"
+                                Content="- 删除"
+                                FontSize="10"
+                                ToolTip="删除所选接收字段（在表格中选中后点击）" />
                         </StackPanel>
                         <Border
-                        Margin="0,0,0,5"
-                        BorderBrush="#DDD"
-                        BorderThickness="1"
-                        CornerRadius="2">
+                            Margin="0,0,0,5"
+                            BorderBrush="#DDD"
+                            BorderThickness="1"
+                            CornerRadius="2">
                             <StackPanel Margin="5" Background="#F9F9F9">
                                 <TextBlock
-                                Margin="0,0,0,3"
-                                FontSize="10"
-                                FontWeight="Bold"
-                                Foreground="#333"
-                                Text="测试原始电文:" />
+                                    Margin="0,0,0,3"
+                                    FontSize="10"
+                                    FontWeight="Bold"
+                                    Foreground="#333"
+                                    Text="测试原始电文:" />
                                 <TextBox
-                                Height="50"
-                                Margin="0,0,0,5"
-                                Padding="4"
-                                FontFamily="Courier New"
-                                FontSize="15"
-                                Text="{Binding TestRawData, UpdateSourceTrigger=PropertyChanged}"
-                                TextWrapping="Wrap"
-                                ToolTip="粘贴原始电文数据，例如：$12963003000200045001..."
-                                VerticalScrollBarVisibility="Auto" />
+                                    Height="50"
+                                    Margin="0,0,0,5"
+                                    Padding="4"
+                                    FontFamily="Courier New"
+                                    FontSize="15"
+                                    Text="{Binding TestRawData, UpdateSourceTrigger=PropertyChanged}"
+                                    TextWrapping="Wrap"
+                                    ToolTip="粘贴原始电文数据，例如：$12963003000200045001..."
+                                    VerticalScrollBarVisibility="Auto" />
                                 <Button
-                                Height="28"
-                                Padding="4,3"
-                                Command="{Binding ParseTestCommand}"
-                                Content="解析测试"
-                                FontSize="10"
-                                ToolTip="使用上方电文数据和配置进行解析，在右侧查看结果" />
+                                    Height="28"
+                                    Padding="4,3"
+                                    Command="{Binding ParseTestCommand}"
+                                    Content="解析测试"
+                                    FontSize="10"
+                                    ToolTip="使用上方电文数据和配置进行解析，在右侧查看结果" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                     <DataGrid
-                    AutoGenerateColumns="False"
-                    CanUserAddRows="False"
-                    CanUserDeleteRows="False"
-                    ItemsSource="{Binding InputFields}">
+                        AutoGenerateColumns="False"
+                        CanUserAddRows="False"
+                        CanUserDeleteRows="False"
+                        ItemsSource="{Binding InputFields}">
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Width="80" Header="变量名">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
-                                        Margin="5,0"
-                                        VerticalAlignment="Center"
-                                        Text="{Binding Name}"
-                                        ToolTip="字段在变量池中的名称" />
+                                            Margin="5,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding Name}"
+                                            ToolTip="字段在变量池中的名称" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                                 <DataGridTemplateColumn.CellEditingTemplate>
                                     <DataTemplate>
                                         <TextBox
-                                        Padding="3"
-                                        Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-                                        ToolTip="字段在变量池中的名称" />
+                                            Padding="3"
+                                            Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="字段在变量池中的名称" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
@@ -237,20 +238,20 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
-                                        Margin="5,0"
-                                        VerticalAlignment="Center"
-                                        Text="{Binding StartIndex}"
-                                        TextAlignment="Center"
-                                        ToolTip="原始电文中的起始位置（从0开始）" />
+                                            Margin="5,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding StartIndex}"
+                                            TextAlignment="Center"
+                                            ToolTip="原始电文中的起始位置（从0开始）" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                                 <DataGridTemplateColumn.CellEditingTemplate>
                                     <DataTemplate>
                                         <TextBox
-                                        Padding="3"
-                                        Text="{Binding StartIndex, UpdateSourceTrigger=PropertyChanged}"
-                                        TextAlignment="Center"
-                                        ToolTip="原始电文中的起始位置（从0开始）" />
+                                            Padding="3"
+                                            Text="{Binding StartIndex, UpdateSourceTrigger=PropertyChanged}"
+                                            TextAlignment="Center"
+                                            ToolTip="原始电文中的起始位置（从0开始）" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
@@ -259,19 +260,19 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
-                                        Margin="5,0"
-                                        VerticalAlignment="Center"
-                                        Text="{Binding LengthType}"
-                                        TextAlignment="Center"
-                                        ToolTip="Fixed=固定长度, Dynamic=从其他字段动态获取" />
+                                            Margin="5,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding LengthType}"
+                                            TextAlignment="Center"
+                                            ToolTip="Fixed=固定长度, Dynamic=从其他字段动态获取" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                                 <DataGridTemplateColumn.CellEditingTemplate>
                                     <DataTemplate>
                                         <ComboBox
-                                        Padding="3"
-                                        SelectedItem="{Binding LengthType, UpdateSourceTrigger=PropertyChanged}"
-                                        ToolTip="Fixed=固定长度, Dynamic=从其他字段动态获取">
+                                            Padding="3"
+                                            SelectedItem="{Binding LengthType, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Fixed=固定长度, Dynamic=从其他字段动态获取">
                                             <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">Fixed</System:String>
                                             <System:String xmlns:System="clr-namespace:System;assembly=mscorlib">Dynamic</System:String>
                                         </ComboBox>
@@ -283,20 +284,20 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
-                                        Margin="5,0"
-                                        VerticalAlignment="Center"
-                                        Text="{Binding Length}"
-                                        TextAlignment="Center"
-                                        ToolTip="当长度类型=Fixed时，此为字段长度" />
+                                            Margin="5,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding Length}"
+                                            TextAlignment="Center"
+                                            ToolTip="当长度类型=Fixed时，此为字段长度" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                                 <DataGridTemplateColumn.CellEditingTemplate>
                                     <DataTemplate>
                                         <TextBox
-                                        Padding="3"
-                                        Text="{Binding Length, UpdateSourceTrigger=PropertyChanged}"
-                                        TextAlignment="Center"
-                                        ToolTip="当长度类型=Fixed时，此为字段长度" />
+                                            Padding="3"
+                                            Text="{Binding Length, UpdateSourceTrigger=PropertyChanged}"
+                                            TextAlignment="Center"
+                                            ToolTip="当长度类型=Fixed时，此为字段长度" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
@@ -305,20 +306,20 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
-                                        Margin="5,0"
-                                        VerticalAlignment="Center"
-                                        Foreground="{Binding LengthType, Converter={StaticResource LengthTypeForegroundConverter}}"
-                                        Text="{Binding LengthSourceField}"
-                                        ToolTip="当长度类型=Dynamic时，输入长度来源的字段名（如CodeLength）" />
+                                            Margin="5,0"
+                                            VerticalAlignment="Center"
+                                            Foreground="{Binding LengthType, Converter={StaticResource LengthTypeForegroundConverter}}"
+                                            Text="{Binding LengthSourceField}"
+                                            ToolTip="当长度类型=Dynamic时，输入长度来源的字段名（如CodeLength）" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                                 <DataGridTemplateColumn.CellEditingTemplate>
                                     <DataTemplate>
                                         <TextBox
-                                        Padding="3"
-                                        IsEnabled="{Binding LengthType, Converter={StaticResource IsLengthTypeDynamicConverter}}"
-                                        Text="{Binding LengthSourceField, UpdateSourceTrigger=PropertyChanged}"
-                                        ToolTip="当长度类型=Dynamic时，输入长度来源的字段名（如CodeLength）" />
+                                            Padding="3"
+                                            IsEnabled="{Binding LengthType, Converter={StaticResource IsLengthTypeDynamicConverter}}"
+                                            Text="{Binding LengthSourceField, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="当长度类型=Dynamic时，输入长度来源的字段名（如CodeLength）" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
@@ -327,20 +328,20 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
-                                        Margin="5,0"
-                                        VerticalAlignment="Center"
-                                        Text="{Binding LengthOffset}"
-                                        TextAlignment="Center"
-                                        ToolTip="长度的偏移调整值（可选，通常为0）" />
+                                            Margin="5,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding LengthOffset}"
+                                            TextAlignment="Center"
+                                            ToolTip="长度的偏移调整值（可选，通常为0）" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                                 <DataGridTemplateColumn.CellEditingTemplate>
                                     <DataTemplate>
                                         <TextBox
-                                        Padding="3"
-                                        Text="{Binding LengthOffset, UpdateSourceTrigger=PropertyChanged}"
-                                        TextAlignment="Center"
-                                        ToolTip="长度的偏移调整值（可选，通常为0）" />
+                                            Padding="3"
+                                            Text="{Binding LengthOffset, UpdateSourceTrigger=PropertyChanged}"
+                                            TextAlignment="Center"
+                                            ToolTip="长度的偏移调整值（可选，通常为0）" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
@@ -349,19 +350,19 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
-                                        Margin="5,0"
-                                        VerticalAlignment="Center"
-                                        Text="{Binding Description}"
-                                        TextTrimming="CharacterEllipsis"
-                                        ToolTip="{Binding Description}" />
+                                            Margin="5,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding Description}"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTip="{Binding Description}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                                 <DataGridTemplateColumn.CellEditingTemplate>
                                     <DataTemplate>
                                         <TextBox
-                                        Padding="3"
-                                        Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
-                                        ToolTip="字段说明" />
+                                            Padding="3"
+                                            Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="字段说明" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
@@ -369,13 +370,13 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button
-                                        Margin="1"
-                                        Padding="2,1"
-                                        Background="#FFE0E0"
-                                        Click="OnDeleteInputField"
-                                        Content="🗑️"
-                                        FontSize="9"
-                                        ToolTip="删除此字段" />
+                                            Margin="1"
+                                            Padding="2,1"
+                                            Background="#FFE0E0"
+                                            Click="OnDeleteInputField"
+                                            Content="🗑️"
+                                            FontSize="9"
+                                            ToolTip="删除此字段" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -386,79 +387,79 @@
 
             <DockPanel Grid.Column="1" Margin="5,0,0,0">
                 <GroupBox
-                Padding="8"
-                Background="White"
-                DockPanel.Dock="Top"
-                FontSize="11"
-                Header="发送拼装">
+                    Padding="8"
+                    Background="White"
+                    DockPanel.Dock="Top"
+                    FontSize="11"
+                    Header="发送拼装">
                     <DockPanel>
                         <TextBlock
-                        Margin="0,0,0,5"
-                        DockPanel.Dock="Top"
-                        FontSize="10"
-                        Foreground="#666"
-                        Text="定义输出电文的结构。按『序号』从上往下依次拼接。"
-                        TextWrapping="Wrap" />
+                            Margin="0,0,0,5"
+                            DockPanel.Dock="Top"
+                            FontSize="10"
+                            Foreground="#666"
+                            Text="定义输出电文的结构。按『序号』从上往下依次拼接。"
+                            TextWrapping="Wrap" />
 
                         <StackPanel
-                        Margin="0,5,0,0"
-                        DockPanel.Dock="Bottom"
-                        Orientation="Horizontal">
+                            Margin="0,5,0,0"
+                            DockPanel.Dock="Bottom"
+                            Orientation="Horizontal">
                             <Button
-                            Width="60"
-                            Margin="0,0,3,0"
-                            Padding="4,3"
-                            Command="{Binding AddOutputFieldCommand}"
-                            Content="+ 添加"
-                            FontSize="10"
-                            ToolTip="新增一个输出字段定义" />
+                                Width="60"
+                                Margin="0,0,3,0"
+                                Padding="4,3"
+                                Command="{Binding AddOutputFieldCommand}"
+                                Content="+ 添加"
+                                FontSize="10"
+                                ToolTip="新增一个输出字段定义" />
                             <Button
-                            Width="60"
-                            Margin="0,0,5,0"
-                            Padding="4,3"
-                            Content="- 删除"
-                            FontSize="10"
-                            ToolTip="删除所选输出字段（在表格中选中后点击）" />
+                                Width="60"
+                                Margin="0,0,5,0"
+                                Padding="4,3"
+                                Content="- 删除"
+                                FontSize="10"
+                                ToolTip="删除所选输出字段（在表格中选中后点击）" />
                             <Separator Margin="5,0,5,0" Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
                             <Button
-                            Width="70"
-                            Margin="0,0,5,0"
-                            Padding="3,3"
-                            Command="{Binding SortCommand}"
-                            Content="排序"
-                            FontSize="10"
-                            ToolTip="根据『序号』列重新排序所有字段" />
+                                Width="70"
+                                Margin="0,0,5,0"
+                                Padding="3,3"
+                                Command="{Binding SortCommand}"
+                                Content="排序"
+                                FontSize="10"
+                                ToolTip="根据『序号』列重新排序所有字段" />
                             <Separator Margin="5,0,5,0" Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
                             <TextBlock
-                            Margin="5,0,3,0"
-                            VerticalAlignment="Center"
-                            FontSize="10"
-                            FontWeight="Bold"
-                            Text="总长:" />
+                                Margin="5,0,3,0"
+                                VerticalAlignment="Center"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Text="总长:" />
                             <TextBlock
-                            Margin="0,0,0,0"
-                            VerticalAlignment="Center"
-                            FontSize="11"
-                            FontWeight="Bold"
-                            Foreground="DodgerBlue"
-                            Text="{Binding TotalLength}" />
+                                Margin="0,0,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                FontWeight="Bold"
+                                Foreground="DodgerBlue"
+                                Text="{Binding TotalLength}" />
                         </StackPanel>
 
                         <DataGrid
-                        AutoGenerateColumns="False"
-                        CanUserAddRows="False"
-                        CanUserDeleteRows="False"
-                        ItemsSource="{Binding OutputFields, UpdateSourceTrigger=PropertyChanged}">
+                            AutoGenerateColumns="False"
+                            CanUserAddRows="False"
+                            CanUserDeleteRows="False"
+                            ItemsSource="{Binding OutputFields, UpdateSourceTrigger=PropertyChanged}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn
-                                Width="35"
-                                Binding="{Binding Index, UpdateSourceTrigger=PropertyChanged}"
-                                Header="序" />
+                                    Width="35"
+                                    Binding="{Binding Index, UpdateSourceTrigger=PropertyChanged}"
+                                    Header="序" />
 
                                 <DataGridComboBoxColumn
-                                Width="60"
-                                Header="来源"
-                                SelectedItemBinding="{Binding Source, UpdateSourceTrigger=PropertyChanged}">
+                                    Width="60"
+                                    Header="来源"
+                                    SelectedItemBinding="{Binding Source, UpdateSourceTrigger=PropertyChanged}">
                                     <DataGridComboBoxColumn.ItemsSource>
                                         <x:Array Type="mo:FieldSource">
                                             <mo:FieldSource>Fixed</mo:FieldSource>
@@ -472,9 +473,9 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock
-                                            Margin="5,0"
-                                            VerticalAlignment="Center"
-                                            Text="{Binding Name}" />
+                                                Margin="5,0"
+                                                VerticalAlignment="Center"
+                                                Text="{Binding Name}" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                     <DataGridTemplateColumn.CellEditingTemplate>
@@ -488,9 +489,9 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock
-                                            Margin="5,0"
-                                            VerticalAlignment="Center"
-                                            Text="{Binding FixedValue}" />
+                                                Margin="5,0"
+                                                VerticalAlignment="Center"
+                                                Text="{Binding FixedValue}" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                     <DataGridTemplateColumn.CellEditingTemplate>
@@ -501,41 +502,41 @@
                                 </DataGridTemplateColumn>
 
                                 <DataGridTextColumn
-                                Width="45"
-                                Binding="{Binding Length, UpdateSourceTrigger=PropertyChanged}"
-                                Header="长度" />
+                                    Width="45"
+                                    Binding="{Binding Length, UpdateSourceTrigger=PropertyChanged}"
+                                    Header="长度" />
 
                                 <DataGridTextColumn
-                                Width="45"
-                                Binding="{Binding Scale, UpdateSourceTrigger=PropertyChanged}"
-                                Header="缩放" />
+                                    Width="45"
+                                    Binding="{Binding Scale, UpdateSourceTrigger=PropertyChanged}"
+                                    Header="缩放" />
 
-
-
-                                <DataGridTextColumn
-                                Width="80"
-                                Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
-                                Header="说明" />
 
 
                                 <DataGridTextColumn
-                                Width="60"
-                                Binding="{Binding Preview, UpdateSourceTrigger=PropertyChanged}"
-                                Foreground="#0066CC"
-                                Header="预览"
-                                IsReadOnly="True" />
+                                    Width="80"
+                                    Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                    Header="说明" />
+
+
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{Binding Preview, UpdateSourceTrigger=PropertyChanged}"
+                                    Foreground="#0066CC"
+                                    Header="预览"
+                                    IsReadOnly="True" />
 
                                 <DataGridTemplateColumn Width="40" Header="删除">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Button
-                                            Margin="1"
-                                            Padding="2,1"
-                                            Background="#FFE0E0"
-                                            Click="OnDeleteOutputField"
-                                            Content="🗑️"
-                                            FontSize="9"
-                                            ToolTip="删除此字段" />
+                                                Margin="1"
+                                                Padding="2,1"
+                                                Background="#FFE0E0"
+                                                Click="OnDeleteOutputField"
+                                                Content="🗑️"
+                                                FontSize="9"
+                                                ToolTip="删除此字段" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -545,32 +546,32 @@
                 </GroupBox>
 
                 <GroupBox
-                Margin="0,5,0,0"
-                Padding="8"
-                Background="White"
-                DockPanel.Dock="Bottom"
-                FontSize="11"
-                Header="实时预览">
+                    Margin="0,5,0,0"
+                    Padding="8"
+                    Background="White"
+                    DockPanel.Dock="Bottom"
+                    FontSize="11"
+                    Header="实时预览">
                     <DockPanel>
                         <StackPanel
-                        Margin="0,0,0,5"
-                        DockPanel.Dock="Top"
-                        Orientation="Horizontal">
+                            Margin="0,0,0,5"
+                            DockPanel.Dock="Top"
+                            Orientation="Horizontal">
                             <Button
-                            Width="80"
-                            Margin="0,0,5,0"
-                            Padding="4,3"
-                            Command="{Binding PreviewOutputCommand}"
-                            Content="生成预览"
-                            FontSize="10"
-                            ToolTip="根据当前配置和变量池生成输出电文" />
+                                Width="80"
+                                Margin="0,0,5,0"
+                                Padding="4,3"
+                                Command="{Binding PreviewOutputCommand}"
+                                Content="生成预览"
+                                FontSize="10"
+                                ToolTip="根据当前配置和变量池生成输出电文" />
                             <TextBlock
-                            Margin="5,0,0,0"
-                            VerticalAlignment="Center"
-                            FontSize="10"
-                            FontWeight="Bold"
-                            Foreground="Green"
-                            Text="{Binding PreviewMessage}" />
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="Green"
+                                Text="{Binding PreviewMessage}" />
                         </StackPanel>
 
                         <Grid DockPanel.Dock="Bottom">
@@ -584,55 +585,55 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
-                            Margin="3,3,3,2"
-                            FontSize="10"
-                            FontWeight="Bold"
-                            Foreground="#333"
-                            Text="【解析结果】" />
+                                Margin="3,3,3,2"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#333"
+                                Text="【解析结果】" />
 
                             <TextBlock
-                            Grid.Column="1"
-                            Margin="3,3,3,2"
-                            FontSize="10"
-                            FontWeight="Bold"
-                            Foreground="#333"
-                            Text="【生成报文】" />
+                                Grid.Column="1"
+                                Margin="3,3,3,2"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#333"
+                                Text="【生成报文】" />
 
                             <Border
-                            Grid.Row="1"
-                            Margin="3,0,1,0"
-                            BorderBrush="#CCC"
-                            BorderThickness="1"
-                            CornerRadius="2">
+                                Grid.Row="1"
+                                Margin="3,0,1,0"
+                                BorderBrush="#CCC"
+                                BorderThickness="1"
+                                CornerRadius="2">
                                 <TextBox
-                                Padding="4"
-                                Background="#F9F9F9"
-                                BorderThickness="0"
-                                FontFamily="Courier New"
-                                FontSize="11"
-                                IsReadOnly="True"
-                                Text="{Binding ParseResult, Mode=OneWay}"
-                                TextWrapping="Wrap"
-                                VerticalScrollBarVisibility="Auto" />
+                                    Padding="4"
+                                    Background="#F9F9F9"
+                                    BorderThickness="0"
+                                    FontFamily="Courier New"
+                                    FontSize="11"
+                                    IsReadOnly="True"
+                                    Text="{Binding ParseResult, Mode=OneWay}"
+                                    TextWrapping="Wrap"
+                                    VerticalScrollBarVisibility="Auto" />
                             </Border>
 
                             <Border
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            Margin="1,0,3,0"
-                            BorderBrush="#CCC"
-                            BorderThickness="1"
-                            CornerRadius="2">
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Margin="1,0,3,0"
+                                BorderBrush="#CCC"
+                                BorderThickness="1"
+                                CornerRadius="2">
                                 <TextBox
-                                Padding="4"
-                                Background="#E6F2FF"
-                                BorderThickness="0"
-                                FontFamily="Courier New"
-                                FontSize="15"
-                                IsReadOnly="True"
-                                Text="{Binding GeneratedMessage, Mode=OneWay}"
-                                TextWrapping="Wrap"
-                                VerticalScrollBarVisibility="Auto" />
+                                    Padding="4"
+                                    Background="#E6F2FF"
+                                    BorderThickness="0"
+                                    FontFamily="Courier New"
+                                    FontSize="15"
+                                    IsReadOnly="True"
+                                    Text="{Binding GeneratedMessage, Mode=OneWay}"
+                                    TextWrapping="Wrap"
+                                    VerticalScrollBarVisibility="Auto" />
                             </Border>
                         </Grid>
                     </DockPanel>
@@ -640,9 +641,9 @@
             </DockPanel>
         </Grid>
         <StatusBar
-        Grid.Row="2"
-        Background="#F0F0F0"
-        FontSize="10">
+            Grid.Row="2"
+            Background="#F0F0F0"
+            FontSize="10">
             <StatusBarItem>
                 <TextBlock Foreground="#666" Text="{Binding StatusMessage}" />
             </StatusBarItem>

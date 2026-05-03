@@ -1,4 +1,4 @@
-﻿using AVS_Service.Models;
+﻿using AVS_Common.Model;
 using Serilog;
 using System;
 using System.Collections.Generic;

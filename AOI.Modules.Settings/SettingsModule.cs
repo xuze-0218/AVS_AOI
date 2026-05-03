@@ -16,6 +16,7 @@ namespace AVS_Modules_Settings
         public void RegisterTypes(IContainerRegistry containerRegistry)
         {
             containerRegistry.RegisterForNavigation<ParameterConfigView>();
+            containerRegistry.RegisterForNavigation<ProtocolConfigView>();
             containerRegistry.RegisterForNavigation<CameraDebugView>();
             containerRegistry.RegisterForNavigation<PlcDebugView>();
         }
