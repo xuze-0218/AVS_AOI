@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_Drivers", "AVS_Drivers\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS_Modules_Data", "AVS_Modules_Data\AVS_Modules_Data.csproj", "{0121590E-A577-4C5F-9DD5-9A3DE63B3873}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AVS", "焊后检测V2.1.0-halcon13\AVS\AVS.csproj", "{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,10 @@ Global
 		{0121590E-A577-4C5F-9DD5-9A3DE63B3873}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0121590E-A577-4C5F-9DD5-9A3DE63B3873}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0121590E-A577-4C5F-9DD5-9A3DE63B3873}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,304 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{EEBA39E9-77AD-4D99-9951-F3BA2D7B94C6}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>AVS</RootNamespace>
+    <AssemblyName>AVS</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>ATW.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Basler.Pylon, Version=1.2.0.0, Culture=neutral, PublicKeyToken=e389355f398382ab, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\Basler.Pylon.dll</HintPath>
+    </Reference>
+    <Reference Include="DevComponents.DotNetBar2, Version=14.1.0.0, Culture=neutral, PublicKeyToken=7eb7c3a35b91de04, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\DevComponents.DotNetBar2.dll</HintPath>
+    </Reference>
+    <Reference Include="GoSdkNet">
+      <HintPath>bin\x64\Debug\myDll\GoSdkNet.dll</HintPath>
+    </Reference>
+    <Reference Include="halcondotnet, Version=13.0.2.0, Culture=neutral, PublicKeyToken=4973bed59ddbf2b8, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files\MVTec\HALCON-13.0\bin\dotnet35\halcondotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="hdevenginedotnet, Version=13.0.2.1, Culture=neutral, PublicKeyToken=4973bed59ddbf2b8, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files\MVTec\HALCON-13.0\bin\dotnet35\hdevenginedotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="IPAddressControlLib, Version=1.3.7187.24282, Culture=neutral, PublicKeyToken=61ed6ecdbcd42ecf, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\IPAddressControlLib.dll</HintPath>
+    </Reference>
+    <Reference Include="kApiNet">
+      <HintPath>bin\x64\Debug\myDll\kApiNet.dll</HintPath>
+    </Reference>
+    <Reference Include="kglib.NET, Version=1.0.7362.33718, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\kglib.NET.dll</HintPath>
+    </Reference>
+    <Reference Include="MMDeployCSharp, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\mmDeployDll\MMDeployCSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="MvCameraControl.Net, Version=3.4.0.1, Culture=neutral, PublicKeyToken=52fddfb3f94be800, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\MvCameraControl.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenCvSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=6adad1e807fea099, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\openCvDll\OpenCvSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="VisionDevelopLibrary, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\x64\Debug\VisionDevelopLibrary.dll</HintPath>
+    </Reference>
+    <Reference Include="VisionUserControls, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>D:\Welding99\Welding99\AVS\bin\x64\Debug\VisionUserControls.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="DataSave\BaseDelegate.cs" />
+    <Compile Include="DL\AiDrive.cs" />
+    <Compile Include="Common\AutoSizeForm.cs" />
+    <Compile Include="Camera\Basler\BaslerCamera.cs" />
+    <Compile Include="Camera\HKVision\CameraHk.cs" />
+    <Compile Include="Camera\HKVision\CameraHkSdk.cs" />
+    <Compile Include="Camera\CameraManage.cs" />
+    <Compile Include="Camera\Base\ICamera.cs" />
+    <Compile Include="FileHelper\CSV_RW.cs" />
+    <Compile Include="Common\DeleteFile.cs" />
+    <Compile Include="Forms\DevicesForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\DevicesForm.designer.cs">
+      <DependentUpon>DevicesForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\StatisticsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\StatisticsForm.Designer.cs">
+      <DependentUpon>StatisticsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\textForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\textForm.Designer.cs">
+      <DependentUpon>textForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Param\Global.cs" />
+    <Compile Include="DataSave\ImageSaveProcess.cs" />
+    <Compile Include="Inspect\ImgInspect2D.cs" />
+    <Compile Include="Inspect\ImgInspect3D.cs" />
+    <Compile Include="ProcessTools\InputBoxMetro.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ProcessTools\InputBoxMetro.designer.cs">
+      <DependentUpon>InputBoxMetro.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ProcessTools\InputBoxModel.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ProcessTools\InputBoxModel.designer.cs">
+      <DependentUpon>InputBoxModel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ProcessTools\InputBoxRegion.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ProcessTools\InputBoxRegion.designer.cs">
+      <DependentUpon>InputBoxRegion.cs</DependentUpon>
+    </Compile>
+    <Compile Include="DataSave\InspectResultData.cs" />
+    <Compile Include="Camera\LMI\LMIFactory.cs" />
+    <Compile Include="Camera\LMI\LMISingle.cs" />
+    <Compile Include="FileHelper\Logger.cs" />
+    <Compile Include="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\ManualLine.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ManualLine.Designer.cs">
+      <DependentUpon>ManualLine.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Param\ParamsGlobal.cs" />
+    <Compile Include="Param\ParamReadWrite.cs" />
+    <Compile Include="Param\ParamsSide.cs" />
+    <Compile Include="Forms\ParmSetForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ParmSetForm.designer.cs">
+      <DependentUpon>ParmSetForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ProcessTools\SetMetro.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ProcessTools\SetMetro.Designer.cs">
+      <DependentUpon>SetMetro.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ProcessTools\SetModel.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ProcessTools\SetModel.designer.cs">
+      <DependentUpon>SetModel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ProcessTools\SetRegion.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ProcessTools\SetRegion.Designer.cs">
+      <DependentUpon>SetRegion.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Common\Tcp.cs" />
+    <Compile Include="ThreadProcess.cs" />
+    <Compile Include="Forms\WatchForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\WatchForm.designer.cs">
+      <DependentUpon>WatchForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="Forms\DevicesForm.resx">
+      <DependentUpon>DevicesForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\StatisticsForm.resx">
+      <DependentUpon>StatisticsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\textForm.resx">
+      <DependentUpon>textForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ProcessTools\InputBoxMetro.resx">
+      <DependentUpon>InputBoxMetro.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ProcessTools\InputBoxModel.resx">
+      <DependentUpon>InputBoxModel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ProcessTools\InputBoxRegion.resx">
+      <DependentUpon>InputBoxRegion.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\ManualLine.resx">
+      <DependentUpon>ManualLine.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\ParmSetForm.resx">
+      <DependentUpon>ParmSetForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <EmbeddedResource Include="ProcessTools\SetMetro.resx">
+      <DependentUpon>SetMetro.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ProcessTools\SetModel.resx">
+      <DependentUpon>SetModel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ProcessTools\SetRegion.resx">
+      <DependentUpon>SetRegion.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\WatchForm.resx">
+      <DependentUpon>WatchForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="ATW.ico" />
+    <None Include="cn.jpg" />
+    <None Include="cn.png" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
