@@ -38,29 +38,29 @@ namespace AVS_Service
         public int GetInt(string moduleName, string paramName, int defaultValue = 0)
         {
             var p = FindParam(moduleName, paramName);
-            if (p != null && int.TryParse(p.InitValue, out int result)) return result;
+            if (p != null && int.TryParse(p.Expression, out int result)) return result;
             return defaultValue;
         }
 
         public double GetDouble(string moduleName, string paramName, double defaultValue = 0.0)
         {
             var p = FindParam(moduleName, paramName);
-            if (p != null && double.TryParse(p.InitValue, out double result)) return result;
+            if (p != null && double.TryParse(p.Expression, out double result)) return result;
             return defaultValue;
         }
 
         public string GetString(string moduleName, string paramName, string defaultValue = "")
         {
             var p = FindParam(moduleName, paramName);
-            return p != null ? p.InitValue : defaultValue;
+            return p != null ? p.Expression : defaultValue;
         }
 
         public bool GetBool(string moduleName, string paramName, bool defaultValue = false)
         {
             var p = FindParam(moduleName, paramName);
-            if (p != null && bool.TryParse(p.InitValue, out bool result)) return result;
-            if (p != null && p.InitValue == "1") return true;
-            if (p != null && p.InitValue == "0") return false;
+            if (p != null && bool.TryParse(p.Expression, out bool result)) return result;
+            if (p != null && p.Expression == "1") return true;
+            if (p != null && p.Expression == "0") return false;
             return defaultValue;
         }
 
@@ -69,7 +69,7 @@ namespace AVS_Service
             var p = FindParam(moduleName, paramName);
             if (p != null)
             {
-                p.InitValue = value;
+                p.Expression = value;
                 p.OutputType = type;
             }
             else
@@ -78,7 +78,7 @@ namespace AVS_Service
                 {
                     ModuleName = moduleName,
                     Name = paramName,
-                    InitValue = value,
+                    Expression = value,
                     OutputType = type,
                 });
             }

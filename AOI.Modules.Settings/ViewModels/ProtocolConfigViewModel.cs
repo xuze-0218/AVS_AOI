@@ -46,12 +46,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         private StationConfig _currentStationConfig;
 
-        private bool _isEditingCommonHeader = false;
-        public bool IsEditingCommonHeader
-        {
-            get => _isEditingCommonHeader;
-            set => SetProperty(ref _isEditingCommonHeader, value);
-        }
 
         private string _editableFuncCode;
         public string EditableFuncCode
@@ -156,7 +150,6 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand ToggleListenCommand { get; private set; }
         //添加新报文
         public DelegateCommand AddSessionCommand { get; private set; }
-        public DelegateCommand SelectCommonHeaderCommand { get; private set; }
         public DelegateCommand DeleteSessionCommand { get; private set; }
         public event Action<IDialogResult> RequestClose;
 
@@ -213,14 +206,7 @@ namespace AVS_Modules_Settings.ViewModels
             AddSessionCommand = new DelegateCommand(ExecuteAddSession);
             DeleteSessionCommand = new DelegateCommand(ExecuteDeleteSession);
 
-            SelectCommonHeaderCommand = new DelegateCommand(() =>
-            {
-                IsEditingCommonHeader = true;
-                SelectedSession = null;
-                EditableFuncCode = "公共头 (只读)";
-                LoadFieldsToUI(_currentStationConfig.CommonHeaderFields, new List<ProtocolField>());
-                StatusMessage = "正在编辑：公共头";
-            });
+
 
             SortCommand = new DelegateCommand(() =>
             {
@@ -241,7 +227,6 @@ namespace AVS_Modules_Settings.ViewModels
         {
             if (_selectedSession != null)
             {
-                IsEditingCommonHeader = false;
                 EditableFuncCode = _selectedSession.FuncCode;
                 LoadFieldsToUI(_selectedSession.InputFields, _selectedSession.OutputFields);
                 StatusMessage = $"正在编辑对话：{_selectedSession.FuncCode}";
@@ -253,7 +238,6 @@ namespace AVS_Modules_Settings.ViewModels
             if (SelectedSession == null) return;
             _currentStationConfig.Messages.Remove(SelectedSession);
             Sessions = new ObservableCollection<SessionConfig>(_currentStationConfig.Messages);
-            SelectCommonHeaderCommand.Execute();
             StatusMessage = "对话已删除";
         }
 
@@ -483,11 +467,8 @@ namespace AVS_Modules_Settings.ViewModels
         {
             try
             {
-                if (IsEditingCommonHeader)
-                {
-                    _currentStationConfig.CommonHeaderFields = InputFields.ToList();
-                }
-                else if (SelectedSession != null)
+
+                if (SelectedSession != null)
                 {
                     SelectedSession.FuncCode = EditableFuncCode; // 保存重命名
                     SelectedSession.InputFields = InputFields.ToList();
@@ -545,7 +526,6 @@ namespace AVS_Modules_Settings.ViewModels
                 }
 
                 Sessions = new ObservableCollection<SessionConfig>(_currentStationConfig.Messages);
-                SelectCommonHeaderCommand.Execute(); // 默认选中公共头
                 StatusMessage = "配置已加载";
             }
             catch (Exception ex)

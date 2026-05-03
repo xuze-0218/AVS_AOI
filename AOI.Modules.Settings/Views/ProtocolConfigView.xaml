@@ -9,7 +9,7 @@
     xmlns:mo="clr-namespace:AVS_Common.Model;assembly=AVS_Common"
     xmlns:prism="http://prismlibrary.com/"
     d:DesignHeight="450"
-    d:DesignWidth="800"
+    d:DesignWidth="1000"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
     <UserControl.Resources>
@@ -60,17 +60,7 @@
                 FontSize="11"
                 ToolTip="保存当前配置到 Config/ProtocolConfig.json" />
             <Separator Margin="15,0,15,0" Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
-            <!--<TextBlock
-            Margin="10,0,5,0"
-            VerticalAlignment="Center"
-            FontSize="11"
-            Text="模板名称:" />
-        <TextBox
-            Width="120"
-            Padding="4,3"
-            FontSize="11"
-            Text="{Binding TemplateName}"
-            ToolTip="当前配置模板的名称" />-->
+
         </StackPanel>
         <Grid Grid.Row="1" Margin="0,5,0,5">
             <Grid.ColumnDefinitions>
@@ -112,13 +102,7 @@
                                     VerticalAlignment="Center"
                                     FontWeight="Bold"
                                     Text="当前编辑:" />
-                                <Button
-                                    Width="70"
-                                    Margin="0,0,5,0"
-                                    Padding="4,3"
-                                    Command="{Binding SelectCommonHeaderCommand}"
-                                    Content="公共头"
-                                    FontSize="10" />
+
                                 <ComboBox
                                     Width="80"
                                     DisplayMemberPath="FuncCode"
