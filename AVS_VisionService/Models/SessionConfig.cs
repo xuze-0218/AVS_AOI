@@ -22,6 +22,10 @@ namespace AVS_Service.Models
         /// 工位
         /// </summary>
         public string StationId { get; set; }
+        /// <summary>
+        /// 长度、功能码等
+        /// </summary>
+        public List<ProtocolField> CommonHeaderFields { get; set; } = new List<ProtocolField>();
         public List<SessionConfig> Messages { get; set; } = new List<SessionConfig>();
     }
 }

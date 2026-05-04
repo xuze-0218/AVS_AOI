@@ -125,7 +125,7 @@ namespace AVS_Modules_Settings.ViewModels
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
         private HObject _currentDebugImage;
-        public HObject CurrentDebugImage 
+        public HObject CurrentDebugImage
         {
             get => _currentDebugImage;
             set
@@ -279,6 +279,7 @@ namespace AVS_Modules_Settings.ViewModels
             if (_camera != null && IsConnected)
             {
                 _camera.GetCamConfig(out CamConfig config);
+                CameraRoleName = _currentConfig.CameraRole;
                 if (config != null) { ExposureTime = (short)config.ExpouseTime; Gain = config.Gain; StatusMessage = "参数读取成功"; }
             }
         }
@@ -320,6 +321,7 @@ namespace AVS_Modules_Settings.ViewModels
             if (short.TryParse(_currentConfig.Gain.ToString(), out short gn)) Gain = gn;
             IP = _currentConfig.IP;
             Port = _currentConfig.Port;
+            CameraRoleName = _currentConfig.CameraRole;
         }
 
         public void OnNavigatedTo(NavigationContext navigationContext)
@@ -330,7 +332,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         public bool IsNavigationTarget(NavigationContext navigationContext) => true;
 
-        public void OnNavigatedFrom(NavigationContext navigationContext) 
+        public void OnNavigatedFrom(NavigationContext navigationContext)
         {
             _isActiveView = false; // 页面切出时停用
         }

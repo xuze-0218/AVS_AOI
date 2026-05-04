@@ -22,6 +22,7 @@ namespace AVS_Modules_Settings.ViewModels
         private readonly IProtocolEngineService _protocolEngine;
         private readonly IParametersConfigService _paramConfig;
         private readonly ICommunicationService _communicationService;
+        private readonly IProtocolConfigRepository _protocolConfigRepository;
         private readonly ILogger _logger;
         private string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config/ProtocolConfig.json");
         private ObservableCollection<ProtocolField> _inputFields;
@@ -46,7 +47,12 @@ namespace AVS_Modules_Settings.ViewModels
 
         private StationConfig _currentStationConfig;
 
-
+        private bool _isEditingCommonHeader = false;
+        public bool IsEditingCommonHeader
+        {
+            get => _isEditingCommonHeader;
+            set => SetProperty(ref _isEditingCommonHeader, value);
+        }
         private string _editableFuncCode;
         public string EditableFuncCode
         {
@@ -151,6 +157,7 @@ namespace AVS_Modules_Settings.ViewModels
         //添加新报文
         public DelegateCommand AddSessionCommand { get; private set; }
         public DelegateCommand DeleteSessionCommand { get; private set; }
+        public DelegateCommand SelectCommonHeaderCommand { get; private set; }
         public event Action<IDialogResult> RequestClose;
 
 
@@ -158,11 +165,13 @@ namespace AVS_Modules_Settings.ViewModels
             IProtocolEngineService protocolEngine,
             ICommunicationService communicationService,
             IParametersConfigService paramConfig,
-            ILogger logger)
+            IProtocolConfigRepository protocolConfigRepository,
+        ILogger logger)
         {
             _paramConfig = paramConfig;
             _protocolEngine = protocolEngine;
             _communicationService = communicationService;
+            _protocolConfigRepository = protocolConfigRepository;
             _logger = logger;
 
             Sessions = new ObservableCollection<SessionConfig>();
@@ -170,7 +179,6 @@ namespace AVS_Modules_Settings.ViewModels
             InitializeCommands();
             LoadConfig();
             SubscribeToCommunicationEvents();
-            //InitializeCollections();
             _logger?.Information("ProtocolConfigViewModel 已初始化");
         }
 
@@ -205,6 +213,15 @@ namespace AVS_Modules_Settings.ViewModels
 
             AddSessionCommand = new DelegateCommand(ExecuteAddSession);
             DeleteSessionCommand = new DelegateCommand(ExecuteDeleteSession);
+
+            SelectCommonHeaderCommand = new DelegateCommand(() =>
+            {
+                IsEditingCommonHeader = true;
+                SelectedSession = null;
+                EditableFuncCode = "公共头 (只读)";
+                LoadFieldsToUI(_currentStationConfig.CommonHeaderFields, new List<ProtocolField>());
+                StatusMessage = "正在编辑：公共头";
+            });
 
 
 
@@ -468,7 +485,11 @@ namespace AVS_Modules_Settings.ViewModels
             try
             {
 
-                if (SelectedSession != null)
+                if (IsEditingCommonHeader)
+                {
+                    _currentStationConfig.CommonHeaderFields = InputFields.ToList();
+                }
+                else if (SelectedSession != null)
                 {
                     SelectedSession.FuncCode = EditableFuncCode; // 保存重命名
                     SelectedSession.InputFields = InputFields.ToList();
@@ -494,6 +515,7 @@ namespace AVS_Modules_Settings.ViewModels
 
                 string newJson = JsonConvert.SerializeObject(allStations, Formatting.Indented);
                 File.WriteAllText(_configPath, newJson);
+                _protocolConfigRepository.ReloadConfig(); // 通知仓库重新加载配置
                 SyncConfigToEngine();
                 StatusMessage = "配置已保存";
             }

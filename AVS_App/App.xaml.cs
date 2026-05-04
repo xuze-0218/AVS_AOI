@@ -31,6 +31,7 @@ namespace AVS_App
             containerRegistry.RegisterForNavigation<InspectionView>();
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
             containerRegistry.RegisterSingleton<IParametersConfigService, ParametersConfigService>();
+            containerRegistry.RegisterSingleton<IProtocolConfigRepository,ProtocolConfigRepository>();
             containerRegistry.RegisterSingleton<IProtocolEngineService, ProtocolEngineService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
             containerRegistry.RegisterSingleton<IWorkflowService, WorkflowService>();

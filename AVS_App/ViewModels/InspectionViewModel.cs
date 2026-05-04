@@ -43,9 +43,6 @@ namespace AVS_App.ViewModels
 
             //根据配置加载相机窗体数量
             InitializeLayout(cameraService.AllSettings);
-            //_cameraConfigService.OnImageCaptured += (sn, img) =>
-            //{ OnImageReceived(new CameraImagePayload() { CameraSN = sn, Image = img }); };
-
 
             //订阅图像到达事件
             _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageReceived);

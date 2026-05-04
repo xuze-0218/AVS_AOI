@@ -251,6 +251,7 @@ namespace AVS_Service
 
         public bool ExecuteSoftTrigger(string identifier)
         {
+
             var camera = GetCameraInstance(identifier);
             if (camera == null)
             {
@@ -262,6 +263,7 @@ namespace AVS_Service
             {
                 return camera.SoftTrigger();
             }
+
 
             _logger.Warning("触发失败：未找到相机实例 {ID}", identifier);
             return false;
@@ -291,6 +293,7 @@ namespace AVS_Service
                 existing.Gain = setting.Gain;
                 existing.imgpath = setting.imgpath;
                 existing.SerilalNum = setting.SerilalNum;
+                existing.CameraRole = setting.CameraRole;
             }
             SaveSettings();
 
