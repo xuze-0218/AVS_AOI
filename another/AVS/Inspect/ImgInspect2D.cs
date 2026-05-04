@@ -965,7 +965,6 @@ namespace AVS
             }
         }
 
-
         //线程监测图像队列进行处理
         public static void ProcessImgInQueue()
         {
@@ -978,62 +977,7 @@ namespace AVS
                 BoardCalibrateImgInQueue();
             }
         }
-
-        //-保存相机采集原图
-        private static void SaveOriginImg(HObject img, string path)
-        {
-            try
-            {
-
-                if (img != null || IsObjectEmpty(img))
-                {
-                    string format = Global.myParams.sideParamA.imgSaveParam.format == "bmp" ? "bmp" : "jpeg " + Global.myParams.sideParamA.imgSaveParam.radio;
-
-                    HOperatorSet.WriteImage(img, format, 0, path);
-
-                }
-                img.Dispose();
-            }
-            catch (Exception ex)
-            {
-                string exMsg = "2D原始图像保存出错：\r\n" + ex.Message.ToString();
-                Global.AddLog(exMsg);
-            }
-        }
-
-        //-保存处理窗口截图
-        private static void SaveWindowImg(HObject img, string result, int poleNum, string timeMark, string moduleMark)
-        {
-            try
-            {
-                //图像保存**********************************************************************************************
-                string type = (result == "01") ? "OK" : "NG";
-                string dateStr = System.DateTime.Now.ToString("yyyy_MM_dd");
-                string timeStr = System.DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff");
-                string saveDir = Global.myParams.ImageSaveDir + "\\" + SideStr + "\\Inspect\\" + type + "\\" + dateStr;
-                saveDir += "\\" + timeMark + "_Module_" + moduleMark;
-                //创建图像保存路径*************************************************************************************
-                string saveDir02 = saveDir + "_W";//窗口截图保存路径
-                if (!Directory.Exists(saveDir02))
-                {
-                    Directory.CreateDirectory(saveDir02);
-                }
-                //保存窗口截图****************************************************************************************
-                string imgSavePath02 = saveDir02 + "\\" + timeStr + "_" + moduleMark + "_Pole_" + poleNum.ToString() + "_W";
-                imgSavePath02 = imgSavePath02.Replace("\\", "/");
-                HObject image = new HObject();
-                HOperatorSet.GenEmptyObj(out image);
-                HOperatorSet.DumpWindowImage(out image, HWindow02.HalconWindow);
-                HOperatorSet.WriteImage(image, "jpg 100", 0, imgSavePath02);
-                image.Dispose();
-            }
-            catch (Exception ex)
-            {
-                string exMsg = "2D窗口图像保存出错：\r\n" + ex.Message.ToString();
-                Global.AddLog(exMsg);
-            }
-        }
-
+      
         //-保存图像检测数据
         private static void SaveCsvData(int poleNum, HTuple resultArray)
         {
@@ -1201,123 +1145,7 @@ namespace AVS
                 Global.AddLog(exMsg);
             }
         }
-
-        //-将Double数字转换为一定长度的字符串
-        public static string DoubleToString(double detectValue, int len)
-        {
-            //len   生成字符的总长度 
-            string standZero = "00000000";
-            string valueStr = "";
-            int valueInt = Math.Abs(Convert.ToInt32(detectValue * 1000));
-            valueStr = standZero.Substring(0, 8) + valueInt.ToString();
-            valueStr = valueStr.Substring(valueStr.Length - (len - 1), len - 1);
-            if (detectValue >= 0)
-            {
-                valueStr = "+" + valueStr;
-            }
-            else
-            {
-                valueStr = "-" + valueStr;
-            }
-            return valueStr;
-        }
-
-        //-判断HObject对象是否为空
-        public static bool IsObjectEmpty(HObject image)
-        {
-            //判断 图像是否为空, 为空时返回---true
-            if (image == null)
-                return true;
-            try
-            {
-                HObject emptyImg = new HObject();
-                HTuple isEqual = new HTuple();
-                HOperatorSet.GenEmptyObj(out emptyImg);
-                HOperatorSet.TestEqualObj(image, emptyImg, out isEqual);
-                return (bool)isEqual;
-            }
-            catch
-            {
-                return true;
-            }
-        }
-
-        //-窗口消息显示
-        private static void DisplayMessage(HTuple windowId, string message, int row, int col, int rowStep, string color)
-        {
-            string[] inf = message.Split('\n');
-            int msgNum = inf.Length;
-            for (int i = 0; i < msgNum; i++)
-            {
-                HOperatorSet.SetColor(windowId, color);
-                HOperatorSet.SetTposition(windowId, row + rowStep * i, col);
-                HOperatorSet.WriteString(windowId, inf[i]);
-            }
-        }
-
-        //-窗口图像显示
-        public static void ShowImage(HObject img, HWindowControl hWindow)
-        {
-            if (IsObjectEmpty(img))
-                return;
-
-            HTuple row01, col01, row02, col02;
-            HTuple imgW = new HTuple(), imgH = new HTuple();
-            HOperatorSet.GetImageSize(img, out imgW, out imgH);
-
-            HTuple winW = hWindow.Width;
-            HTuple winH = hWindow.Height;
-
-            HTuple ScaleW = imgW / (winW * 1.0);
-            HTuple ScaleH = imgH / (winH * 1.0);
-
-            if (ScaleW >= ScaleH)
-            {
-                row01 = -(1.0) * ((winH * ScaleW) - imgH) / 2;
-                col01 = 0;
-                row02 = row01 + winH * ScaleW;
-                col02 = col01 + winW * ScaleW;
-            }
-            else
-            {
-                row01 = 0;
-                col01 = -(1.0) * ((winW * ScaleH) - imgW) / 2;
-                row02 = row01 + winH * ScaleH;
-                col02 = col01 + winW * ScaleH;
-            }
-
-            HOperatorSet.SetPart(hWindow.HalconWindow, row01, col01, row02, col02);
-            HOperatorSet.ClearWindow(hWindow.HalconWindow);
-            HOperatorSet.DispObj(img, hWindow.HalconWindow);
-        }
-
-        static public void DispMessageUserDefine(HTuple hv_WindowHandle, HTuple hv_MessageInfo, HTuple hv_Row, HTuple hv_Col, HTuple hv_RowHeight, HTuple hv_Color, HTuple hv_Front, HTuple hv_FrontSize)
-        {
-            // Local control variables 
-
-            HTuple hv_Substrings = null, hv_Length = null;
-            HTuple hv_I = null;
-            // Initialize local and output iconic variables 
-
-            HOperatorSet.SetColor(hv_WindowHandle, hv_Color);
-            HOperatorSet.SetFont(hv_WindowHandle, "-" + hv_Front + hv_FrontSize + "-");
-
-            HOperatorSet.TupleSplit(hv_MessageInfo, "\r\n", out hv_Substrings);
-
-            HOperatorSet.TupleLength(hv_Substrings, out hv_Length);
-            HTuple end_val7 = hv_Length - 1;
-            HTuple step_val7 = 1;
-            for (hv_I = 0; hv_I.Continue(end_val7, step_val7); hv_I = hv_I.TupleAdd(step_val7))
-            {
-                HOperatorSet.SetTposition(hv_WindowHandle, hv_Row + (hv_I * hv_RowHeight), hv_Col);
-                HOperatorSet.WriteString(hv_WindowHandle, hv_Substrings.TupleSelect(hv_I));
-            }
-
-            //显示完设置字体默认颜色
-            HOperatorSet.SetColor(hv_WindowHandle, "green");
-
-            return;
-        }
+        
         public static void InspectImg(HObject imgNow, HWindowControl HWindow01)
         {
             ShowImage(imgNow, HWindow01);
