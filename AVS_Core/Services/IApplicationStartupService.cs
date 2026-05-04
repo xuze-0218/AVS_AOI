@@ -1,12 +1,8 @@
-﻿using AVS_Core.Services;
+﻿using AVS_Service;
 using Serilog;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace AVS_Service
+
+namespace AVS_Core.Services
 {
     public interface IApplicationStartupService
     {

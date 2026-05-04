@@ -7,10 +7,7 @@ using Newtonsoft.Json;
 using Prism.Events;
 using Serilog;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
-using System.Threading.Tasks;
 using Formatting = Newtonsoft.Json.Formatting;
 
 namespace AVS_Service

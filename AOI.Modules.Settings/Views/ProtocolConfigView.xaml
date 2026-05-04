@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:mo="clr-namespace:AVS_Common.Model;assembly=AVS_Common"
     xmlns:prism="http://prismlibrary.com/"
-    d:DesignHeight="450"
+    d:DesignHeight="600"
     d:DesignWidth="1000"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
@@ -173,7 +173,7 @@
                                     Foreground="#333"
                                     Text="测试原始电文:" />
                                 <TextBox
-                                    Height="50"
+                                    Height="100"
                                     Margin="0,0,0,5"
                                     Padding="4"
                                     FontFamily="Courier New"

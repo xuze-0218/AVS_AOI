@@ -1,5 +1,6 @@
 ﻿using AVS_App.Views;
 using AVS_Common;
+using AVS_Core.Services;
 using AVS_Service;
 using DryIoc;
 using Prism.DryIoc;
@@ -32,6 +33,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<IParametersConfigService, ParametersConfigService>();
             containerRegistry.RegisterSingleton<IProtocolEngineService, ProtocolEngineService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
+            containerRegistry.RegisterSingleton<IWorkflowService, WorkflowService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()
