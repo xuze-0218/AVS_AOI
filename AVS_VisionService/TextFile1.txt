@@ -841,13 +841,17 @@ int CAlgorithmModule::SetParam(IN const char* szParamName, IN const char* pData,
 	}
 
 	else if (0 == strcmp("ModelFilePath", szParamName)) {
-		if (m_chModelFilePath != NULL) {
+		/*if (m_chModelFilePath != NULL) {
 			free(m_chModelFilePath);
 			m_chModelFilePath = NULL;
 		}
 		std::string gbkPath = UTF8ToGBK((const char*)pData);
-		m_chModelFilePath = _strdup(gbkPath.c_str());
+		m_chModelFilePath = _strdup(gbkPath.c_str());*/
 
+
+		m_chModelFilePath = (char*)malloc(MAX_FILE_PATH);//申请内存
+		memset(m_chModelFilePath, 0, sizeof(m_chModelFilePath));//初始化
+		memcpy_s(m_chModelFilePath, MAX_FILE_PATH, pData, strlen(pData));
 
 		//dnn版本加载模型
 		//if (detector.loadModel(gbkPath)) {
