@@ -1,5 +1,11 @@
-﻿using AVS_Service;
+﻿#define IsDebug       
+
+using AVS_Common;
+using AVS_Service;
+using Newtonsoft.Json.Linq;
+using Prism.Events;
 using Serilog;
+using System.ComponentModel;
 
 
 namespace AVS_Core.Services
@@ -16,21 +22,33 @@ namespace AVS_Core.Services
         /// 记录后台初始化任务，确保在应用关闭时可以等待其完成或安全取消
         /// </summary>
         private Task _backgroundInitializationTask;
-        private readonly IWorkflowService _workflowService;
+        private readonly IEventAggregator _eventAggregator;
+        //private readonly IWorkflowService _workflowService;
+        private readonly IStationSessionService _sessionService;
+        private readonly IPlcMessageRouter _messageRouter;
+        private readonly IVisionService _visionService;
         private readonly ICommunicationService _communicationService;
         private readonly IParametersConfigService _parametersConfigService;
         private readonly ICameraConfigService _cameraConfigService;
         private readonly ILogger _logger;
 
         public ApplicationStartupService(
+            IPlcMessageRouter messageRouter,
            ILogger logger,
+           IEventAggregator eventAggregator,
+            IStationSessionService sessionService,
+            IVisionService visionService,
            ICommunicationService communicationService,
-           IWorkflowService workflowService,
+           //IWorkflowService workflowService,
            IParametersConfigService parametersConfigService,
            ICameraConfigService cameraConfigService)
         {
             _logger = logger;
-            _workflowService = workflowService;
+            _eventAggregator = eventAggregator;
+            //_workflowService = workflowService;
+            _sessionService = sessionService;
+            _visionService = visionService;
+            _messageRouter = messageRouter;
             _parametersConfigService = parametersConfigService;
             _communicationService = communicationService;
             _cameraConfigService = cameraConfigService;
@@ -44,6 +62,14 @@ namespace AVS_Core.Services
             {
                 //加载通讯服务
                 await InitializeCommunicationAsync();
+
+#if !IsDebug
+                await _visionService.InitializeAsync("A");
+                await _visionService.InitializeAsync("B");
+
+#endif
+
+                _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageCaptured);
                 _backgroundInitializationTask = Task.Run(async () =>
                 {
                     try
@@ -66,6 +92,29 @@ namespace AVS_Core.Services
 
         }
 
+        private void OnImageCaptured(CameraImagePayload payload)
+        {
+            // 根据相机逻辑角色确定工位ID
+            var camSetting = _cameraConfigService.AllSettings
+                .FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
+
+            string stationId = camSetting?.CameraRole switch
+            {
+                "cam2d" => "A",
+                "cam3d" => "B",
+                _ => null
+            };
+
+            if (stationId != null)
+            {
+                _sessionService.EnqueueImage(stationId, payload.Image);
+            }
+            else
+            {
+                _logger.Warning("Unknown camera role for SN {SN}, image discarded", payload.CameraSN);
+            }
+        }
+
         private async Task InitializeCommunicationAsync()
         {
             _logger.Debug("初始化通讯服务");
@@ -78,7 +127,8 @@ namespace AVS_Core.Services
                     _logger.Information("接收来自 {Sender} 的消息: {Message}", sender, message);
                     try
                     {
-                        await _workflowService.ProcessPlcTriggerAsync(message);
+                        //await _workflowService.ProcessPlcTriggerAsync(message);
+                        await _messageRouter.HandleMessageAsync(message);
                     }
                     catch (Exception ex)
                     {

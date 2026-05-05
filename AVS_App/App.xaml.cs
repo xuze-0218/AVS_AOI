@@ -30,11 +30,14 @@ namespace AVS_App
         {
             containerRegistry.RegisterForNavigation<InspectionView>();
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
+            containerRegistry.RegisterSingleton<IVisionService, VisionService>();
+            containerRegistry.RegisterSingleton<IStationSessionService, StationSessionService>();
+            containerRegistry.RegisterSingleton<IPlcMessageRouter, PlcMessageRouter>();
             containerRegistry.RegisterSingleton<IParametersConfigService, ParametersConfigService>();
             containerRegistry.RegisterSingleton<IProtocolConfigRepository,ProtocolConfigRepository>();
             containerRegistry.RegisterSingleton<IProtocolEngineService, ProtocolEngineService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
-            containerRegistry.RegisterSingleton<IWorkflowService, WorkflowService>();
+            //containerRegistry.RegisterSingleton<IWorkflowService, WorkflowService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()
@@ -76,7 +79,8 @@ namespace AVS_App
             try
             {
                 var startupService = Container.Resolve<IApplicationStartupService>();
-                startupService.ShutdownAsync().Wait();
+                //startupService.ShutdownAsync().Wait();
+                startupService.ShutdownAsync();
             }
             catch (Exception ex)
             {
