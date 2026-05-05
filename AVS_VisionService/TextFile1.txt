@@ -31,6 +31,7 @@ CAlgorithmModule::CAlgorithmModule()
 	m_fAreaTolerance = 0.2f;
 	m_chModelFilePath = NULL;
 	m_pImageData = NULL;
+	m_bRefreshFileEnable = false;
 	pInputPatternImageObj = nullptr;
 	memset(&RoiBox, 0, sizeof(IMVS_ROI_BOX));
 	memset(&PointSet, 0, sizeof(IMVS_POLYGON));
@@ -212,7 +213,7 @@ int CAlgorithmModule::Init()
 int CAlgorithmModule::Process(IN void* hInput, IN void* hOutput, IN MVDSDK_BASE_MODU_INPUT* modu_input)
 {
 	OutputDebugStringA("###Call CAlgorithmModule::Proces -->begin\n");
-	
+
 	int nErrCode = 0;
 
 
@@ -224,12 +225,16 @@ int CAlgorithmModule::Process(IN void* hInput, IN void* hOutput, IN MVDSDK_BASE_
 	detector.config.contrast_clip = m_fContrastClip;
 	detector.config.area_tolerance = m_fAreaTolerance;
 
-
+	if (m_bRefreshFileEnable)
+	{
+		string m_calibPathName = m_chModelFilePath;
+		SetParam("ModelFilePath", m_calibPathName.c_str(), m_calibPathName.length());
+	}
 	HKA_IMAGE inputImage = GenerateImage(modu_input);
 	ImageData = inputImage;
 
 	Mat image = HKAImageToMat(inputImage);
-	Mat processImage =image.clone();
+	Mat processImage = image.clone();
 	int offsetX = 0;
 	int offsetY = 0;
 
@@ -418,8 +423,8 @@ int CAlgorithmModule::Process(IN void* hInput, IN void* hOutput, IN MVDSDK_BASE_
 					VM_M_SetFloat(hOutput, "DetectWidth", index, res.box.width);
 					VM_M_SetFloat(hOutput, "DetectHeight", index, res.box.height);
 					VM_M_SetFloat(hOutput, "DetectAngle", index,0);*/
-				VM_M_SetFloat(hOutput, "DetectCenterX", index, res.box.center.x+ offsetX);
-				VM_M_SetFloat(hOutput, "DetectCenterY", index, res.box.center.y+ offsetY);
+				VM_M_SetFloat(hOutput, "DetectCenterX", index, res.box.center.x + offsetX);
+				VM_M_SetFloat(hOutput, "DetectCenterY", index, res.box.center.y + offsetY);
 				VM_M_SetFloat(hOutput, "DetectWidth", index, res.box.size.width);
 				VM_M_SetFloat(hOutput, "DetectHeight", index, res.box.size.height);
 				VM_M_SetFloat(hOutput, "DetectAngle", index, res.box.angle);
@@ -602,15 +607,39 @@ int CAlgorithmModule::GetParam(IN const char* szParamName, OUT char* pBuff, IN i
 	}
 
 	else if (0 == strcmp("ModelFilePath", szParamName)) {
-		if (m_chModelFilePath != NULL) {
+		/*if (m_chModelFilePath != NULL) {
 			std::string utf8Path = GBKToUTF8(m_chModelFilePath);
 			strcpy(pBuff, utf8Path.c_str());
-			sprintf_s(pBuff, MAX_PATH, "%s", m_chModelFilePath);
 		}
 		else {
 			sprintf_s(pBuff, MAX_PATH, "");
 		}
-		return 0;
+		return 0;*/
+
+		if (m_chModelFilePath != NULL) {
+			std::string utf8Path = GBKToUTF8(m_chModelFilePath);
+			// 使用安全的拷贝方式，并确保不超过缓冲区
+			strncpy_s(pBuff, nBuffSize, utf8Path.c_str(), _TRUNCATE);
+			// 关键：必须设置数据长度，框架才能正确读取并保存
+			*pDataLen = (int)utf8Path.length() + 1;
+		}
+		else {
+			strcpy_s(pBuff, nBuffSize, "");
+			*pDataLen = 1;
+		}
+		return 0; // 返回 IMVS_EC_OK
+	}
+
+	else if (0 == strcmp("RefreshEnable", szParamName))
+	{
+		if (m_bRefreshFileEnable)
+		{
+			sprintf_s(pBuff, nBuffSize, "%s", "True");
+		}
+		else
+		{
+			sprintf_s(pBuff, nBuffSize, "%s", "False");
+		}
 	}
 
 	else if (0 == strcmp("MaxTargets", szParamName))
@@ -840,6 +869,17 @@ int CAlgorithmModule::SetParam(IN const char* szParamName, IN const char* pData,
 
 	}
 
+	else if (0 == strcmp("RefreshEnable", szParamName))
+	{
+		if (0 == strncmp(pData, "True", strlen("True")))
+		{
+			m_bRefreshFileEnable = true;
+		}
+		else
+		{
+			m_bRefreshFileEnable = false;
+		}
+	}
 
 	else if (0 == strcmp("AreaTolerance", szParamName))
 	{
