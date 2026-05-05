@@ -152,7 +152,6 @@ namespace AVS_Core.Services
                     {
 
                         // resultStr = await _visionService.ExecuteAsync(grabImage, stepCode);
-
                         // 模拟处理耗时
                         await Task.Delay(100);
                         resultStr = "22"; // 模拟OK

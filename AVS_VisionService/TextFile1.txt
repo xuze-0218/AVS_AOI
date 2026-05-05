@@ -1,0 +1,935 @@
+﻿#include "stdafx.h"
+#include "AlgorithmModule.h"
+#include <stdlib.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <filesystem>
+#include "ErrorCodeDefine.h"
+#include "iMVS-6000PixelFormatDefine.h"
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include<windows.h>
+#include <onnxruntime_cxx_api.h>
+#include<memory>
+
+
+using namespace std;
+using namespace cv;
+
+int nErrCode = IMVS_EC_UNKNOWN;
+char* pSharedName = NULL;
+std::string template_path = "C:\\Program Files\\VisionMaster4.3.0\\Applications\\TemplateModel.jpg";
+CAlgorithmModule::CAlgorithmModule()
+{
+	m_fMinScore = 0.5;
+	m_nMaxTargets = 1;
+	m_nAngleStart = 0;
+	m_nAngleEnd = 180;
+	m_nAngleStep = 10;
+	m_fContrastClip = 3.0f;
+	m_fAreaTolerance = 0.2f;
+	m_chModelFilePath = NULL;
+	m_pImageData = NULL;
+	pInputPatternImageObj = nullptr;
+	memset(&RoiBox, 0, sizeof(IMVS_ROI_BOX));
+	memset(&PointSet, 0, sizeof(IMVS_POLYGON));
+}
+
+CAlgorithmModule::~CAlgorithmModule()
+{
+	if (m_chModelFilePath != NULL) {
+		free(m_chModelFilePath);
+		m_chModelFilePath = NULL;
+	}
+	if (m_pImageData != NULL) {
+		free(m_pImageData);
+		m_pImageData = NULL;
+	}
+}
+
+std::string CAlgorithmModule::GBKToUTF8(const char* gbkStr) {
+	if (!gbkStr) return "";
+	int len = MultiByteToWideChar(CP_ACP, 0, gbkStr, -1, NULL, 0);
+	wchar_t* wstr = new wchar_t[len + 1];
+	memset(wstr, 0, sizeof(wchar_t) * (len + 1));
+	MultiByteToWideChar(CP_ACP, 0, gbkStr, -1, wstr, len);
+
+	len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+	char* utf8Str = new char[len + 1];
+	memset(utf8Str, 0, len + 1);
+	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, utf8Str, len, NULL, NULL);
+
+	std::string result(utf8Str);
+	delete[] wstr;
+	delete[] utf8Str;
+	return result;
+}
+
+std::string CAlgorithmModule::UTF8ToGBK(const std::string& utf8Str) {
+	if (utf8Str.empty()) return "";
+	int len = MultiByteToWideChar(CP_UTF8, 0, utf8Str.c_str(), -1, NULL, 0);
+	wchar_t* wstr = new wchar_t[len + 1];
+	memset(wstr, 0, sizeof(wchar_t) * (len + 1));
+	MultiByteToWideChar(CP_UTF8, 0, utf8Str.c_str(), -1, wstr, len);
+
+	len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+	char* gbkStr = new char[len + 1];
+	memset(gbkStr, 0, len + 1);
+	WideCharToMultiByte(CP_ACP, 0, wstr, -1, gbkStr, len, NULL, NULL);
+
+	std::string result(gbkStr);
+	delete[] wstr;
+	delete[] gbkStr;
+	return result;
+}
+
+std::string find_template_path() {
+	std::string directory = "C:\\Program Files\\VisionMaster4.3.0\\Applications\\";
+	std::string target_prefix = "TemplateModel";
+	// 支持的后缀
+	std::vector<std::string> exts = { ".jpg", ".png", ".bmp", ".jpeg" };
+
+	for (const auto& ext : exts) {
+		std::string full_pattern = directory + target_prefix + ext;
+
+		DWORD dwAttrib = GetFileAttributesA(full_pattern.c_str());
+		if (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) {
+			return full_pattern;
+		}
+	}
+	return "";
+}
+
+HKA_IMAGE CAlgorithmModule::GenerateImage(MVDSDK_BASE_MODU_INPUT* modu_input)
+{
+
+	HKA_IMAGE inputimage;
+	int nLen;
+	if (modu_input->pImageInObj->GetPixelFormat() == MVD_PIXEL_MONO_08)
+	{
+		inputimage = { HKA_IMG_MONO_08 ,0 };
+		inputimage.width = modu_input->pImageInObj->GetWidth();
+		inputimage.height = modu_input->pImageInObj->GetHeight();
+		inputimage.step[0] = inputimage.width;
+		nLen = inputimage.height * inputimage.width;
+	}
+	else
+	{
+		inputimage = { HKA_IMG_RGB_RGB24_C3,0 };
+		inputimage.width = modu_input->pImageInObj->GetWidth();
+		inputimage.height = modu_input->pImageInObj->GetHeight();
+		inputimage.step[0] = inputimage.width * 3;
+		nLen = inputimage.height * inputimage.width * 3;
+	}
+
+
+	nErrCode = AllocateSharedMemory(m_nModuleId, nLen, (char**)(&inputimage.data), &pSharedName);
+	if (inputimage.data[0] != NULL && IMVS_EC_OK == nErrCode)
+	{
+
+		memset(inputimage.data[0], 0, nLen);
+		memcpy_s(inputimage.data[0], nLen, modu_input->pImageInObj->GetImageData(0)->pData, modu_input->pImageInObj->GetImageData(0)->nSize);
+	}
+
+	return inputimage;
+
+}
+
+Mat CAlgorithmModule::HKAImageToMat(HKA_IMAGE hik_image)
+{
+	Mat mat;
+	if (hik_image.format == HKA_IMG_MONO_08)
+	{
+		mat = Mat(hik_image.height, hik_image.width, CV_8UC1, hik_image.data[0]);
+		int a = mat.cols;
+	}
+	else if (hik_image.format == HKA_IMG_RGB_RGB24_C3)
+	{
+		mat = Mat(hik_image.height, hik_image.width, CV_8UC3, hik_image.data[0]);
+	}
+	return mat;
+}
+
+HKA_IMAGE CAlgorithmModule::MatToHKAImage(Mat mat)
+{
+	HKA_IMAGE image;
+	if (mat.channels() == 1)
+	{
+		image = { HKA_IMG_MONO_08, 0 };
+		image.width = mat.cols;
+		image.height = mat.rows;
+		image.format = HKA_IMG_MONO_08;
+		image.step[0] = mat.cols;
+		image.data[0] = mat.data;
+	}
+	else if (mat.channels() == 3)
+	{
+		image = { HKA_IMG_RGB_RGB24_C3, 0 };
+		image.width = mat.cols;
+		image.height = mat.rows;
+		image.format = HKA_IMG_RGB_RGB24_C3;
+		image.step[0] = 3 * mat.cols;
+		image.data[0] = mat.data;
+	}
+	return image;
+}
+
+int CAlgorithmModule::Init()
+{
+
+	int nRet = VM_M_GetModuleId(m_hModule, &m_nModuleId);
+	if (IMVS_EC_OK != nRet)
+	{
+		m_nModuleId = -1;
+		return nRet;
+	}
+
+	nRet = ResetDefaultParam();
+	if (nRet != IMVS_EC_OK)
+	{
+		OutputDebugStringA("###Call ResetDefaultParam failed.");
+	}
+
+	PARAM_VALUE_INFO_LIST stList = { 0 };
+
+	nRet = VM_M_GetDefaultConfigByFile(m_hModule, UNICODEtoUTF8(VmModule_GetXmlPath().GetBuffer()), &stList);
+
+
+	if (nRet == IMVS_EC_OK)
+	{
+		for (int i = 0; i < stList.nNum; i++)
+		{
+			SetParam(stList.paramValueList[i].byParamName, stList.paramValueList[i].byParamValue, strlen(stList.paramValueList[i].byParamValue));
+		}
+	}
+
+
+
+	return nRet;
+}
+
+int CAlgorithmModule::Process(IN void* hInput, IN void* hOutput, IN MVDSDK_BASE_MODU_INPUT* modu_input)
+{
+	OutputDebugStringA("###Call CAlgorithmModule::Proces -->begin\n");
+	
+	int nErrCode = 0;
+
+
+	detector.config.min_score = m_fMinScore;
+	detector.config.max_targets = m_nMaxTargets;
+	detector.config.angle_start = m_nAngleStart;
+	detector.config.angle_end = m_nAngleEnd;
+	detector.config.angle_step = m_nAngleStep;
+	detector.config.contrast_clip = m_fContrastClip;
+	detector.config.area_tolerance = m_fAreaTolerance;
+
+
+	HKA_IMAGE inputImage = GenerateImage(modu_input);
+	ImageData = inputImage;
+
+	Mat image = HKAImageToMat(inputImage);
+	Mat processImage =image.clone();
+	int offsetX = 0;
+	int offsetY = 0;
+
+	if (modu_input->nROIInputStatus != IMVS_ROI_FROM_ERROR &&
+		!modu_input->vtFixRoiShapeObj.empty())
+	{
+		IMvdShape* pRoiShape = modu_input->vtFixRoiShapeObj[0];
+
+		if (pRoiShape != nullptr)
+		{
+			MVD_SHAPE_TYPE shapeType = pRoiShape->GetShapeType();
+
+			switch (shapeType)
+			{
+			case MvdShapeRectangle:
+			{
+
+				IMvdRectangleF* pRect = (IMvdRectangleF*)pRoiShape;
+
+				float centerX = pRect->GetCenterX();
+				float centerY = pRect->GetCenterY();
+				float width = pRect->GetWidth();
+				float height = pRect->GetHeight();
+				float angle = pRect->GetAngle();
+
+				// 转换为裁剪区域
+				int x = static_cast<int>(centerX - width / 2.0f);
+				int y = static_cast<int>(centerY - height / 2.0f);
+				int roiWidth = static_cast<int>(width);
+				int roiHeight = static_cast<int>(height);
+
+				// 验证边界
+				cv::Rect imgRect(0, 0, image.cols, image.rows);
+				cv::Rect roiRect(x, y, roiWidth, roiHeight);
+				cv::Rect intersect = roiRect & imgRect;
+
+				if (intersect.width > 0 && intersect.height > 0)
+				{
+					processImage = image(intersect).clone();
+					offsetX = intersect.x;
+					offsetY = intersect.y;
+					MLOG_INFO(m_nModuleId,
+						"Rectangle ROI: centerX=%f, centerY=%f, width=%f, height=%f, angle=%f",
+						centerX, centerY, width, height, angle);
+				}
+				break;
+			}
+
+			case MvdShapeAnnularSector:
+			{
+				IMvdAnnularSectorF* pAnnulus = (IMvdAnnularSectorF*)pRoiShape;
+
+				float centerX = pAnnulus->GetCenter().fX;
+				float centerY = pAnnulus->GetCenter().fY;
+				float innerRadius = pAnnulus->GetInnerRadius();
+				float outerRadius = pAnnulus->GetOuterRadius();
+				float startAngle = pAnnulus->GetStartAngle();
+				float angleRange = pAnnulus->GetAngleRange();
+
+				MLOG_INFO(m_nModuleId,
+					"Annulus ROI: centerX=%f, centerY=%f, inner=%f, outer=%f, angle=%f~%f",
+					centerX, centerY, innerRadius, outerRadius, startAngle, angleRange);
+				cv::Mat mask = cv::Mat::zeros(image.size(), CV_8UC1);
+				cv::Point center(static_cast<int>(centerX), static_cast<int>(centerY));
+				float endAngle = startAngle + angleRange;
+
+				//绘制外扇形
+				cv::ellipse(mask, center, cv::Size(static_cast<int>(outerRadius), static_cast<int>(outerRadius)),
+					0, startAngle, endAngle, cv::Scalar(255), -1);
+
+				// 抠除内圆部分
+				if (innerRadius > 0)
+				{
+					cv::ellipse(mask, center, cv::Size(static_cast<int>(innerRadius), static_cast<int>(innerRadius)),
+						0, startAngle, endAngle, cv::Scalar(0), -1);
+				}
+
+				//获取掩膜的外接矩形
+				cv::Rect boundingRect = cv::boundingRect(mask);
+				cv::Rect imgRect(0, 0, image.cols, image.rows);
+				cv::Rect intersect = boundingRect & imgRect;
+
+				if (intersect.width > 0 && intersect.height > 0)
+				{
+					//提取并应用掩膜
+					processImage = cv::Mat::zeros(intersect.size(), image.type());
+					image(intersect).copyTo(processImage, mask(intersect));
+
+					offsetX = intersect.x;
+					offsetY = intersect.y;
+				}
+				break;
+			}
+
+			case MvdShapePolygon:
+			{
+				IMvdPolygonF* pPoly = (IMvdPolygonF*)pRoiShape;
+				int vertexNum = pPoly->GetVertexNum();
+
+				std::vector<cv::Point> polygonPoints;
+				for (int i = 0; i < vertexNum; i++)
+				{
+					float x, y;
+					pPoly->GetVertex(i, x, y);
+					polygonPoints.push_back(cv::Point2f(x, y));
+
+					MLOG_INFO(m_nModuleId, "Polygon vertex %d: x=%f, y=%f", i, x, y);
+				}
+				if (polygonPoints.size() >= 3) // 至少3个点构成多边形
+				{
+					// 获取外接矩形并验证边界
+					cv::Rect boundingRect = cv::boundingRect(polygonPoints);
+					cv::Rect imgRect(0, 0, image.cols, image.rows);
+					cv::Rect intersect = boundingRect & imgRect;
+
+					if (intersect.width > 0 && intersect.height > 0)
+					{
+						//创建掩膜并填充
+						cv::Mat mask = cv::Mat::zeros(image.size(), CV_8UC1);
+						cv::fillPoly(mask, std::vector<std::vector<cv::Point>>{polygonPoints}, cv::Scalar(255));
+
+						//应用掩膜
+						processImage = cv::Mat::zeros(intersect.size(), image.type());
+						image(intersect).copyTo(processImage, mask(intersect));
+
+						offsetX = intersect.x;
+						offsetY = intersect.y;
+					}
+				}
+				else
+				{
+					MLOG_WARN(m_nModuleId, "Polygon vertices less than 3, cannot create ROI.");
+				}
+				break;
+			}
+
+			default:
+				MLOG_WARN(m_nModuleId, "Unsupported ROI shape type: %d", shapeType);
+				break;
+			}
+		}
+	}
+	//ToDo Code...............
+	/************************************************/
+	//算法处理
+	OutputDebugStringA("###Call CAlgorithmModule::Proces --> do algorighm process\n");
+
+	/************************************************/
+	try {
+
+
+		std::cout << "Starting detection..." << std::endl;
+		cv::TickMeter tm;
+		tm.start();
+
+		//dnn版本   模板匹配 + 深度特征比对
+		//std::vector<DetectionResult> results = detector.detect(image);
+
+		//ort版本  onnxruntime
+		//std::vector<DetectionResult> results = detector.detect_ort(image);
+
+		//obb版本
+		std::vector<DetectionResultObb> results = detector.detect_obb(processImage);
+
+		tm.stop();
+
+		//cv::Mat scene_img = cv::imread(scene_path);
+		if (image.empty()) {
+			std::cerr << "Could not load scene image for visualization!" << std::endl;
+			return -1;
+		}
+
+		if (results.empty()) {
+			std::cout << "No targets found above the threshold." << std::endl;
+		}
+		else {
+			int index = 0;
+			for (const auto& res : results) {
+				/*std::cout << "Found target at: [" << res.box.x << ", " << res.box.y
+					<< ", " << res.box.width << ", " << res.box.height << "]"
+					<< " Score: " << std::fixed << std::setprecision(3) << res.score << std::endl;*/
+
+
+					/*VM_M_SetFloat(hOutput, "DetectCenterX", index, res.box.x + res.box.width / 2);
+					VM_M_SetFloat(hOutput, "DetectCenterY", index, res.box.y + res.box.height / 2);
+					VM_M_SetFloat(hOutput, "DetectWidth", index, res.box.width);
+					VM_M_SetFloat(hOutput, "DetectHeight", index, res.box.height);
+					VM_M_SetFloat(hOutput, "DetectAngle", index,0);*/
+				VM_M_SetFloat(hOutput, "DetectCenterX", index, res.box.center.x+ offsetX);
+				VM_M_SetFloat(hOutput, "DetectCenterY", index, res.box.center.y+ offsetY);
+				VM_M_SetFloat(hOutput, "DetectWidth", index, res.box.size.width);
+				VM_M_SetFloat(hOutput, "DetectHeight", index, res.box.size.height);
+				VM_M_SetFloat(hOutput, "DetectAngle", index, res.box.angle);
+				index++;
+				//
+				//cv::rectangle(image, res.box, cv::Scalar(0, 0, 255), 3);
+				//std::string label = "Score: " + std::to_string(res.score).substr(0, 5);
+				//cv::putText(image, label, cv::Point(res.box.x, res.box.y - 10),
+				//	cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 0), 2);
+			}
+
+
+			HKA_IMAGE outputImage = MatToHKAImage(image);
+
+			int outputSize = image.rows * image.cols * image.channels();
+			nErrCode = AllocateSharedMemory(m_nModuleId, outputSize,
+				(char**)(&outputImage.data), &pSharedName);
+
+			if (nErrCode == IMVS_EC_OK && outputImage.data != NULL)
+			{
+				memcpy_s(outputImage.data[0], outputSize, image.data, outputSize);
+				if (modu_input->pImageInObj->GetPixelFormat() == MVD_PIXEL_MONO_08)
+				{
+					VmModule_OutputImageByName_8u_C1R(hOutput, 1, "OutImage", "OutImageWidth",
+						"OutImageHeight", "OutImagePixelFormat", &outputImage, 0, pSharedName);
+				}
+				else if (modu_input->pImageInObj->GetPixelFormat() == MVD_PIXEL_RGB_RGB24_C3)
+				{
+					VmModule_OutputImageByName_8u_C3R(hOutput, 1, "OutImage", "OutImageWidth",
+						"OutImageHeight", "OutImagePixelFormat", &outputImage, 0, pSharedName);
+				}
+			}
+			VM_M_SetInt(hOutput, "ModuStatus", 0, nErrCode == 0 ? 1 : nErrCode);
+			if (nErrCode != IMVS_EC_OK)
+			{
+				return IMVS_EC_PARAM;
+			}
+		}
+	}
+	catch (const cv::Exception& e) {
+		std::cerr << "OpenCV Error: " << e.what() << std::endl;
+	}
+	catch (const std::exception& e) {
+		std::cerr << "Standard Error: " << e.what() << std::endl;
+	}
+	// 输出结果
+		/************************************************/
+		//ToDo Code...............
+		//输出图像(渲染控件只能显示共享内存中的图像数据)
+			//char* pSharedName = NULL;
+			//HKA_IMAGE stImage;
+			//stImage.height = heightValue;
+			//stImage.width = widthValue;
+			//stImage.step[0] = widthValue;
+			//int nRet = AllocateSharedMemory(m_nModuleId, stImage.height*stImage.width, (char**)(&stImage.data), &pSharedName);
+			//if (nRet == IMVS_EC_OK && stImage.data != NULL)
+			//{
+			//    memcpy_s(......);
+			//    VmModule_OutputImageByName_8u_C1R(hOutput, 
+			//		  status, 
+			//		  OUTIMAGE, 
+			//		  OUTIMAGEWIDTH, 
+			//		  OUTIMAGEHEIGHT, 
+			//		  OUTIMAGEPIXELFORMAT, 
+			//		  &stImage, 
+			//		  0, 
+			//		  pSharedName);
+			//}
+
+
+		/************************************************/
+
+	if (nErrCode != IMVS_EC_OK)
+	{
+		return IMVS_EC_PARAM;
+	}
+
+	/************************************************/
+	//默认算法时间20ms，根据实际时间计算
+	MODULE_RUNTIME_INFO struRunInfo = { 0 };
+	struRunInfo.fAlgorithmTime = 20;
+	VM_M_SetModuleRuntimeInfo(m_hModule, &struRunInfo);
+
+	OutputDebugStringA("###Call CAlgorithmModule::Proces end\n");
+
+	return IMVS_EC_OK;
+}
+
+int CAlgorithmModule::GetParam(IN const char* szParamName, OUT char* pBuff, IN int nBuffSize, OUT int* pDataLen)
+{
+	OutputDebugStringA("###Call CAlgorithmModule::GetParam");
+
+	int nMsgLen = 0;
+	int nErrCode = IMVS_EC_OK;
+	if (szParamName == NULL || strlen(szParamName) == 0 || pBuff == NULL || nBuffSize <= 0 || pDataLen == NULL)
+	{
+		return IMVS_EC_PARAM;
+	}
+	else if (0 == strcmp("GetRoiData", szParamName))
+	{
+		*pDataLen = sizeof(IMVS_ROI_BOX);
+		memcpy_s(pBuff, sizeof(IMVS_ROI_BOX), &RoiBox, sizeof(IMVS_ROI_BOX));
+
+	}
+
+	else if (0 == strcmp("GetPointSet", szParamName))
+	{
+		*pDataLen = sizeof(IMVS_POLYGON);
+		if (nBuffSize < sizeof(IMVS_POLYGON))
+		{
+			return IMVS_EC_PARAM_BUF_LEN;
+		}
+		memcpy_s(pBuff, sizeof(IMVS_POLYGON), &PointSet, sizeof(IMVS_POLYGON));
+	}
+
+	else if (0 == strcmp("GetImageWidth", szParamName))
+	{
+
+		sprintf_s(pBuff, nBuffSize, "%d", ImageData.width);
+		*pDataLen = strlen(pBuff) + 1;
+
+	}
+
+	else if (0 == strcmp("GetImageHeight", szParamName))
+	{
+		sprintf_s(pBuff, nBuffSize, "%d", ImageData.height);
+		*pDataLen = strlen(pBuff) + 1;
+	}
+
+	else if (0 == strcmp("GetPixelFormat", szParamName))
+	{
+		const char* pixelFormatStr = "";
+
+		switch (ImageData.format)
+		{
+		case HKA_IMG_MONO_08:
+			pixelFormatStr = "Mono8";
+			break;
+		case HKA_IMG_MONO_12:
+			pixelFormatStr = "Mono12";
+			break;
+		case HKA_IMG_MONO_16:
+			pixelFormatStr = "Mono16";
+			break;
+		case HKA_IMG_RGB_RGB24_C3:
+			pixelFormatStr = "RGB24";
+			break;
+		default:
+			pixelFormatStr = "Unknown";
+			break;
+		}
+		sprintf_s(pBuff, nBuffSize, "%s", pixelFormatStr);
+		*pDataLen = strlen(pBuff) + 1;
+
+		char logMsg[256];
+		sprintf_s(logMsg, "GetPixelFormat: 格式=%s (枚举值=%d)",
+			pixelFormatStr, ImageData.format);
+	}
+
+	else if (0 == strcmp("GetImageData", szParamName))
+	{
+		int channelCount = 1; // 默认单通道
+		if (ImageData.format == MVD_PIXEL_FORMAT::MVD_PIXEL_RGB_RGB24_C3 ||
+			ImageData.format == MVD_PIXEL_FORMAT::MVD_PIXEL_BGR_BGR24_C3)
+		{
+			channelCount = 3;
+		}
+		int Len = ImageData.width * ImageData.height * channelCount;
+		*pDataLen = Len;
+		if (nBuffSize < Len)
+		{
+			return IMVS_EC_PARAM_BUF_LEN;
+		}
+		memcpy_s(pBuff, Len, ImageData.data[0], Len);
+	}
+
+	else if (0 == strcmp("MinScore", szParamName))
+	{
+		sprintf_s(pBuff, nBuffSize, "%f", m_fMinScore);
+	}
+
+	else if (0 == strcmp("ModelFilePath", szParamName)) {
+		if (m_chModelFilePath != NULL) {
+			std::string utf8Path = GBKToUTF8(m_chModelFilePath);
+			strcpy(pBuff, utf8Path.c_str());
+			sprintf_s(pBuff, MAX_PATH, "%s", m_chModelFilePath);
+		}
+		else {
+			sprintf_s(pBuff, MAX_PATH, "");
+		}
+		return 0;
+	}
+
+	else if (0 == strcmp("MaxTargets", szParamName))
+	{
+		sprintf_s(pBuff, nBuffSize, "%d", m_nMaxTargets);
+	}
+	else if (0 == strcmp("AngleStart", szParamName))
+	{
+		sprintf_s(pBuff, nBuffSize, "%d", m_nAngleStart);
+	}
+	else if (0 == strcmp("AngleEnd", szParamName))
+	{
+		sprintf_s(pBuff, nBuffSize, "%d", m_nAngleEnd);
+	}
+	else if (0 == strcmp("AngleStep", szParamName))
+	{
+		sprintf_s(pBuff, nBuffSize, "%d", m_nAngleStep);
+	}
+	else if (0 == strcmp("ContrastClip", szParamName))
+	{
+		sprintf_s(pBuff, nBuffSize, "%f", m_fContrastClip);
+	}
+	else if (0 == strcmp("AreaTolerance", szParamName))
+	{
+
+		sprintf_s(pBuff, nBuffSize, "%f", m_fAreaTolerance);
+	}
+
+	else
+	{
+		return CVmAlgModuleBase::GetParam(szParamName, pBuff, nBuffSize, pDataLen);
+	}
+	//if(0 == strcmp(szParamName, "paramA"))
+	//{
+	//	  sprintf(pBuff, nBuffSize, "", ..);
+	//}
+
+	return nErrCode;
+}
+
+int CAlgorithmModule::SetParam(IN const char* szParamName, IN const char* pData, IN int nDataLen)
+{
+	OutputDebugStringA("###Call CAlgorithmModule::SetParam");
+
+	int nErrCode = IMVS_EC_OK;
+	if (szParamName == NULL || strlen(szParamName) == 0 /*|| pData == NULL || nDataLen == 0*/)
+	{
+		return IMVS_EC_PARAM;
+	}
+	if (0 == strcmp("MinScore", szParamName))
+	{
+		sscanf_s(pData, "%f", &m_fMinScore);
+	}
+	else if (0 == strcmp("MaxTargets", szParamName))
+	{
+		sscanf_s(pData, "%d", &m_nMaxTargets);
+	}
+	else if (0 == strcmp("AngleStart", szParamName))
+	{
+		sscanf_s(pData, "%d", &m_nAngleStart);
+	}
+	else if (0 == strcmp("AngleEnd", szParamName))
+	{
+		sscanf_s(pData, "%d", &m_nAngleEnd);
+	}
+	else if (0 == strcmp("AngleStep", szParamName))
+	{
+		sscanf_s(pData, "%d", &m_nAngleStep);
+	}
+	else if (0 == strcmp("ContrastClip", szParamName))
+	{
+		sscanf_s(pData, "%f", &m_fContrastClip);
+	}
+	else if (0 == strcmp("SetImageData", szParamName))
+	{
+		int channelCount = 1; // 默认单通道
+		if (ImageData.format == MVD_PIXEL_FORMAT::MVD_PIXEL_RGB_RGB24_C3 ||
+			ImageData.format == MVD_PIXEL_FORMAT::MVD_PIXEL_BGR_BGR24_C3)
+		{
+			channelCount = 3;
+		}
+		if (m_pImageData != NULL)
+		{
+			free(m_pImageData);
+			m_pImageData = NULL;
+		}
+		int imageSize = ImageData.width * ImageData.height * channelCount;
+		if (nDataLen < imageSize)
+		{
+			return IMVS_EC_PARAM_BUF_LEN;
+		}
+		m_pImageData = (char*)malloc(imageSize);
+		ImageData.data[0] = m_pImageData;
+		memcpy_s(ImageData.data[0], imageSize, pData, imageSize);
+		return IMVS_EC_OK;
+
+	}
+	/*else if (0 == strcmp("SetImageWidth", szParamName))
+	{
+		if (nDataLen < sizeof(int))
+		{
+			return IMVS_EC_PARAM_BUF_LEN;
+		}
+		memcpy_s(&ImageData.width, sizeof(int), pData, sizeof(int));
+		return IMVS_EC_OK;
+	}
+	else if (0 == strcmp("SetImageHeight", szParamName))
+	{
+		if (nDataLen < sizeof(int))
+		{
+			return IMVS_EC_PARAM_BUF_LEN;
+		}
+		memcpy_s(&ImageData.height, sizeof(int), pData, sizeof(int));
+		return IMVS_EC_OK;
+	}*/
+
+	else if (0 == strcmp("SetImageWidth", szParamName))
+	{
+		// 【错误写法】不要用 memcpy，因为 C# 传过来的是 string
+		// if (nDataLen < sizeof(int)) return IMVS_EC_PARAM_BUF_LEN;
+		// memcpy_s(&ImageData.width, sizeof(int), pData, sizeof(int)); 
+
+		int width = 0;
+		if (sscanf_s(pData, "%d", &width) == 1)
+		{
+			ImageData.width = width;
+			if (ImageData.format == HKA_IMG_MONO_08)
+				ImageData.step[0] = width;
+			else
+				ImageData.step[0] = width * 3;
+		}
+		return IMVS_EC_OK;
+	}
+	else if (0 == strcmp("SetImageHeight", szParamName))
+	{
+
+		int height = 0;
+		if (sscanf_s(pData, "%d", &height) == 1)
+		{
+			ImageData.height = height;
+		}
+		return IMVS_EC_OK;
+	}
+	else if (0 == strcmp("SetPixelFormat", szParamName))
+	{
+		if (pData == NULL || nDataLen <= 0)
+		{
+			return IMVS_EC_PARAM;
+		}
+
+		std::string formatStr(pData);
+
+		// 根据字符串设置像素格式
+		if (formatStr == "Mono8")
+		{
+			ImageData.format = HKA_IMG_MONO_08;
+			ImageData.step[0] = ImageData.width;  // 单通道步长
+		}
+		else if (formatStr == "RGB24")
+		{
+			ImageData.format = HKA_IMG_RGB_RGB24_C3;
+			ImageData.step[0] = ImageData.width * 3;
+		}
+
+		else
+		{
+			char logMsg[256];
+			sprintf_s(logMsg, "SetPixelFormat: 不支持的像素格式: %s", formatStr.c_str());
+			return IMVS_EC_PARAM;
+		}
+		return IMVS_EC_OK;
+	}
+
+	else if (0 == strcmp("SetRoiData", szParamName))
+	{
+		if (nDataLen < sizeof(IMVS_ROI_BOX))
+		{
+			return IMVS_EC_PARAM_BUF_LEN;
+		}
+
+		memcpy_s(&RoiBox, sizeof(IMVS_ROI_BOX), pData, sizeof(IMVS_ROI_BOX));
+		return IMVS_EC_OK;
+	}
+	else if (0 == strcmp("SetPointSet", szParamName))
+	{
+		if (nDataLen < sizeof(IMVS_POLYGON))
+		{
+			return IMVS_EC_PARAM_BUF_LEN;
+		}
+
+		memcpy_s(&PointSet, sizeof(IMVS_POLYGON), pData, sizeof(IMVS_POLYGON));
+		return IMVS_EC_OK;
+	}
+	else if (0 == strcmp("ModelCreate", szParamName))
+	{
+		template_path = find_template_path();
+		detector.registerTemplate(template_path);
+
+	}
+
+	else if (0 == strcmp("ModelFilePath", szParamName)) {
+		if (m_chModelFilePath != NULL) {
+			free(m_chModelFilePath);
+			m_chModelFilePath = NULL;
+		}
+		std::string gbkPath = UTF8ToGBK((const char*)pData);
+		m_chModelFilePath = _strdup(gbkPath.c_str());
+
+
+		//dnn版本加载模型
+		//if (detector.loadModel(gbkPath)) {
+		//	//只有模型加载成功后，才注册模板 
+		//	template_path = find_template_path();
+		//	detector.registerTemplate(template_path);
+		//	sscanf_s(pData, "%d", &m_chModelFilePath);
+		//}
+		//
+
+		//ort版本加载模型
+		if (detector.loadModel_ort(m_chModelFilePath)) {
+			//appendStringToFile("ORT Model loaded successfully: " + std::string(m_chModelFilePath));
+		}
+		else {
+			//appendStringToFile("Failed to load ORT Model!");
+		}
+		return 0;
+
+	}
+
+
+	else if (0 == strcmp("AreaTolerance", szParamName))
+	{
+		sscanf_s(pData, "%f", &m_fAreaTolerance);
+	}
+	else
+	{
+		return CVmAlgModuleBase::SetParam(szParamName, pData, nDataLen);
+	}
+
+	return nErrCode;
+}
+
+bool CAlgorithmModule::appendStringToFile(const std::string& content) {
+	const std::string filePath = "test_output.txt";
+
+	// 追加模式打开文件
+	std::ofstream outFile(filePath, std::ios::app);
+
+	if (!outFile.is_open()) {
+		std::cout << "无法打开文件: " << filePath << std::endl;
+		return false;
+	}
+
+	// 写入内容并添加换行
+	outFile << content << std::endl;
+	outFile.close();
+
+	std::cout << "已追加内容到: " << filePath << std::endl;
+	return true;
+}
+
+bool CAlgorithmModule::saveStringToFile(const std::string& content) {
+	const std::string filePath = "test_output.txt";
+
+	std::ofstream outFile(filePath);
+
+	if (!outFile.is_open()) {
+		std::cout << "无法打开文件: " << filePath << std::endl;
+		return false;
+	}
+
+	outFile << content;
+	outFile.close();
+
+	std::cout << "已覆盖保存到: " << filePath << std::endl;
+	return true;
+}
+
+
+
+
+/////////////////////////////模块须导出的接口（实现开始）//////////////////////////////////////////
+
+LINEMODULE_API CAbstractUserModule* __stdcall CreateModule(void* hModule)
+{
+	assert(hModule != NULL);
+
+
+	// 创建用户模块，并记录实例。
+	CAlgorithmModule* pUserModule = new(nothrow) CAlgorithmModule;
+
+	if (pUserModule == NULL)
+	{
+		return NULL;
+	}
+
+	pUserModule->m_hModule = hModule;
+
+	int nRet = pUserModule->Init();
+	if (IMVS_EC_OK != nRet)
+	{
+		delete pUserModule;
+		return NULL;
+	}
+
+	OutputDebugStringA("###Call CreateModule");
+
+	return pUserModule;
+}
+
+
+LINEMODULE_API void __stdcall DestroyModule(void* hModule, CAbstractUserModule* pUserModule)
+{
+	assert(hModule != NULL);
+	OutputDebugStringA("###Call DestroyModule");
+
+	if (pUserModule != NULL)
+	{
+		delete pUserModule;
+	}
+}
+/////////////////////////////模块须导出的接口（实现结束）//////////////////////////////////////////
