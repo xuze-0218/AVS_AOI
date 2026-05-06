@@ -68,8 +68,10 @@ namespace AVS_Core.Services
                 // 完整解析输入字段
                 _protocolEngine.ParseInput(rawMessage, sessionConfig.InputFields);
 
-                // 根据功能码和 backup01 分发业务
-                string step = _protocolEngine.GetVariable("backup01") ?? "0001";
+                // 根据功能码和 backup01 分发业务。
+                // 0001：检测开始，相机准备开始     0002：检测结束，获取检测结果
+                string step = _protocolEngine.GetVariable("backup1") ?? "0001";
+
                 string response = string.Empty;
 
                 if (funcCode == "2003") // 检测
@@ -81,20 +83,13 @@ namespace AVS_Core.Services
                         _ => CreateErrorResponse(sessionConfig, "Unknown step")
                     };
                 }
-                else if (funcCode == "2001") // 标定
+                else if (funcCode == "2001") // 标定\点检
                 {
+                    //硬编码，04是点检，03是标定
+                    bool isverify = _protocolEngine.GetVariable("calibType") == "04";
                     response = step switch
                     {
-                        "0001" => HandleCalibInit(stationId, sessionConfig, isVerify: false),
-                        "0002" => HandleCalibResult(stationId, sessionConfig),
-                        _ => CreateErrorResponse(sessionConfig, "Unknown step")
-                    };
-                }
-                else if (funcCode == "2002") // 点检（假设功能码不同，根据原设计调整）
-                {
-                    response = step switch
-                    {
-                        "0001" => HandleCalibInit(stationId, sessionConfig, isVerify: true),
+                        "0001" => HandleCalibInit(stationId, sessionConfig, isverify),
                         "0002" => HandleCalibResult(stationId, sessionConfig),
                         _ => CreateErrorResponse(sessionConfig, "Unknown step")
                     };
@@ -119,17 +114,17 @@ namespace AVS_Core.Services
 
         private string HandleInspectInit(string stationId, SessionConfig config)
         {
-            // 从变量池提取初始化数据
-            var initData = new InspectionInitData
-            {
-                ModuleName = _protocolEngine.GetVariable("nameText") ?? "Unknown",
-                StartPole = int.Parse(_protocolEngine.GetVariable("backup02_start") ?? "1"),
-                EndPole = int.Parse(_protocolEngine.GetVariable("backup02_end") ?? "1"),
-                // 此处应从产品参数服务获取 inspectOrder
-                InspectOrder = GenerateInspectOrder(/* 根据 project 获取 */)
-            };
+            //// 从变量池提取初始化数据
+            //var initData = new InspectionInitData
+            //{
+            //    ModuleName = _protocolEngine.GetVariable("nameText") ?? "Unknown",
+            //    StartPole = int.Parse(_protocolEngine.GetVariable("backup02_start") ?? "1"),
+            //    EndPole = int.Parse(_protocolEngine.GetVariable("backup02_end") ?? "1"),
+            //    // 此处应从产品参数服务获取 inspectOrder
+            //    InspectOrder = GenerateInspectOrder(/* 根据 project 获取 */)
+            //};
 
-            _sessionService.InitializeSession(stationId, SessionWorkType.Inspect, initData);
+            _sessionService.InitializeSession(stationId, SessionWorkType.Inspect);
 
             // 构建初始化成功报文（包含占位结果）
             _protocolEngine.SetVariable("Result", "01");
@@ -150,15 +145,8 @@ namespace AVS_Core.Services
 
         private string HandleCalibInit(string stationId, SessionConfig config, bool isVerify)
         {
-            var initData = new CalibrationInitData
-            {
-                ModuleName = "Calib",
-                Type = isVerify ? "04" : "03"
-            };
-
             _sessionService.InitializeSession(stationId,
-                isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate,
-                initData);
+                isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
 
             // 标定初始化成功返回固定格式
             _protocolEngine.SetVariable("Result", "01");
