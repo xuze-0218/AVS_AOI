@@ -154,8 +154,12 @@ namespace AVS_Core.Services
                 isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
 
             // 标定初始化成功返回固定格式
-            _protocolEngine.SetVariable("Result", "01");
-            _protocolEngine.SetVariable("ResultData", "+0000000+0000000");
+            _protocolEngine.SetVariable("Result", "18"); 
+            _protocolEngine.SetVariable("backup2", "+000");
+            _protocolEngine.SetVariable("backup3", "8989");
+            _protocolEngine.SetVariable("backup4", "+000");
+            _protocolEngine.SetVariable("backup5", "5757");
+            _protocolEngine.SetVariable("backup6", "3333");
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 

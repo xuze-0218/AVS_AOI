@@ -229,7 +229,8 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 var sorted = new ObservableCollection<ProtocolField>(OutputFields.OrderBy(f => f.Index).ToList());
                 OutputFields.Clear();
-                foreach (var field in sorted) OutputFields.Add(field);
+                //foreach (var field in sorted) OutputFields.Add(field);
+                OutputFields = sorted;
                 UpdateOutputPreview();
             });
 
@@ -304,7 +305,8 @@ namespace AVS_Modules_Settings.ViewModels
                         {
                             _logger?.Debug("从 {Sender} 接收到消息: {Message}", sender, message);
                             TestRawData = message;
-                            ExecuteParseTest();
+                            ExecuteParseTest(clearVariables: false);
+                            //ExecuteParseTest();
 
                             PreviewMessage = "已自动解析来自 PLC 的消息";
                             _logger?.Information("自动解析 PLC 消息成功");
@@ -347,7 +349,7 @@ namespace AVS_Modules_Settings.ViewModels
         /// <summary>
         /// 执行接收电文解析测试
         /// </summary>
-        private void ExecuteParseTest()
+        private void ExecuteParseTest(bool clearVariables = true)
         {
             try
             {
@@ -358,7 +360,8 @@ namespace AVS_Modules_Settings.ViewModels
                     return;
                 }
 
-                _protocolEngine.ClearVariables();
+                if (clearVariables)
+                    _protocolEngine.ClearVariables();
                 var inputList = InputFields.ToList();
                 _protocolEngine.ParseInput(TestRawData, inputList);
 
