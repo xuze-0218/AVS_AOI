@@ -17,6 +17,9 @@ namespace AVS_Common
         private const int MaxLogCount = 100;
         public void Emit(LogEvent logEvent)
         {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return;
             var message = logEvent.RenderMessage();
             var level = logEvent.Level.ToString();
 
@@ -38,7 +41,7 @@ namespace AVS_Common
                     break;
             }
 
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            dispatcher.BeginInvoke(new Action(() =>
             {
                 if (LogCollection.Count >= MaxLogCount) LogCollection.RemoveAt(LogCollection.Count - 1);
 

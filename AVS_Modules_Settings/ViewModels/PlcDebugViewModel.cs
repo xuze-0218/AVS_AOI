@@ -23,14 +23,13 @@ namespace AVS_Modules_Settings.ViewModels
         public string DisplayText => $"[{Timestamp:HH:mm:ss}] {Sender}: {Content}";
     }
 
-    public class PlcDebugViewModel : BindableBase, INavigationAware
+    public class PlcDebugViewModel : BindableBase, INavigationAware,IDisposable
     {
         private readonly IStationConfigService _stationConfigService;
         private readonly ICommunicationService _communicationService;
         private readonly ILogger _logger;
         public ObservableCollection<StationConfig> Stations => _stationConfigService.Stations;
         public ObservableCollection<string> Logs { get; } = new ObservableCollection<string>();
-
         public ObservableCollection<CommunicationMessage> SentMessages { get; } = new ObservableCollection<CommunicationMessage>();
 
 
@@ -164,15 +163,7 @@ namespace AVS_Modules_Settings.ViewModels
             });
 
 
-            _communicationService.ConnectionStatusChanged += (stationId, isConnected) =>
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    IsConnected = isConnected;
-                    UpdateStatusMessage();
-                    UpdateCommandsCanExecute();
-                });
-            };
+            _communicationService.ConnectionStatusChanged += OnConnectionStatusChanged;
 
             _communicationService.LogMessage += m => Application.Current.Dispatcher.Invoke(() =>
             {
@@ -186,6 +177,20 @@ namespace AVS_Modules_Settings.ViewModels
             _logger.Information("ViewModel 初始化，当前连接状态: {IsConnected}", IsConnected);
             _logger.Debug("通讯配置界面已打开");
 
+        }
+
+        private void OnConnectionStatusChanged(string stationId, bool isConnected)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return;
+
+            dispatcher.Invoke(() =>
+            {
+                IsConnected = isConnected;
+                UpdateStatusMessage();
+                UpdateCommandsCanExecute();
+            });
         }
 
         private void ApplyToSelectedStation()
@@ -208,7 +213,6 @@ namespace AVS_Modules_Settings.ViewModels
                     Timestamp = DateTime.Now
                 };
 
-                //ReceivedMessages.Add(newMessage);
                 string line = newMessage.DisplayText + Environment.NewLine;
                 ReceivedMessagesText += line;
 
@@ -240,5 +244,9 @@ namespace AVS_Modules_Settings.ViewModels
 
         public void OnNavigatedFrom(NavigationContext navigationContext) { }
 
+        public void Dispose()
+        {
+            _communicationService.ConnectionStatusChanged -= OnConnectionStatusChanged;
+        }
     }
 }

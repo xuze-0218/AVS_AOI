@@ -9,6 +9,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -46,7 +47,7 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         private StationProtocolConfig _currentStationConfig;
-
+        private Action<string, string> _variableChangedHandler;
         private bool _isEditingCommonHeader = false;
         public bool IsEditingCommonHeader
         {
@@ -74,12 +75,48 @@ namespace AVS_Modules_Settings.ViewModels
         public ObservableCollection<ProtocolField> InputFields
         {
             get => _inputFields;
-            set => SetProperty(ref _inputFields, value);
+            set
+            {
+                if (_inputFields != null)
+                    _inputFields.CollectionChanged -= OnInputFieldsChanged;
+                if (SetProperty(ref _inputFields, value))
+                {
+                    if (_inputFields != null)
+                        _inputFields.CollectionChanged += OnInputFieldsChanged;
+                }
+            }
         }
+
+        private void OnInputFieldsChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            SyncFieldValues(InputFields);
+            SyncConfigToEngine();
+        }
+
+        private void OnOutputFieldsChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+                foreach (ProtocolField f in e.NewItems.Cast<ProtocolField>()) AttachFieldHandlers(f);
+            if (e.OldItems != null)
+                foreach (ProtocolField f in e.OldItems.Cast<ProtocolField>()) DetachFieldHandlers(f);
+            SyncFieldValues(OutputFields);
+            SyncConfigToEngine();
+            UpdateOutputPreview();
+        }
+
         public ObservableCollection<ProtocolField> OutputFields
         {
             get => _outputFields;
-            set => SetProperty(ref _outputFields, value);
+            set
+            {
+                if (_outputFields != null)
+                    _outputFields.CollectionChanged -= OnOutputFieldsChanged;
+                if (SetProperty(ref _outputFields, value))
+                {
+                    if (_outputFields != null)
+                        _outputFields.CollectionChanged += OnOutputFieldsChanged;
+                }
+            }
         }
         public ObservableCollection<SessionConfig> Sessions
         {
@@ -179,17 +216,23 @@ namespace AVS_Modules_Settings.ViewModels
             InitializeCommands();
             LoadConfig();
             SubscribeToCommunicationEvents();
-            _protocolEngine.VariableChanged += (name, val) =>
-            {
-                Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    UpdateOutputPreview();
-                });
-            };
+            //_protocolEngine.VariableChanged += (name, val) =>
+            //{
+            //    Application.Current?.Dispatcher.Invoke(() =>
+            //    {
+            //        UpdateOutputPreview();
+            //    });
+            //};
             _logger?.Information("ProtocolConfigViewModel 已初始化");
         }
 
-
+        private void OnVariableChanged(string name, string val)
+        {
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                UpdateOutputPreview();
+            });
+        }
 
         // 新增对话报文
         private void ExecuteAddSession()
@@ -234,10 +277,17 @@ namespace AVS_Modules_Settings.ViewModels
 
             SortCommand = new DelegateCommand(() =>
             {
-                var sorted = new ObservableCollection<ProtocolField>(OutputFields.OrderBy(f => f.Index).ToList());
-                OutputFields.Clear();
-                //foreach (var field in sorted) OutputFields.Add(field);
-                OutputFields = sorted;
+                //var sorted = new ObservableCollection<ProtocolField>(OutputFields.OrderBy(f => f.Index).ToList());
+                //OutputFields.Clear();
+                ////foreach (var field in sorted) OutputFields.Add(field);
+                //OutputFields = sorted;
+                //UpdateOutputPreview();
+                var sortedList = OutputFields.OrderBy(f => f.Index).ToList();
+                for (int i = 0; i < sortedList.Count; i++)
+                    sortedList[i].Index = i;
+                OutputFields = new ObservableCollection<ProtocolField>(sortedList);
+                // OutputFields setter 现在应自动处理事件（见下面第3点），无需手动 AttachOutputFieldsEvents
+                UpdateTotalLength();
                 UpdateOutputPreview();
             });
 
@@ -268,24 +318,28 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void LoadFieldsToUI(List<ProtocolField> inputs, List<ProtocolField> outputs)
         {
+            //InputFields = new ObservableCollection<ProtocolField>(CloneFields(inputs));
+            //OutputFields = new ObservableCollection<ProtocolField>(CloneFields(outputs));
+
+            //InputFields.CollectionChanged += (s, e) =>
+            //{
+            //    SyncFieldValues(InputFields);
+            //    SyncConfigToEngine();
+            //};
+
+            //OutputFields.CollectionChanged += (s, e) =>
+            //{
+            //    if (e.NewItems != null) foreach (ProtocolField f in e.NewItems.Cast<ProtocolField>()) AttachFieldHandlers(f);
+            //    if (e.OldItems != null) foreach (ProtocolField f in e.OldItems.Cast<ProtocolField>()) DetachFieldHandlers(f);
+            //    SyncFieldValues(OutputFields);
+            //    SyncConfigToEngine();
+            //    UpdateOutputPreview();
+            //};
+
+            //UpdateTotalLength();
+
             InputFields = new ObservableCollection<ProtocolField>(CloneFields(inputs));
             OutputFields = new ObservableCollection<ProtocolField>(CloneFields(outputs));
-
-            InputFields.CollectionChanged += (s, e) =>
-            {
-                SyncFieldValues(InputFields);
-                SyncConfigToEngine();
-            };
-
-            OutputFields.CollectionChanged += (s, e) =>
-            {
-                if (e.NewItems != null) foreach (ProtocolField f in e.NewItems.Cast<ProtocolField>()) AttachFieldHandlers(f);
-                if (e.OldItems != null) foreach (ProtocolField f in e.OldItems.Cast<ProtocolField>()) DetachFieldHandlers(f);
-                SyncFieldValues(OutputFields);
-                SyncConfigToEngine();
-                UpdateOutputPreview();
-            };
-
             UpdateTotalLength();
         }
 
@@ -313,7 +367,6 @@ namespace AVS_Modules_Settings.ViewModels
                             _logger?.Debug("从 {Sender} 接收到消息: {Message}", sender, message);
                             TestRawData = message;
                             ExecuteParseTest(clearVariables: false);
-                            //ExecuteParseTest();
 
                             PreviewMessage = "已自动解析来自 PLC 的消息";
                             _logger?.Information("自动解析 PLC 消息成功");
@@ -339,6 +392,8 @@ namespace AVS_Modules_Settings.ViewModels
 
             if (IsListeningPlc)
             {
+                _variableChangedHandler = new Action<string, string>(OnVariableChanged);
+                _protocolEngine.VariableChanged += _variableChangedHandler;
                 ListenButtonText = "停止监听 PLC";
                 StatusMessage = "正在监听 PLC 消息...";
                 PreviewMessage = "已开始监听，等待 PLC 发送电文";
@@ -346,6 +401,8 @@ namespace AVS_Modules_Settings.ViewModels
             }
             else
             {
+                if (_variableChangedHandler != null)
+                    _protocolEngine.VariableChanged -= _variableChangedHandler;
                 ListenButtonText = "开始监听 PLC";
                 StatusMessage = "已停止监听";
                 PreviewMessage = "已停止监听";
@@ -429,6 +486,11 @@ namespace AVS_Modules_Settings.ViewModels
         {
             try
             {
+                if (OutputFields == null || OutputFields.Count == 0)
+                {
+                    GeneratedMessage = "";
+                    return;
+                }
                 var outputList = OutputFields.OrderBy(f => f.Index).ToList();
                 var sb = new StringBuilder();
 
