@@ -179,6 +179,13 @@ namespace AVS_Modules_Settings.ViewModels
             InitializeCommands();
             LoadConfig();
             SubscribeToCommunicationEvents();
+            _protocolEngine.VariableChanged += (name, val) =>
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    UpdateOutputPreview();
+                });
+            };
             _logger?.Information("ProtocolConfigViewModel 已初始化");
         }
 
@@ -355,8 +362,8 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 if (string.IsNullOrEmpty(TestRawData))
                 {
-                    PreviewMessage = "请输入原始电文";
-                    ParseResult = "";
+                    //PreviewMessage = "请输入原始电文";
+                    //ParseResult = "";
                     return;
                 }
 
@@ -380,10 +387,9 @@ namespace AVS_Modules_Settings.ViewModels
                 }
 
                 ParseResult = result.ToString();
+              
                 if (!IsListeningPlc)
-                    PreviewMessage = "电文解析完成";
-                StatusMessage = "解析测试成功";
-                UpdateOutputPreview();
+                    UpdateOutputPreview();
                 _logger?.Information("电文解析测试完成");
             }
             catch (Exception ex)

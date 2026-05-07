@@ -38,12 +38,13 @@ namespace AVS_Service
         void UpdateInputFields(List<ProtocolField> inputFields);
         List<ProtocolField> GetOutputFields();
         List<ProtocolField> GetInputFields();
+        event Action<string, string> VariableChanged;  //
     }
 
     public class ProtocolEngineService : IProtocolEngineService
     {
         private readonly ILogger _logger;
-
+        public event Action<string, string> VariableChanged;
         public Dictionary<string, string> VariablePool { get; private set; } = new Dictionary<string, string>();
 
         //保存当前配置的引用
@@ -185,8 +186,10 @@ namespace AVS_Service
 
         public void SetVariable(string name, object value)
         {
-            VariablePool[name] = value?.ToString() ?? "";
-            _logger?.Debug("设置变量: {Name} = '{Value}'", name, value);
+            var str = value?.ToString() ?? "";
+            VariablePool[name] = str;
+            VariableChanged?.Invoke(name, str);
+            _logger?.Debug("设置变量: {Name} = '{Value}'", name, str);
         }
 
         public string GetVariable(string name)
