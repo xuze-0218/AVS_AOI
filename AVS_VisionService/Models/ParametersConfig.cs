@@ -14,6 +14,9 @@ namespace AVS_Service.Models
         BOOL,
         STRING
     }
+    /// <summary>
+    /// 参数配置
+    /// </summary>
     public class ParametersConfig : BindableBase
     {
         private string _moduleName;

@@ -45,7 +45,7 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _currentStationId, value);
         }
 
-        private StationConfig _currentStationConfig;
+        private StationProtocolConfig _currentStationConfig;
 
         private bool _isEditingCommonHeader = false;
         public bool IsEditingCommonHeader
@@ -497,11 +497,11 @@ namespace AVS_Modules_Settings.ViewModels
                 }
 
                 //读取现有的全量配置文件
-                List<StationConfig> allStations = new List<StationConfig>();
+                List<StationProtocolConfig> allStations = new List<StationProtocolConfig>();
                 if (File.Exists(_configPath))
                 {
                     var existingJson = File.ReadAllText(_configPath);
-                    allStations = JsonConvert.DeserializeObject<List<StationConfig>>(existingJson) ?? new List<StationConfig>();
+                    allStations = JsonConvert.DeserializeObject<List<StationProtocolConfig>>(existingJson) ?? new List<StationProtocolConfig>();
                 }
 
                 //替换当前工位的配置
@@ -534,17 +534,17 @@ namespace AVS_Modules_Settings.ViewModels
             try
             {
                 CurrentStationId = _paramConfig.GetString("Global", "CurrentStationID", "Station01");
-                List<StationConfig> allStations = new List<StationConfig>();
+                List<StationProtocolConfig> allStations = new List<StationProtocolConfig>();
                 if (File.Exists(_configPath))
                 {
                     var json = File.ReadAllText(_configPath);
-                    allStations = JsonConvert.DeserializeObject<List<StationConfig>>(json);
+                    allStations = JsonConvert.DeserializeObject<List<StationProtocolConfig>>(json);
                 }
 
                 _currentStationConfig = allStations.FirstOrDefault(s => s.StationId == CurrentStationId);
                 if (_currentStationConfig == null)
                 {
-                    _currentStationConfig = new StationConfig { StationId = CurrentStationId };
+                    _currentStationConfig = new StationProtocolConfig { StationId = CurrentStationId };
                 }
 
                 Sessions = new ObservableCollection<SessionConfig>(_currentStationConfig.Messages);

@@ -9,9 +9,12 @@ namespace AVS_Core.Services
     public interface IPlcMessageRouter
     {
         /// <summary>
-        /// 处理来自PLC的原始报文
+        /// 处理来自PLC的原始报文，进行任务分发
         /// </summary>
-        Task HandleMessageAsync(string rawMessage);
+        /// <param name="connectionPlcId">根据传入的plc名映射指定相机名</param>
+        /// <param name="rawMessage">Plc报文</param>
+        /// <returns></returns>
+        Task HandleMessageAsync(string connectionPlcId, string rawMessage);
     }
 
 
@@ -40,12 +43,14 @@ namespace AVS_Core.Services
             _logger = logger;
         }
 
-        public async Task HandleMessageAsync(string rawMessage)
+       
+        public async Task HandleMessageAsync(string connectionPlcId, string rawMessage)
         {
             try
             {
                 _protocolEngine.ClearVariables();
 
+                ///此处stationId为工位名，如焊后检测
                 string stationId = _paramService.GetString("Global", "CurrentStationID", "Station01");
                 // 解析公共头，提取功能码
                 var headerConfig = _configRepo.GetCommonHeaderConfig(stationId);
@@ -78,8 +83,8 @@ namespace AVS_Core.Services
                 {
                     response = step switch
                     {
-                        "0001" => HandleInspectInit(stationId, sessionConfig),
-                        "0002" => HandleInspectResult(stationId, sessionConfig),
+                        "0001" => HandleInspectInit(connectionPlcId, sessionConfig),
+                        "0002" => HandleInspectResult(connectionPlcId, sessionConfig),
                         _ => CreateErrorResponse(sessionConfig, "Unknown step")
                     };
                 }
@@ -89,8 +94,8 @@ namespace AVS_Core.Services
                     bool isverify = _protocolEngine.GetVariable("calibType") == "04";
                     response = step switch
                     {
-                        "0001" => HandleCalibInit(stationId, sessionConfig, isverify),
-                        "0002" => HandleCalibResult(stationId, sessionConfig),
+                        "0001" => HandleCalibInit(connectionPlcId, sessionConfig, isverify),
+                        "0002" => HandleCalibResult(connectionPlcId, sessionConfig),
                         _ => CreateErrorResponse(sessionConfig, "Unknown step")
                     };
                 }
@@ -102,7 +107,7 @@ namespace AVS_Core.Services
 
                 if (!string.IsNullOrEmpty(response))
                 {
-                    await _commService.SendAsync(response);
+                    await _commService.SendAsync(connectionPlcId, response);
                     _logger.Information("Response sent to PLC on {StationId}", stationId);
                 }
             }

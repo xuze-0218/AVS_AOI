@@ -30,6 +30,7 @@ namespace AVS_Core.Services
         private readonly ICommunicationService _communicationService;
         private readonly IParametersConfigService _parametersConfigService;
         private readonly ICameraConfigService _cameraConfigService;
+        private readonly IStationConfigService _stationConfigService;
         private readonly ILogger _logger;
 
         public ApplicationStartupService(
@@ -39,6 +40,7 @@ namespace AVS_Core.Services
             IStationSessionService sessionService,
             IVisionService visionService,
            ICommunicationService communicationService,
+           IStationConfigService stationConfigService,
            //IWorkflowService workflowService,
            IParametersConfigService parametersConfigService,
            ICameraConfigService cameraConfigService)
@@ -49,6 +51,7 @@ namespace AVS_Core.Services
             _sessionService = sessionService;
             _visionService = visionService;
             _messageRouter = messageRouter;
+            _stationConfigService = stationConfigService;
             _parametersConfigService = parametersConfigService;
             _communicationService = communicationService;
             _cameraConfigService = cameraConfigService;
@@ -121,14 +124,18 @@ namespace AVS_Core.Services
 
             try
             {
-                _communicationService.Start();
-                _communicationService.MessageReceived += async (sender, message) =>
+
+                //foreach (var station in _stationConfigService.Stations)
+                //{
+                //    _communicationService.Start(station.StationId, station.Protocol, station.Role, station.IP, station.Port);
+                //}
+
+                _communicationService.MessageReceived += async (connectionPlcId, message) =>
                 {
-                    _logger.Information("接收来自 {Sender} 的消息: {Message}", sender, message);
+                    _logger.Information("接收来自 {Sender} 的消息: {Message}", connectionPlcId, message);
                     try
                     {
-                        //await _workflowService.ProcessPlcTriggerAsync(message);
-                        await _messageRouter.HandleMessageAsync(message);
+                        await _messageRouter.HandleMessageAsync(connectionPlcId, message);
                     }
                     catch (Exception ex)
                     {
@@ -170,7 +177,12 @@ namespace AVS_Core.Services
                 }
 
                 _logger.Debug("停止通讯服务");
-                _communicationService?.Stop();
+                foreach (var station in _stationConfigService.Stations)
+                {
+                    _communicationService?.Stop(station.StationId);
+                    //_communicationService.Start(station.StationId, station.Protocol, station.Role, station.IP, station.Port);
+                }
+                
                 await Task.Delay(300);
 
                 //确保Halcon非托管内存被回收

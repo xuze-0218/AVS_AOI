@@ -16,7 +16,7 @@ namespace AVS_Service.Models
     }
 
     // 整个工位的配置集合
-    public class StationConfig
+    public class StationProtocolConfig
     {
         /// <summary>
         /// 工位

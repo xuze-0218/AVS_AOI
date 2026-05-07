@@ -28,7 +28,7 @@ namespace AVS_Service
     {
         private readonly ILogger _logger;
         private readonly string _configPath;
-        private Dictionary<string, StationConfig> _stationConfigs; // 内存缓存
+        private Dictionary<string, StationProtocolConfig> _stationConfigs; // 内存缓存
 
         public ProtocolConfigRepository(ILogger logger)
         {
@@ -45,12 +45,12 @@ namespace AVS_Service
                 {
                     var json = File.ReadAllText(_configPath);
                     // 将JSON数组转换为以 StationId 为 Key 的字典，方便查询
-                    var list = JsonConvert.DeserializeObject<List<StationConfig>>(json);
+                    var list = JsonConvert.DeserializeObject<List<StationProtocolConfig>>(json);
                     _stationConfigs = list.ToDictionary(s => s.StationId);
                 }
                 else
                 {
-                    _stationConfigs = new Dictionary<string, StationConfig>();
+                    _stationConfigs = new Dictionary<string, StationProtocolConfig>();
                     _logger.Error("报文配置文件不存在");
                 }
             }
@@ -62,7 +62,7 @@ namespace AVS_Service
 
         public void ReloadConfig()
         {
-            _stationConfigs = new Dictionary<string, StationConfig>(); // 清空现有缓存
+            _stationConfigs = new Dictionary<string, StationProtocolConfig>(); // 清空现有缓存
             LoadConfig();
         }
 

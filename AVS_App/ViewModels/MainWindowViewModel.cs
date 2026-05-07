@@ -16,7 +16,6 @@ namespace AVS_App.ViewModels
     public class MainWindowViewModel : BindableBase
     {
         private readonly IRegionManager _regionManager;
-        ///目前是单plc，如果后续有多plc需求，需要修改
         private readonly ICommunicationService _communicationService;
 
         private bool _isPlcConnected;
@@ -32,11 +31,11 @@ namespace AVS_App.ViewModels
         {
             _regionManager = regionManager;
             _communicationService = communicationService;
-            IsPlcConnected = _communicationService.IsActive;
-            _communicationService.ConnectionStatusChanged += (isConnected) =>
-            {
-                IsPlcConnected = isConnected;
-            };
+            //IsPlcConnected = _communicationService.IsActive;
+            //_communicationService.ConnectionStatusChanged += (isConnected) =>
+            //{
+            //    IsPlcConnected = isConnected;
+            //};
             NavigateCommand = new DelegateCommand<string>(Navigate);
         }
 

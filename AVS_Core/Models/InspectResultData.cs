@@ -124,8 +124,5 @@ namespace AVS_Core.Models
         //2D结果图
         public string Dump2DPath { get; set; }
 
-
-
-
     }
 }

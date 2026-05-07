@@ -97,6 +97,10 @@
                         Content="📊 报文测试" />
                     <Button
                         Command="{Binding NavigateCommand}"
+                        CommandParameter="StationConfigView"
+                        Content="📊 映射配置" />
+                    <Button
+                        Command="{Binding NavigateCommand}"
                         CommandParameter="HistoryRecordView"
                         Content="📊 历史记录" />
                 </StackPanel>

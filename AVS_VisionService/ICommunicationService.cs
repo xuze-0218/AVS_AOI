@@ -1,6 +1,7 @@
 ﻿using AVS_Service.Models;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -12,366 +13,304 @@ namespace AVS_Service
 {
     public interface ICommunicationService
     {
-        bool IsActive { get; }
-        void Start(CommProtocol protocol, CommRole role, string ip, int port);
-        void Start();
-        void Stop();
-        Task SendAsync(string message);
-
-        event Action<string, string> MessageReceived;
+        void Start(string connectionId, CommProtocol protocol, CommRole role, string ip, int port);
+        void Stop(string connectionId);
+        Task SendAsync(string connectionId, string message);
+        bool IsActive(string connectionId);
+        event Action<string, string> MessageReceived;       // (connectionId, message)
         event Action<string> LogMessage;
-        event Action<bool> ConnectionStatusChanged;
+        event Action<string, bool> ConnectionStatusChanged; // (connectionId, isConnected)
+
     }
 
     public class CommunicationService : ICommunicationService, IDisposable
     {
-        private ILogger _logger;
-        private IParametersConfigService _configService;
-        private TcpListener _tcpServer;
-        private TcpClient _tcpServerClient;  // 保存 Server 端接受的客户端
-        private TcpClient _tcpClient;        // 保存 Client 模式的连接
-        private UdpClient _udpClient;
-        private IPEndPoint _remoteEndPoint;
-        private CancellationTokenSource _cts;
-        private CommProtocol _currentProtocol;
-        private CommRole _currentRole;
-        private string _targetIp;
-        private int _targetPort;
-        private bool _isRunning;
-
-        public bool IsActive { get; private set; }
+        private readonly ConcurrentDictionary<string, ConnectionContext> _connections = new();
+        private readonly ILogger _logger;
 
         public event Action<string, string> MessageReceived;
         public event Action<string> LogMessage;
-        public event Action<bool> ConnectionStatusChanged;
+        public event Action<string, bool> ConnectionStatusChanged;
 
-
-        public CommunicationService(ILogger logger, IParametersConfigService configService)
+        public CommunicationService(ILogger logger)
         {
             _logger = logger;
-            _configService = configService;
         }
 
-        public void Start(CommProtocol protocol, CommRole role, string ip, int port)
+        public void Start(string connectionId, CommProtocol protocol, CommRole role, string ip, int port)
         {
-            if (IsActive)
+            if (_connections.TryGetValue(connectionId, out var existing))
             {
-                _logger.Warning("[Start] 服务已在运行，先停止");
-                Stop();
+                _logger.Warning("[{Id}] 连接已存在，先停止", connectionId);
+                Stop(connectionId);
             }
-            _currentProtocol = protocol;
-            _currentRole = role;
-            _targetIp = ip;
-            _targetPort = port;
-            _cts = new CancellationTokenSource();
 
-            try
+            var ctx = new ConnectionContext
             {
-                if (protocol == CommProtocol.TCP)
-                {
-                    if (role == CommRole.Server) StartTcpServer(port);
-                    else StartTcpClientWithReconnection(ip, port);
-                }
+                ConnectionId = connectionId,
+                Protocol = protocol,
+                Role = role,
+                IP = ip,
+                Port = port,
+                Cts = new CancellationTokenSource()
+            };
+
+            if (protocol == CommProtocol.TCP)
+            {
+                if (role == CommRole.Server)
+                    StartTcpServer(ctx);
                 else
+                    StartTcpClient(ctx);
+            }
+            else if (protocol == CommProtocol.UDP)
+            {
+                StartUdp(ctx);
+            }
+
+            _connections[connectionId] = ctx;
+        }
+
+        private void StartUdp(ConnectionContext ctx)
+        {
+            try
+            {
+                if (ctx.Role == CommRole.Server)
                 {
-                    StartUdp(role, ip, port);
+                    ctx.UdpClient = new UdpClient(ctx.Port);
+                    _logger.Information("[{Id}] UDP Server 监听端口 {Port}", ctx.ConnectionId, ctx.Port);
                 }
-                //if (protocol == CommProtocol.TCP && role == CommRole.Server)
-                //{
-                //    IsActive = true;
-                //    ConnectionStatusChanged?.Invoke(true);
-                //    _logger.Information("[TCP Server] 服务已启动，监听中...");
-                //}
+                else // Client
+                {
+                    ctx.UdpClient = new UdpClient();
+                    ctx.TargetEndPoint = new IPEndPoint(IPAddress.Parse(ctx.IP), ctx.Port);
+                    _logger.Information("[{Id}] UDP Client 目标 {IP}:{Port}", ctx.ConnectionId, ctx.IP, ctx.Port);
+                }
+
+                ctx.IsActive = true;
+                ConnectionStatusChanged?.Invoke(ctx.ConnectionId, true);
+
+                // 启动接收循环
+                _ = Task.Run(() => HandleUdpReceive(ctx), ctx.Cts.Token);
             }
             catch (Exception ex)
             {
-                _logger.Error($"启动异常: {ex.Message}");
-                Stop();
+                _logger.Error(ex, "[{Id}] 启动 UDP 失败", ctx.ConnectionId);
+                ctx.IsActive = false;
+                ConnectionStatusChanged?.Invoke(ctx.ConnectionId, false);
+            }
+        }
+
+        public void Stop(string connectionId)
+        {
+            if (_connections.TryRemove(connectionId, out var ctx))
+            {
+                ctx.Cts?.Cancel();
+                ctx.TcpListener?.Stop();
+                ctx.TcpClient?.Close();
+                ctx.TcpServerClient?.Close();
+                ctx.UdpClient?.Close();
+                ctx.IsActive = false;
+                _logger.Information("[{Id}] 连接已停止", connectionId);
+                ConnectionStatusChanged?.Invoke(connectionId, false);
+            }
+        }
+
+        public bool IsActive(string connectionId) =>
+            _connections.TryGetValue(connectionId, out var ctx) && ctx.IsActive;
+
+        public async Task SendAsync(string connectionId, string message)
+        {
+            if (!_connections.TryGetValue(connectionId, out var ctx) || !ctx.IsActive)
+            {
+                _logger.Warning("[{Id}] 连接不可用，无法发送", connectionId);
+                return;
             }
 
-        }
-
-        public void Start()
-        {
-            _logger.Debug("正在从配置服务加载参数并启动通讯...");
-            var protocol = GetConfigEnum<CommProtocol>("Protocol", CommProtocol.TCP);
-            var role = GetConfigEnum<CommRole>("Role", CommRole.Server);
-            var ip = _configService.GetString("Communication", "IP", "127.0.0.1");
-            var port = _configService.GetInt("Communication", "Port", 5000);
-            _logger.Debug("加载配置成功: {Protocol} {Role} {IP}:{Port}", protocol, role, ip, port);
-            Start(protocol, role, ip, port);
-        }
-
-        private T GetConfigEnum<T>(string key, T defaultValue) where T : struct
-        {
-            string val = _configService.GetString("Communication", key, defaultValue.ToString());
-            return Enum.TryParse<T>(val, out var result) ? result : defaultValue;
-        }
-
-        public async Task SendAsync(string message)
-        {
-            if (!IsActive) return;
-
+            byte[] data = Encoding.UTF8.GetBytes(message);
             try
             {
-                byte[] data = Encoding.UTF8.GetBytes(message);
-                if (_currentProtocol == CommProtocol.TCP)
+                if (ctx.Protocol == CommProtocol.TCP)
                 {
-                    //Server 模式：通过保存的客户端发送
-                    if (_currentRole == CommRole.Server)
-                    {
-                        if (_tcpServerClient != null && _tcpServerClient.Connected)
-                        {
-                            await _tcpServerClient.GetStream().WriteAsync(data, 0, data.Length, _cts.Token);
-                            _logger.Information("[TCP Server] 已发送消息");
-                        }
-                        else
-                        {
-                            _logger.Error("发送失败：TCP Server 客户端连接不可用");
-                        }
-                    }
-                    //Client 模式：通过客户端连接发送
+                    NetworkStream stream = null;
+                    if (ctx.Role == CommRole.Server)
+                        stream = ctx.TcpServerClient?.GetStream();
                     else
+                        stream = ctx.TcpClient?.GetStream();
+
+                    if (stream != null && stream.CanWrite)
                     {
-                        if (_tcpClient != null && _tcpClient.Connected)
-                        {
-                            await _tcpClient.GetStream().WriteAsync(data, 0, data.Length, _cts.Token);
-                            _logger.Information("[TCP Client] 已发送消息");
-                        }
+                        await stream.WriteAsync(data, 0, data.Length, ctx.Cts.Token);
+                        _logger.Information("[{Id}] 发送消息: {Msg}", connectionId, message);
+                    }
+                }
+                else if (ctx.Protocol == CommProtocol.UDP)
+                {
+                    if (ctx.UdpClient != null)
+                    {
+                        // Server 模式：向记录的远程端点发送
+                        if (ctx.Role == CommRole.Server && ctx.RemoteEndPoint != null)
+                            await ctx.UdpClient.SendAsync(data, data.Length, ctx.RemoteEndPoint);
+                        // Client 模式：向配置的目标端点发送
+                        else if (ctx.Role == CommRole.Client)
+                            await ctx.UdpClient.SendAsync(data, data.Length, ctx.TargetEndPoint);
                         else
-                        {
-                            _logger.Error("发送失败：TCP Client 未连接");
-                        }
-                    }
-                }
-                else //UDP
-                {
-                    if (_udpClient != null && _remoteEndPoint != null)
-                    {
-                        await _udpClient.SendAsync(data, data.Length, _remoteEndPoint);
-                    }
-                    else _logger.Error("发送失败：UDP 目标未指定（请等待对方先发消息或检查配置）");
-                }
-            }
-            catch (Exception ex) { _logger.Error($"发送异常: {ex.Message}"); }
-        }
-
-        public void Stop()
-        {
-            if (!IsActive) return;
-            IsActive = false;
-            ConnectionStatusChanged?.Invoke(false);
-            _cts?.Cancel();
-
-            _tcpServer?.Stop();
-            _tcpClient?.Close();
-            _tcpServerClient?.Close();  //关闭Server端的客户端连接
-            _udpClient?.Close();
-
-            _tcpServer = null;
-            _tcpClient = null;
-            _udpClient = null;
-
-            _logger.Information("通讯服务已停止");
-        }
-
-        #region TCP 
-
-        private void StartTcpServer(int port)
-        {
-            _tcpServer = new TcpListener(IPAddress.Any, port);
-            _tcpServer.Start();
-            _logger.Debug($"[TCP Server] 正在监听端口: {port}");
-
-            Task.Run(async () =>
-            {
-                while (!_cts.Token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        var client = await _tcpServer.AcceptTcpClientAsync();
-                        string clientAddr = client.Client.RemoteEndPoint.ToString();
-                        _logger.Information("[TCP Server] 客户端已接入: {ClientAddr}", clientAddr);
-                        _tcpServerClient = client;
-                        if (!IsActive)
-                        {
-                            IsActive = true;
-                            ConnectionStatusChanged?.Invoke(true);
-                            _logger.Information("[TCP Server] 客户端已连接，标记为活跃连接");
-                        }
-                        _ = Task.Run(() => HandleTcpConnection(client, _cts.Token));
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        _logger.Information("[TCP Server] 服务已停止");
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "[TCP Server] 异常");
-                        break;
-                    }
-                }
-            }, _cts.Token);
-        }
-
-        private void StartTcpClientWithReconnection(string ip, int port)
-        {
-            Task.Run(async () =>
-            {
-                while (!_cts.Token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        if (_tcpClient == null || !_tcpClient.Connected)
-                        {
-                            _logger.Debug($"TCP客户端尝试连接至 {ip}:{port}...");
-                            _tcpClient?.Close();
-                            _tcpClient = new TcpClient();
-
-                            // 设置连接超时
-                            var connectTask = _tcpClient.ConnectAsync(ip, port);
-                            if (await Task.WhenAny(connectTask, Task.Delay(5000)) == connectTask)
-                            {
-                                await connectTask;
-                                IsActive = true;
-                                ConnectionStatusChanged?.Invoke(true);
-                                _logger.Information("TCP客户端连接成功");
-                                await HandleTcpClientReceive(_cts.Token);
-                            }
-                            else
-                            {
-                                _logger.Error("TCP客户端连接超时，5秒后重试...");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error($"TCP客户端错误: {ex.Message}，5秒后重试...");
-                    }
-
-                    await Task.Delay(5000, _cts.Token);
-                }
-            }, _cts.Token);
-        }
-
-        private async Task HandleTcpClientReceive(CancellationToken token)
-        {
-            try
-            {
-                var stream = _tcpClient.GetStream();
-                byte[] buffer = new byte[4096];
-                while (!token.IsCancellationRequested && _tcpClient.Connected)
-                {
-                    try
-                    {
-                        int read = await stream.ReadAsync(buffer, 0, buffer.Length, token);
-                        if (read == 0)
-                        {
-                            _logger.Information("[TCP Client] 服务器主动断开连接");
-                            break;
-                        }
-
-                        string message = Encoding.UTF8.GetString(buffer, 0, read);
-                        MessageReceived?.Invoke("Server", message);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "[TCP Client] 读取数据出错");
-                        break;
+                            _logger.Warning("[{Id}] UDP 没有可用的发送目标", connectionId);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "[TCP Client] 接收处理异常");
-            }
-            finally
-            {
-                //断开时触发事件
-                IsActive = false;
-                ConnectionStatusChanged?.Invoke(false);
-                _logger.Information("[TCP Client] 与服务器断开连接");
+                _logger.Error(ex, "[{Id}] 发送失败", connectionId);
             }
         }
 
-        private async Task HandleTcpConnection(TcpClient client, CancellationToken token)
+        private void StartTcpServer(ConnectionContext ctx)
         {
-            string remote = client.Client.RemoteEndPoint.ToString();
-            _logger.Debug($"[TCP Server] 客户端接入: {remote}");
+            ctx.TcpListener = new TcpListener(IPAddress.Any, ctx.Port);
+            ctx.TcpListener.Start();
+            _logger.Information("[{Id}] TCP Server 监听端口 {Port}", ctx.ConnectionId, ctx.Port);
+
+            Task.Run(async () =>
+            {
+                while (!ctx.Cts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var client = await ctx.TcpListener.AcceptTcpClientAsync(ctx.Cts.Token);
+                        string remote = client.Client.RemoteEndPoint.ToString();
+                        _logger.Information("[{Id}] 客户端连接: {Remote}", ctx.ConnectionId, remote);
+                        ctx.TcpServerClient = client;
+                        ctx.IsActive = true;
+                        ConnectionStatusChanged?.Invoke(ctx.ConnectionId, true);
+
+                        // 处理该客户端消息
+                        _ = Task.Run(() => HandleTcpSession(ctx.ConnectionId, client, ctx.Cts.Token));
+                    }
+                    catch (OperationCanceledException) { break; }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "[{Id}] 接受客户端异常", ctx.ConnectionId);
+                        break;
+                    }
+                }
+            }, ctx.Cts.Token);
+        }
+
+        private void StartTcpClient(ConnectionContext ctx)
+        {
+            Task.Run(async () =>
+            {
+                while (!ctx.Cts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var client = new TcpClient();
+                        await client.ConnectAsync(ctx.IP, ctx.Port);
+                        ctx.TcpClient = client;
+                        ctx.IsActive = true;
+                        ConnectionStatusChanged?.Invoke(ctx.ConnectionId, true);
+                        _logger.Information("[{Id}] TCP Client 已连接 {IP}:{Port}", ctx.ConnectionId, ctx.IP, ctx.Port);
+
+                        await HandleTcpSession(ctx.ConnectionId, client, ctx.Cts.Token);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "[{Id}] 连接失败，5秒后重试", ctx.ConnectionId);
+                        ctx.IsActive = false;
+                        ConnectionStatusChanged?.Invoke(ctx.ConnectionId, false);
+                        await Task.Delay(5000, ctx.Cts.Token);
+                    }
+                }
+            }, ctx.Cts.Token);
+        }
+
+        private async Task HandleTcpSession(string connectionId, TcpClient client, CancellationToken token)
+        {
             try
             {
-                using (client)
                 using (var stream = client.GetStream())
                 {
                     byte[] buffer = new byte[4096];
-                    while (!token.IsCancellationRequested && client.Connected)
+                    while (!token.IsCancellationRequested)
                     {
-                        try
-                        {
-                            int read = await stream.ReadAsync(buffer, 0, buffer.Length, token);
-                            if (read == 0) break;
-                            string message = Encoding.UTF8.GetString(buffer, 0, read);
-                            MessageReceived?.Invoke(remote, message);
-                        }
-                        catch { break; }
+                        int read = await stream.ReadAsync(buffer, 0, buffer.Length, token);
+                        if (read == 0) break;
+                        string msg = Encoding.UTF8.GetString(buffer, 0, read);
+                        MessageReceived?.Invoke(connectionId, msg);
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "[{Id}] 读取异常", connectionId);
             }
             finally
             {
-                _tcpServerClient = null;
-                IsActive = false;
-                ConnectionStatusChanged?.Invoke(false);
-                RaiseLogMessage($"[TCP Server] 客户端已断开: {remote}");
-                _logger.Debug($"[TCP Server] 客户端断开: {remote}");
-            }
-
-
-        }
-
-        private void RaiseLogMessage(string message)
-        {
-            LogMessage?.Invoke(message);
-        }
-
-        #endregion
-
-        #region  UDP
-        private void StartUdp(CommRole role, string ip, int port)
-        {
-            if (role == CommRole.Server)
-            {
-                _udpClient = new UdpClient(port);
-                _logger.Debug($"[UDP Server] 监听端口: {port}");
-            }
-            else
-            {
-                _udpClient = new UdpClient();
-                _remoteEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
-                _logger.Debug($"[UDP Client] 目标已指向: {ip}:{port}");
-            }
-
-            Task.Run(async () =>
-            {
-                while (!_cts.Token.IsCancellationRequested)
+                _logger.Information("[{Id}] 连接断开", connectionId);
+                if (client.Connected) client.Close();
+                // 更新状态
+                if (_connections.TryGetValue(connectionId, out var ctx))
                 {
-                    try
-                    {
-                        var result = await _udpClient.ReceiveAsync();
-                        if (_currentRole == CommRole.Server) _remoteEndPoint = result.RemoteEndPoint;
-
-                        MessageReceived?.Invoke(result.RemoteEndPoint.ToString(), Encoding.UTF8.GetString(result.Buffer));
-                    }
-                    catch { break; }
+                    ctx.IsActive = false;
                 }
-            }, _cts.Token);
+                ConnectionStatusChanged?.Invoke(connectionId, false);
+            }
         }
 
-        public void Dispose() => Stop();
+        private async Task HandleUdpReceive(ConnectionContext ctx)
+        {
+            try
+            {
+                while (!ctx.Cts.Token.IsCancellationRequested)
+                {
+                    var result = await ctx.UdpClient.ReceiveAsync();
+                    string message = Encoding.UTF8.GetString(result.Buffer);
+                    string remote = result.RemoteEndPoint.ToString();
 
+                    // Server 模式：记录最后一次通信的远程端点用于回复
+                    if (ctx.Role == CommRole.Server)
+                        ctx.RemoteEndPoint = result.RemoteEndPoint;
 
-        #endregion
+                    MessageReceived?.Invoke(ctx.ConnectionId, message);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "[{Id}] UDP 接收异常", ctx.ConnectionId);
+            }
+            finally
+            {
+                _logger.Information("[{Id}] UDP 接收停止", ctx.ConnectionId);
+                if (_connections.TryGetValue(ctx.ConnectionId, out var state))
+                {
+                    state.IsActive = false;
+                }
+                ConnectionStatusChanged?.Invoke(ctx.ConnectionId, false);
+            }
+        }
+        public void Dispose()
+        {
+            foreach (var id in _connections.Keys.ToArray())
+                Stop(id);
+        }
 
+        private class ConnectionContext
+        {
+            public string ConnectionId { get; set; }
+            public CommProtocol Protocol { get; set; }
+            public CommRole Role { get; set; }
+            public string IP { get; set; }
+            public int Port { get; set; }
+            public TcpListener TcpListener { get; set; }
+            public TcpClient TcpClient { get; set; }
+            public TcpClient TcpServerClient { get; set; }
+            public UdpClient UdpClient { get; set; }
+            public IPEndPoint RemoteEndPoint { get; set; }   // UDP Server 记录的客户端地址
+            public IPEndPoint TargetEndPoint { get; set; }   // UDP Client 的目标地址（在 StartUdp时赋值）
+            public CancellationTokenSource Cts { get; set; }
+            public bool IsActive { get; set; }
+        }
     }
+
 }

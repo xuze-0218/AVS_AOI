@@ -23,15 +23,35 @@ namespace AVS_Modules_Settings.ViewModels
         public string DisplayText => $"[{Timestamp:HH:mm:ss}] {Sender}: {Content}";
     }
 
-    public class PlcDebugViewModel : BindableBase,INavigationAware
+    public class PlcDebugViewModel : BindableBase, INavigationAware
     {
-        private readonly IParametersConfigService _configService;
-        private readonly ICommunicationService _service;
+        private readonly IStationConfigService _stationConfigService;
+        private readonly ICommunicationService _communicationService;
         private readonly ILogger _logger;
-
+        public ObservableCollection<StationConfig> Stations => _stationConfigService.Stations;
         public ObservableCollection<string> Logs { get; } = new ObservableCollection<string>();
 
         public ObservableCollection<CommunicationMessage> SentMessages { get; } = new ObservableCollection<CommunicationMessage>();
+
+
+        private StationConfig _selectedStation;
+        public StationConfig SelectedStation
+        {
+            get => _selectedStation;
+            set
+            {
+                if (SetProperty(ref _selectedStation, value))
+                {
+                    if (value != null)
+                    {
+                        CurrentIp = value.IP;
+                        CurrentPort = value.Port;
+                        CurrentProtocol = value.Protocol;
+                        CurrentRole = value.Role;
+                    }
+                }
+            }
+        }
 
         private string _receivedMessagesText;
         public string ReceivedMessagesText
@@ -40,21 +60,32 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _receivedMessagesText, value);
         }
 
-        private string _ip = "127.0.0.1";
-        public string Ip { get => _ip; set => SetProperty(ref _ip, value); }
-        private int _port = 5000;
-        public int Port { get => _port; set => SetProperty(ref _port, value); }
-        private CommProtocol _selectedProtocol = CommProtocol.TCP;
-        public CommProtocol SelectedProtocol
+        private string _currentIp = "127.0.0.1";
+        public string CurrentIp
         {
-            get => _selectedProtocol;
-            set => SetProperty(ref _selectedProtocol, value);
+            get => _currentIp;
+            set => SetProperty(ref _currentIp, value);
         }
-        private CommRole _selectedRole = CommRole.Server;
-        public CommRole SelectedRole
+
+        private int _currentPort = 5000;
+        public int CurrentPort
         {
-            get => _selectedRole;
-            set => SetProperty(ref _selectedRole, value);
+            get => _currentPort;
+            set => SetProperty(ref _currentPort, value);
+        }
+
+        private CommProtocol _currentProtocol = CommProtocol.TCP;
+        public CommProtocol CurrentProtocol
+        {
+            get => _currentProtocol;
+            set => SetProperty(ref _currentProtocol, value);
+        }
+
+        private CommRole _currentRole = CommRole.Server;
+        public CommRole CurrentRole
+        {
+            get => _currentRole;
+            set => SetProperty(ref _currentRole, value);
         }
 
         private bool _isConnected;
@@ -71,73 +102,69 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand ConnectCommand { get; }
         public DelegateCommand DisconnectCommand { get; }
         public DelegateCommand SaveConfigCommand { get; }
+        public DelegateCommand SaveStationConfigCommand { get; }
+        public DelegateCommand AddNewStationCommand { get; }
 
-
-        public PlcDebugViewModel(ICommunicationService service, ILogger logger, IParametersConfigService configService)
+        public PlcDebugViewModel(ICommunicationService communicationService, ILogger logger, IStationConfigService stationConfigService)
         {
             _logger = logger;
-            _service = service;
-            _configService = configService;
-            LoadConfigToUI();
-            ConnectCommand = new DelegateCommand(
-             () =>
-             {
-                 _logger.Debug("用户点击连接按钮");
-                 _service.Start(SelectedProtocol, SelectedRole, Ip, Port);
-             },
-             () => !IsConnected);
-            DisconnectCommand = new DelegateCommand(
-                () =>
-                {
-                    _logger.Debug("断开连接按钮");
-                    _service.Stop();
-                },
-                () => IsConnected);
-            SendCommand = new DelegateCommand(
-                async () =>
-                {
-                    await _service.SendAsync(MessageInput);
-                    SentMessages.Add(new CommunicationMessage
-                    {
-                        Sender = "本地",
-                        Content = MessageInput,
-                        Timestamp = DateTime.Now
-                    });
+            _communicationService = communicationService;
+            _stationConfigService = stationConfigService;
+            if (Stations.Any())
+                SelectedStation = Stations[0];
 
-                    MessageInput = string.Empty;
-                },
-                () => IsConnected && !string.IsNullOrWhiteSpace(MessageInput)).ObservesProperty(() => MessageInput);
+            ConnectCommand = new DelegateCommand(() =>
+            {
+                if (SelectedStation == null) return;
+                ApplyToSelectedStation();
+                _communicationService.Start(SelectedStation.StationId,
+                    SelectedStation.Protocol, SelectedStation.Role,
+                    SelectedStation.IP, SelectedStation.Port);
+                IsConnected = true;
+                StatusMessage = $"已连接 {SelectedStation.IP}:{SelectedStation.Port}";
+            });
+            DisconnectCommand = new DelegateCommand(() =>
+            {
+                if (SelectedStation == null) return;
+                _communicationService.Stop(SelectedStation.StationId);
+                IsConnected = false;
+                StatusMessage = "已断开";
+            });
+            SendCommand = new DelegateCommand(async () =>
+            {
+                if (SelectedStation == null) return;
+                await _communicationService.SendAsync(SelectedStation.StationId, MessageInput);
+            });
+            SaveStationConfigCommand = new DelegateCommand(() =>
+            {
+                ApplyToSelectedStation();
+                _stationConfigService.Save();
+                StatusMessage = "配置已保存";
+            });
+            AddNewStationCommand = new DelegateCommand(() =>
+            {
+                var newStation = new StationConfig
+                {
+                    StationId = $"Station{Stations.Count + 1}",
+                    IP = "127.0.0.1",
+                    Port = 5000,
+                    Protocol = CommProtocol.TCP,
+                    Role = CommRole.Server
+                };
+                Stations.Add(newStation);
+                SelectedStation = newStation;
+                StatusMessage = "新增工位，请编辑并保存";
+            });
             ClearCommand = new DelegateCommand(() =>
             {
                 Logs.Clear();
                 SentMessages.Clear();
-                //ReceivedMessages.Clear();
                 ReceivedMessagesText = string.Empty;
                 _logger.Information("日志已清空");
             });
-            SaveConfigCommand = new DelegateCommand(() =>
-            {
-                try
-                {
-                    _configService.UpdateParam("Communication", "Protocol", SelectedProtocol.ToString());
-                    _configService.UpdateParam("Communication", "Role", SelectedRole.ToString());
-                    _configService.UpdateParam("Communication", "IP", Ip);
-                    _configService.UpdateParam("Communication", "Port", Port.ToString(), ParamOutputType.INT);
-                    if (_configService.SaveConfig())
-                    {
-                        _logger.Information("通讯配置已保存: {Protocol} {Role} {IP}:{Port}",
-                        SelectedProtocol, SelectedRole, Ip, Port);
-                        StatusMessage = "配置已保存";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "保存配置时发生错误");
-                    StatusMessage = "保存失败";
-                }
-            });
 
-            _service.ConnectionStatusChanged += isConnected =>
+
+            _communicationService.ConnectionStatusChanged += (stationId, isConnected) =>
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -147,36 +174,27 @@ namespace AVS_Modules_Settings.ViewModels
                 });
             };
 
-            _service.LogMessage += m => Application.Current.Dispatcher.Invoke(() =>
+            _communicationService.LogMessage += m => Application.Current.Dispatcher.Invoke(() =>
             {
                 Logs.Insert(0, $"{DateTime.Now:HH:mm:ss} {m}");
             });
 
-            _service.MessageReceived += (s, m) => HandleMessage(s, m);
-            bool currentState = _service.IsActive;
-            IsConnected = currentState;
+            _communicationService.MessageReceived += (s, m) => HandleMessage(s, m);
+
             UpdateStatusMessage();
             UpdateCommandsCanExecute();
-            _logger.Information("ViewModel 初始化，当前连接状态: {IsConnected}", currentState);
+            _logger.Information("ViewModel 初始化，当前连接状态: {IsConnected}", IsConnected);
             _logger.Debug("通讯配置界面已打开");
 
         }
 
-        private void LoadConfigToUI()
+        private void ApplyToSelectedStation()
         {
-            Ip = _configService.GetString("Communication", "IP", "127.0.0.1");
-            Port = _configService.GetInt("Communication", "Port", 5000);
-
-            string protocolStr = _configService.GetString("Communication", "Protocol", "TCP");
-            if (Enum.TryParse<CommProtocol>(protocolStr, out var protocol))
-            {
-                SelectedProtocol = protocol;
-            }
-            string roleStr = _configService.GetString("Communication", "Role", "Server");
-            if (Enum.TryParse<CommRole>(roleStr, out var role))
-            {
-                SelectedRole = role;
-            }
+            if (SelectedStation == null) return;
+            SelectedStation.IP = CurrentIp;
+            SelectedStation.Port = CurrentPort;
+            SelectedStation.Protocol = CurrentProtocol;
+            SelectedStation.Role = CurrentRole;
         }
 
         private void HandleMessage(string source, string message)
@@ -217,10 +235,10 @@ namespace AVS_Modules_Settings.ViewModels
             // 每次导航到此页面时触发
         }
 
-        public bool IsNavigationTarget(NavigationContext navigationContext)=>true;
+        public bool IsNavigationTarget(NavigationContext navigationContext) => true;
 
 
         public void OnNavigatedFrom(NavigationContext navigationContext) { }
-       
+
     }
 }

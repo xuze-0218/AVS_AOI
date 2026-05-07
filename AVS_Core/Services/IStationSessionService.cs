@@ -6,12 +6,15 @@ using System.Collections.Concurrent;
 
 namespace AVS_Core.Services
 {
+    /// <summary>
+    /// 会话服务,根据报文指令执行不同逻辑
+    /// </summary>
     public interface IStationSessionService
     {
         /// <summary>
         /// 初始化会话
         /// </summary>
-        /// <param name="stationId">工位（"A"/"B"）</param>
+        /// <param name="stationId">工位（"左侧2D"/"右侧3D"）</param>
         /// <param name="workType">会话类型（检测、标定、点检）</param>
         /// <param name="parameters">可选的初始化参数，如检测的 inspectOrder，标定所需的配置等</param>
         void InitializeSession(string stationId, SessionWorkType workType, object parameters = null);
@@ -200,7 +203,7 @@ namespace AVS_Core.Services
         public int ProcessedCount { get; set; }           // 已处理的极柱数量
 
         // —— 标定/点检相关 ——
-        public string CalibResult { get; set; } = "00";  // 结果 01/02
+        public string CalibResult { get; set; } = "00";  // 结果 01 ok/02 ng
         public string CalibData { get; set; } = "+0000000+0000000"; // X+Y 坐标
 
         public void Dispose()

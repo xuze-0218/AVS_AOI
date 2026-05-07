@@ -37,7 +37,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<IProtocolConfigRepository,ProtocolConfigRepository>();
             containerRegistry.RegisterSingleton<IProtocolEngineService, ProtocolEngineService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
-            //containerRegistry.RegisterSingleton<IWorkflowService, WorkflowService>();
+            containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()

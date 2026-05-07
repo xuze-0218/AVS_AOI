@@ -4,137 +4,181 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converts="clr-namespace:AVS_Common.Converts;assembly=AVS_Common"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:mod="clr-namespace:AVS_Service.Models;assembly=AVS_Service"
+    xmlns:models="clr-namespace:AVS_Service.Models;assembly=AVS_Service"
     xmlns:prism="http://prismlibrary.com/"
-    xmlns:sys="clr-namespace:System;assembly=mscorlib"
-    d:DesignHeight="450"
+    d:DesignHeight="400"
     d:DesignWidth="800"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
     <UserControl.Resources>
-        <ObjectDataProvider
-            x:Key="CommProtocolEnum"
-            MethodName="GetValues"
-            ObjectType="{x:Type sys:Enum}">
-            <ObjectDataProvider.MethodParameters>
-                <x:Type TypeName="mod:CommProtocol" />
-            </ObjectDataProvider.MethodParameters>
-        </ObjectDataProvider>
-
-        <ObjectDataProvider
-            x:Key="CommRoleEnum"
-            MethodName="GetValues"
-            ObjectType="{x:Type sys:Enum}">
-            <ObjectDataProvider.MethodParameters>
-                <x:Type TypeName="mod:CommRole" />
-            </ObjectDataProvider.MethodParameters>
-        </ObjectDataProvider>
+        <x:Array x:Key="ProtocolList" Type="models:CommProtocol">
+            <models:CommProtocol>TCP</models:CommProtocol>
+            <models:CommProtocol>UDP</models:CommProtocol>
+        </x:Array>
+        <x:Array x:Key="RoleList" Type="models:CommRole">
+            <models:CommRole>Server</models:CommRole>
+            <models:CommRole>Client</models:CommRole>
+        </x:Array>
         <converts:BoolToColorConverter x:Key="BoolToColorConverter" />
     </UserControl.Resources>
 
-    <Grid Margin="10" Background="AliceBlue">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <Grid Background="AliceBlue">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="10">
+                <GroupBox Header="选择工位 / 新增">
+                    <StackPanel Margin="5" Orientation="Horizontal">
+                        <TextBlock
+                            Margin="5,0"
+                            VerticalAlignment="Center"
+                            Text="工位：" />
+                        <ComboBox
+                            Width="150"
+                            Margin="5,0"
+                            DisplayMemberPath="StationId"
+                            ItemsSource="{Binding Stations}"
+                            SelectedItem="{Binding SelectedStation}" />
+                        <Button
+                            Margin="5,0"
+                            Command="{Binding AddNewStationCommand}"
+                            Content="新增工位" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Margin="0,10,0,0" Header="通讯参数">
+                    <StackPanel>
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="150" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="0"
+                                Margin="5"
+                                VerticalAlignment="Center"
+                                Text="IP:" />
+                            <TextBox
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                Margin="5"
+                                Text="{Binding CurrentIp}" />
+
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="2"
+                                Margin="5"
+                                VerticalAlignment="Center"
+                                Text="端口:" />
+                            <TextBox
+                                Grid.Row="0"
+                                Grid.Column="3"
+                                Margin="5"
+                                Text="{Binding CurrentPort}" />
+
+                            <TextBlock
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                Margin="5"
+                                VerticalAlignment="Center"
+                                Text="协议:" />
+                            <ComboBox
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Margin="5"
+                                ItemsSource="{StaticResource ProtocolList}"
+                                SelectedItem="{Binding CurrentProtocol}" />
+
+                            <TextBlock
+                                Grid.Row="1"
+                                Grid.Column="2"
+                                Margin="5"
+                                VerticalAlignment="Center"
+                                Text="模式:" />
+                            <ComboBox
+                                Grid.Row="1"
+                                Grid.Column="3"
+                                Margin="5"
+                                ItemsSource="{StaticResource RoleList}"
+                                SelectedItem="{Binding CurrentRole}" />
+                        </Grid>
+                        <Button
+                            Margin="5"
+                            Padding="10,5"
+                            Background="#CCFFCC"
+                            Command="{Binding SaveStationConfigCommand}"
+                            Content="保存配置" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Margin="0,10,0,0" Header="连接控制">
+                    <StackPanel Margin="5">
+                        <StackPanel Orientation="Horizontal">
+                            <Button
+                                Margin="0,0,5,0"
+                                Padding="10,5"
+                                Command="{Binding ConnectCommand}"
+                                Content="连接" />
+                            <Button
+                                Padding="10,5"
+                                Command="{Binding DisconnectCommand}"
+                                Content="断开" />
+                        </StackPanel>
+                        <TextBlock
+                            Margin="0,5,0,0"
+                            FontWeight="Bold"
+                            Foreground="{Binding IsConnected, Converter={StaticResource BoolToColorConverter}}"
+                            Text="{Binding StatusMessage}" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Margin="0,10,0,0" Header="发送测试报文">
+                    <StackPanel>
+                        <Grid Margin="5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                Grid.Column="0"
+                                VerticalContentAlignment="Center"
+                                Text="{Binding MessageInput}" />
+                            <Button
+                                Grid.Column="1"
+                                Margin="5,0,0,0"
+                                Padding="10,5"
+                                Command="{Binding SendCommand}"
+                                Content="发送" />
+                        </Grid>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
 
         <GroupBox
-            Grid.Row="0"
-            Padding="10"
-            Header="通讯设置">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="80" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock
-                    Grid.Column="0"
+            Grid.Column="1"
+            Margin="10"
+            Header="接收消息">
+            <DockPanel LastChildFill="True">
+                <Button
+                    HorizontalAlignment="Right"
                     VerticalAlignment="Center"
-                    Text="协议:" />
-                <ComboBox
-                    Grid.Column="1"
-                    Margin="5,0,0,0"
-                    ItemsSource="{Binding Source={StaticResource CommProtocolEnum}}"
-                    SelectedItem="{Binding SelectedProtocol}" />
-
-                <TextBlock
-                    Grid.Column="2"
-                    Margin="10,0,0,0"
-                    VerticalAlignment="Center"
-                    Text="模式:" />
-                <ComboBox
-                    Grid.Column="3"
-                    Margin="5,0,0,0"
-                    ItemsSource="{Binding Source={StaticResource CommRoleEnum}}"
-                    SelectedItem="{Binding SelectedRole}" />
-
-                <TextBlock
-                    Grid.Column="4"
-                    Margin="10,0,0,0"
-                    VerticalAlignment="Center"
-                    Text="IP:" />
-                <TextBox
-                    Grid.Column="5"
-                    Margin="5,0,0,0"
-                    Text="{Binding Ip}" />
-
-                <TextBlock
-                    Grid.Column="6"
-                    Margin="10,0,0,0"
-                    VerticalAlignment="Center"
-                    Text="端口:" />
-                <TextBox
-                    Grid.Column="7"
-                    Margin="5,0,0,0"
-                    Text="{Binding Port}" />
-
-                <TextBlock
-                    Grid.Column="8"
-                    Margin="20,0,0,0"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding IsConnected, Converter={StaticResource BoolToColorConverter}}"
-                    Text="{Binding StatusMessage}" />
-            </Grid>
-        </GroupBox>
-
-        <Grid Grid.Row="1" Margin="0,10,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="160" />
-                <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="*" MinWidth="160" />
-            </Grid.ColumnDefinitions>
-
-            <GroupBox
-                Grid.Column="0"
-                Padding="5"
-                Header="发送消息">
-                <TextBox
-                    AcceptsReturn="True"
-                    Text="{Binding MessageInput, UpdateSourceTrigger=PropertyChanged}"
-                    TextWrapping="Wrap" />
-            </GroupBox>
-
-            <GridSplitter
-                Grid.Column="1"
-                Width="5"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch"
-                Background="#ccc" />
-            <GroupBox
-                Grid.Column="2"
-                Padding="5"
-                Header="接收消息">
+                    Command="{Binding ClearReceivedCommand}"
+                    Content="清空"
+                    DockPanel.Dock="Bottom"
+                    FontSize="20" />
                 <TextBox
                     x:Name="ReceivedTextLog"
                     AcceptsReturn="True"
@@ -148,64 +192,8 @@
                     TextChanged="ReceivedTextLog_TextChanged"
                     TextWrapping="Wrap"
                     VerticalScrollBarVisibility="Auto" />
-            </GroupBox>
-        </Grid>
 
-        <Grid Grid.Row="2" Margin="0,10,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-
-            <WrapPanel
-                Grid.Row="1"
-                Margin="0,5,0,0"
-                HorizontalAlignment="Right">
-                <Button
-                    Width="80"
-                    Height="30"
-                    Margin="5"
-                    Background="LimeGreen"
-                    Command="{Binding SendCommand}"
-                    Content="发送"
-                    Foreground="Black" />
-
-                <Button
-                    Width="80"
-                    Height="30"
-                    Margin="5"
-                    Background="LightGreen"
-                    Command="{Binding ConnectCommand}"
-                    Content="连接"
-                    Foreground="Black" />
-
-                <Button
-                    Width="80"
-                    Height="30"
-                    Margin="5"
-                    Background="LightPink"
-                    Command="{Binding DisconnectCommand}"
-                    Content="断开"
-                    Foreground="Black" />
-
-                <Button
-                    Width="80"
-                    Height="30"
-                    Margin="5"
-                    Background="LightBlue"
-                    Command="{Binding SaveConfigCommand}"
-                    Content="保存"
-                    Foreground="Black" />
-
-                <Button
-                    Width="80"
-                    Height="30"
-                    Margin="5"
-                    Background="LightGray"
-                    Command="{Binding ClearCommand}"
-                    Content="清空"
-                    Foreground="Black" />
-            </WrapPanel>
-        </Grid>
+            </DockPanel>
+        </GroupBox>
     </Grid>
 </UserControl>
