@@ -3,6 +3,7 @@ using HalconDotNet;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -40,6 +41,7 @@ namespace AVS_Core.Services
     public class VisionService : IVisionService
     {
         private readonly ILogger _logger;
+        private readonly string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamA.json");
         private HDevEngine _engine;
         private HDevProcedure _proc2DInspect, _proc2DCalib, _proc2DVerify;
         // ... 其他过程变量
@@ -52,7 +54,7 @@ namespace AVS_Core.Services
         public async Task InitializeAsync(string stationId)
         {
             _engine = new HDevEngine();
-            _engine.SetProcedurePath(@"C:\RecipePath"); // 从配置读取
+            _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config")); // 从配置读取
             _engine.StartDebugServer();
 
             if (stationId == "A")

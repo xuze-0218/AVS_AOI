@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0-windows7.0</TargetFramework>
     <UseWPF>true</UseWPF>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Prism.Wpf" Version="8.1.97" />
@@ -11,10 +12,10 @@
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
-	<Target Name="CopyDllToPlugins" AfterTargets="Build">
+	<!--<Target Name="CopyDllToPlugins" AfterTargets="Build">
 		<PropertyGroup>
-			<MainAppPluginsDir>$(SolutionDir)AVS_App\bin\Debug\net8.0-windows\Modules\</MainAppPluginsDir>
+			<MainAppPluginsDir>$(SolutionDir)AVS_App\bin\x64\Debug\net8.0-windows\Modules\</MainAppPluginsDir>
 		</PropertyGroup>
 		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MainAppPluginsDir)" SkipUnchangedFiles="true" />
-	</Target>
+	</Target>-->
 </Project>

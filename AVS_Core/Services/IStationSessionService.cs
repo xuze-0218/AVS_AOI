@@ -48,6 +48,7 @@ namespace AVS_Core.Services
             _logger = logger;
         }
 
+
         public void InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
         {
             // 清理旧会话
@@ -73,8 +74,8 @@ namespace AVS_Core.Services
                     break;
                 case SessionWorkType.Calibrate:
                 case SessionWorkType.Verify:
-                    state.CalibResult = "00";
-                    state.CalibData = "+0000000+0000000";
+                    state.CalibResult = "97";//测试OK
+                    state.CalibData = "+8989333+1212666";
                     break;
             }
 
@@ -108,7 +109,7 @@ namespace AVS_Core.Services
             return state.WorkType switch
             {
                 SessionWorkType.Inspect => "",
-                SessionWorkType.Calibrate => "",
+                SessionWorkType.Calibrate => state.CalibResult + state.CalibData,
                 SessionWorkType.Verify => "",
                 _ => string.Empty
             };
@@ -172,18 +173,21 @@ namespace AVS_Core.Services
 
         private async Task ProcessInspectImage(string stationId, SessionState state, HObject image)
         {
-           
+
         }
 
         private async Task ProcessCalibrationImage(SessionState state, HObject image, bool isVerification)
         {
             HTuple result;
             if (isVerification)
+            {
                 result = await _visionService.ExecuteVerificationAsync(image, new CalibrationParams());
+                state.CalibResult = "";//这里还没赋值，需要根据算法结果判断
+                state.CalibData = result;
+            }
             else
                 result = await _visionService.ExecuteCalibrationAsync(image, new CalibrationParams());
 
-            state.CalibData =result;
         }
 
         private string GenerateErrorResult(SessionWorkType type)
@@ -221,5 +225,5 @@ namespace AVS_Core.Services
             Cts?.Dispose();
             ImageQueue?.Dispose();
         }
-    }  
+    }
 }

@@ -1,6 +1,7 @@
 ﻿using AVS_App.Views;
 using AVS_Common;
 using AVS_Core.Services;
+using AVS_Modules_Settings.Views;
 using AVS_Service;
 using DryIoc;
 using Prism.DryIoc;
@@ -28,7 +29,16 @@ namespace AVS_App
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
+            //注册导航
             containerRegistry.RegisterForNavigation<InspectionView>();
+            containerRegistry.RegisterForNavigation<StationConfigView>();
+            containerRegistry.RegisterForNavigation<ParameterConfigView>();
+            containerRegistry.RegisterForNavigation<ProtocolConfigView>();
+            containerRegistry.RegisterForNavigation<CameraDebugView>();
+            containerRegistry.RegisterForNavigation<PlcDebugView>();
+
+
+
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
             containerRegistry.RegisterSingleton<IVisionService, VisionService>();
             containerRegistry.RegisterSingleton<IStationSessionService, StationSessionService>();
@@ -68,10 +78,10 @@ namespace AVS_App
             regionManager.RequestNavigate("MainContentRegion", "InspectionView");
         }
 
-        protected override IModuleCatalog CreateModuleCatalog()
-        {
-            return new DirectoryModuleCatalog() { ModulePath = @".\Modules" };
-        }
+        //protected override IModuleCatalog CreateModuleCatalog()
+        //{
+        //    return new DirectoryModuleCatalog() { ModulePath = @".\Modules" };
+        //}
 
         protected override void OnExit(ExitEventArgs e)
         {

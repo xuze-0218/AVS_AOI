@@ -1,4 +1,4 @@
-﻿#define IsDebug       
+﻿//#define IsDebug       
 
 using AVS_Common;
 using AVS_Service;
@@ -28,7 +28,7 @@ namespace AVS_Core.Services
         private readonly IPlcMessageRouter _messageRouter;
         private readonly IVisionService _visionService;
         private readonly ICommunicationService _communicationService;
-        private readonly IParametersConfigService _parametersConfigService;
+        //private readonly IParametersConfigService _parametersConfigService;
         private readonly ICameraConfigService _cameraConfigService;
         private readonly IStationConfigService _stationConfigService;
         private readonly ILogger _logger;
@@ -41,7 +41,7 @@ namespace AVS_Core.Services
             IVisionService visionService,
             ICommunicationService communicationService,
             IStationConfigService stationConfigService,
-            IParametersConfigService parametersConfigService,
+            //IParametersConfigService parametersConfigService,
             ICameraConfigService cameraConfigService)
         {
             _logger = logger;
@@ -50,7 +50,7 @@ namespace AVS_Core.Services
             _visionService = visionService;
             _messageRouter = messageRouter;
             _stationConfigService = stationConfigService;
-            _parametersConfigService = parametersConfigService;
+            //_parametersConfigService = parametersConfigService;
             _communicationService = communicationService;
             _cameraConfigService = cameraConfigService;
         }
@@ -61,12 +61,17 @@ namespace AVS_Core.Services
 
             try
             {
+
                 //加载通讯服务
                 await InitializeCommunicationAsync();
 
 #if !IsDebug
-                await _visionService.InitializeAsync("A");
-                await _visionService.InitializeAsync("B");
+                foreach (var item in _stationConfigService.Stations)
+                {
+                    await _visionService.InitializeAsync(item.StationId);
+                }
+                //await _visionService.InitializeAsync("A");
+                //await _visionService.InitializeAsync("B");
 
 #endif
 
@@ -96,7 +101,7 @@ namespace AVS_Core.Services
         private void OnImageCaptured(CameraImagePayload payload)
         {
             // 根据相机逻辑角色确定工位ID
-         
+
             var camSetting = _cameraConfigService.AllSettings
                 .FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
             var station = _stationConfigService.GetStationByCameraRole(camSetting.CameraRole);
