@@ -123,6 +123,13 @@ namespace AVS_Core.Services
             }
         }
 
+        /// <summary>
+        /// 图像处理
+        /// </summary>
+        /// <param name="stationId"></param>
+        /// <param name="state"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
         private async Task ProcessLoop(string stationId, SessionState state, CancellationToken token)
         {
             try

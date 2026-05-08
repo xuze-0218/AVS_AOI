@@ -38,7 +38,7 @@ namespace AVS_Service
         void UpdateInputFields(List<ProtocolField> inputFields);
         List<ProtocolField> GetOutputFields();
         List<ProtocolField> GetInputFields();
-        event Action<string, string> VariableChanged;  //
+        event Action<string, string> VariableChanged;  
     }
 
     public class ProtocolEngineService : IProtocolEngineService

@@ -153,7 +153,7 @@ namespace AVS_Core.Services
             _sessionService.InitializeSession(stationId,
                 isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
 
-            // 标定初始化成功返回固定格式
+            // 标定初始化成功返回固定格式   这里是测试
             _protocolEngine.SetVariable("Result", "18"); 
             _protocolEngine.SetVariable("backup2", "+000");
             _protocolEngine.SetVariable("backup3", "8989");

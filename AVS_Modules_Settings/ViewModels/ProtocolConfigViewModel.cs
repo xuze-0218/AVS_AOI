@@ -18,7 +18,7 @@ using System.Windows;
 
 namespace AVS_Modules_Settings.ViewModels
 {
-    public class ProtocolConfigViewModel : BindableBase, IDialogAware
+    public class ProtocolConfigViewModel : BindableBase
     {
         private readonly IProtocolEngineService _protocolEngine;
         private readonly IParametersConfigService _paramConfig;
@@ -26,34 +26,71 @@ namespace AVS_Modules_Settings.ViewModels
         private readonly IProtocolConfigRepository _protocolConfigRepository;
         private readonly ILogger _logger;
         private string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config/ProtocolConfig.json");
-        private ObservableCollection<ProtocolField> _inputFields;
-        private ObservableCollection<ProtocolField> _outputFields;
-        private ObservableCollection<SessionConfig> _sessions;
-        private SessionConfig _selectedSession;
-        private int _totalLength;
-        private string _testRawData = "";
-        private string _parseResult = "";
-        private string _generatedMessage = "";
-        private string _previewMessage = "";
-        private string _statusMessage = "就绪";
-        private string _templateName = "DefaultTemplate";
-        private bool _isListeningPlc = false;
-        private string _listenButtonText = "开始监听 PLC";
-        private string _currentStationId;
-        public string CurrentStationId
-        {
-            get => _currentStationId;
-            set => SetProperty(ref _currentStationId, value);
-        }
-
+         
         private StationProtocolConfig _currentStationConfig;
         private Action<string, string> _variableChangedHandler;
+       
+
+        #region Prop
+        private ObservableCollection<ProtocolField> _inputFields;
+        public ObservableCollection<ProtocolField> InputFields
+        {
+            get => _inputFields;
+            set
+            {
+                if (_inputFields != null)
+                    _inputFields.CollectionChanged -= OnInputFieldsChanged;
+                if (SetProperty(ref _inputFields, value))
+                {
+                    if (_inputFields != null)
+                        _inputFields.CollectionChanged += OnInputFieldsChanged;
+                }
+            }
+        }
+
+        private ObservableCollection<ProtocolField> _outputFields;
+        public ObservableCollection<ProtocolField> OutputFields
+        {
+            get => _outputFields;
+            set
+            {
+                if (_outputFields != null)
+                    _outputFields.CollectionChanged -= OnOutputFieldsChanged;
+                if (SetProperty(ref _outputFields, value))
+                {
+                    if (_outputFields != null)
+                        _outputFields.CollectionChanged += OnOutputFieldsChanged;
+                }
+            }
+        }
+
+        private ObservableCollection<SessionConfig> _sessions;
+        public ObservableCollection<SessionConfig> Sessions
+        {
+            get => _sessions;
+            set => SetProperty(ref _sessions, value);
+        }
+
+        private SessionConfig _selectedSession;
+        public SessionConfig SelectedSession
+        {
+            get => _selectedSession;
+            set
+            {
+                if (SetProperty(ref _selectedSession, value))
+                {
+                    OnSessionChanged();
+                }
+            }
+        }
+
         private bool _isEditingCommonHeader = false;
         public bool IsEditingCommonHeader
         {
             get => _isEditingCommonHeader;
             set => SetProperty(ref _isEditingCommonHeader, value);
         }
+
         private string _editableFuncCode;
         public string EditableFuncCode
         {
@@ -72,117 +109,79 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        public ObservableCollection<ProtocolField> InputFields
+        private string _currentStationId;
+        public string CurrentStationId
         {
-            get => _inputFields;
-            set
-            {
-                if (_inputFields != null)
-                    _inputFields.CollectionChanged -= OnInputFieldsChanged;
-                if (SetProperty(ref _inputFields, value))
-                {
-                    if (_inputFields != null)
-                        _inputFields.CollectionChanged += OnInputFieldsChanged;
-                }
-            }
+            get => _currentStationId;
+            set => SetProperty(ref _currentStationId, value);
         }
 
-        private void OnInputFieldsChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            SyncFieldValues(InputFields);
-            SyncConfigToEngine();
-        }
-
-        private void OnOutputFieldsChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            if (e.NewItems != null)
-                foreach (ProtocolField f in e.NewItems.Cast<ProtocolField>()) AttachFieldHandlers(f);
-            if (e.OldItems != null)
-                foreach (ProtocolField f in e.OldItems.Cast<ProtocolField>()) DetachFieldHandlers(f);
-            SyncFieldValues(OutputFields);
-            SyncConfigToEngine();
-            UpdateOutputPreview();
-        }
-
-        public ObservableCollection<ProtocolField> OutputFields
-        {
-            get => _outputFields;
-            set
-            {
-                if (_outputFields != null)
-                    _outputFields.CollectionChanged -= OnOutputFieldsChanged;
-                if (SetProperty(ref _outputFields, value))
-                {
-                    if (_outputFields != null)
-                        _outputFields.CollectionChanged += OnOutputFieldsChanged;
-                }
-            }
-        }
-        public ObservableCollection<SessionConfig> Sessions
-        {
-            get => _sessions;
-            set => SetProperty(ref _sessions, value);
-        }
-        public SessionConfig SelectedSession
-        {
-            get => _selectedSession;
-            set
-            {
-                if (SetProperty(ref _selectedSession, value))
-                {
-                    OnSessionChanged();
-                }
-            }
-        }
-
-        public string Title => "报文配置调试";
+        private int _totalLength;
         public int TotalLength
         {
             get => _totalLength;
             set => SetProperty(ref _totalLength, value);
         }
+
+        private string _testRawData = "";
         public string TestRawData
         {
             get => _testRawData;
             set => SetProperty(ref _testRawData, value);
         }
+
+        private string _parseResult = "";
         public string ParseResult
         {
             get => _parseResult;
             set => SetProperty(ref _parseResult, value);
         }
+
+        private string _generatedMessage = "";
         public string GeneratedMessage
         {
             get => _generatedMessage;
             set => SetProperty(ref _generatedMessage, value);
         }
+
+        private string _previewMessage = "";
         public string PreviewMessage
         {
             get => _previewMessage;
             set => SetProperty(ref _previewMessage, value);
         }
+
+        private string _statusMessage = "就绪";
         public string StatusMessage
         {
             get => _statusMessage;
             set => SetProperty(ref _statusMessage, value);
         }
+
+        private string _templateName = "DefaultTemplate";
         public string TemplateName
         {
             get => _templateName;
             set => SetProperty(ref _templateName, value);
         }
+
+        private bool _isListeningPlc = false;
         public bool IsListeningPlc
         {
             get => _isListeningPlc;
             set => SetProperty(ref _isListeningPlc, value);
         }
+
+        private string _listenButtonText = "开始监听 PLC";
         public string ListenButtonText
         {
             get => _listenButtonText;
             set => SetProperty(ref _listenButtonText, value);
         }
+        #endregion
 
-        // 命令
+
+        #region Command
         public DelegateCommand AddInputFieldCommand { get; private set; }
         public DelegateCommand AddOutputFieldCommand { get; private set; }
         public DelegateCommand SortCommand { get; private set; }
@@ -191,19 +190,18 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand SaveConfigCommand { get; private set; }
         public DelegateCommand LoadConfigCommand { get; private set; }
         public DelegateCommand ToggleListenCommand { get; private set; }
-        //添加新报文
         public DelegateCommand AddSessionCommand { get; private set; }
         public DelegateCommand DeleteSessionCommand { get; private set; }
         public DelegateCommand SelectCommonHeaderCommand { get; private set; }
-        public event Action<IDialogResult> RequestClose;
+        #endregion
 
 
         public ProtocolConfigViewModel(
+            ILogger logger,
+            IParametersConfigService paramConfig,
             IProtocolEngineService protocolEngine,
             ICommunicationService communicationService,
-            IParametersConfigService paramConfig,
-            IProtocolConfigRepository protocolConfigRepository,
-        ILogger logger)
+            IProtocolConfigRepository protocolConfigRepository)
         {
             _paramConfig = paramConfig;
             _protocolEngine = protocolEngine;
@@ -212,26 +210,10 @@ namespace AVS_Modules_Settings.ViewModels
             _logger = logger;
 
             Sessions = new ObservableCollection<SessionConfig>();
-
             InitializeCommands();
             LoadConfig();
             SubscribeToCommunicationEvents();
-            //_protocolEngine.VariableChanged += (name, val) =>
-            //{
-            //    Application.Current?.Dispatcher.Invoke(() =>
-            //    {
-            //        UpdateOutputPreview();
-            //    });
-            //};
             _logger?.Information("ProtocolConfigViewModel 已初始化");
-        }
-
-        private void OnVariableChanged(string name, string val)
-        {
-            Application.Current?.Dispatcher.Invoke(() =>
-            {
-                UpdateOutputPreview();
-            });
         }
 
         // 新增对话报文
@@ -343,7 +325,6 @@ namespace AVS_Modules_Settings.ViewModels
             UpdateTotalLength();
         }
 
-
         private List<ProtocolField> CloneFields(List<ProtocolField> fields)
         {
             if (fields == null) return new List<ProtocolField>();
@@ -444,7 +425,7 @@ namespace AVS_Modules_Settings.ViewModels
                 }
 
                 ParseResult = result.ToString();
-              
+
                 if (!IsListeningPlc)
                     UpdateOutputPreview();
                 _logger?.Information("电文解析测试完成");
@@ -768,20 +749,29 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        public bool CanCloseDialog() => true;
-
-        public void OnDialogClosed()
+        private void OnInputFieldsChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            if (IsListeningPlc)
-            {
-                IsListeningPlc = false;
-                _logger?.Debug("对话框关闭，已停止监听 PLC");
-            }
+            SyncFieldValues(InputFields);
+            SyncConfigToEngine();
         }
 
-        public void OnDialogOpened(IDialogParameters parameters)
+        private void OnOutputFieldsChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            _logger?.Debug("ProtocolConfigView 对话框已打开");
+            if (e.NewItems != null)
+                foreach (ProtocolField f in e.NewItems.Cast<ProtocolField>()) AttachFieldHandlers(f);
+            if (e.OldItems != null)
+                foreach (ProtocolField f in e.OldItems.Cast<ProtocolField>()) DetachFieldHandlers(f);
+            SyncFieldValues(OutputFields);
+            SyncConfigToEngine();
+            UpdateOutputPreview();
+        }
+
+        private void OnVariableChanged(string name, string val)
+        {
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                UpdateOutputPreview();
+            });
         }
     }
 }

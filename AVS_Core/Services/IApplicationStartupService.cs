@@ -34,20 +34,18 @@ namespace AVS_Core.Services
         private readonly ILogger _logger;
 
         public ApplicationStartupService(
+            ILogger logger,
             IPlcMessageRouter messageRouter,
-           ILogger logger,
-           IEventAggregator eventAggregator,
+            IEventAggregator eventAggregator,
             IStationSessionService sessionService,
             IVisionService visionService,
-           ICommunicationService communicationService,
-           IStationConfigService stationConfigService,
-           //IWorkflowService workflowService,
-           IParametersConfigService parametersConfigService,
-           ICameraConfigService cameraConfigService)
+            ICommunicationService communicationService,
+            IStationConfigService stationConfigService,
+            IParametersConfigService parametersConfigService,
+            ICameraConfigService cameraConfigService)
         {
             _logger = logger;
             _eventAggregator = eventAggregator;
-            //_workflowService = workflowService;
             _sessionService = sessionService;
             _visionService = visionService;
             _messageRouter = messageRouter;
@@ -98,19 +96,14 @@ namespace AVS_Core.Services
         private void OnImageCaptured(CameraImagePayload payload)
         {
             // 根据相机逻辑角色确定工位ID
+         
             var camSetting = _cameraConfigService.AllSettings
                 .FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
+            var station = _stationConfigService.GetStationByCameraRole(camSetting.CameraRole);
 
-            string stationId = camSetting?.CameraRole switch
+            if (station != null && station.StationId != null)
             {
-                "cam2d" => "A",
-                "cam3d" => "B",
-                _ => null
-            };
-
-            if (stationId != null)
-            {
-                _sessionService.EnqueueImage(stationId, payload.Image);
+                _sessionService.EnqueueImage(station.StationId, payload.Image);
             }
             else
             {
@@ -180,9 +173,8 @@ namespace AVS_Core.Services
                 foreach (var station in _stationConfigService.Stations)
                 {
                     _communicationService?.Stop(station.StationId);
-                    //_communicationService.Start(station.StationId, station.Protocol, station.Role, station.IP, station.Port);
                 }
-                
+
                 await Task.Delay(300);
 
                 //确保Halcon非托管内存被回收

@@ -25,14 +25,14 @@ namespace AVS_Modules_Settings.ViewModels
 
     public class PlcDebugViewModel : BindableBase, INavigationAware,IDisposable
     {
+        private readonly ILogger _logger;
         private readonly IStationConfigService _stationConfigService;
         private readonly ICommunicationService _communicationService;
-        private readonly ILogger _logger;
         public ObservableCollection<StationConfig> Stations => _stationConfigService.Stations;
         public ObservableCollection<string> Logs { get; } = new ObservableCollection<string>();
         public ObservableCollection<CommunicationMessage> SentMessages { get; } = new ObservableCollection<CommunicationMessage>();
 
-
+        #region Prop
         private StationConfig _selectedStation;
         public StationConfig SelectedStation
         {
@@ -95,7 +95,9 @@ namespace AVS_Modules_Settings.ViewModels
 
         private string _messageInput;
         public string MessageInput { get => _messageInput; set => SetProperty(ref _messageInput, value); }
+        #endregion
 
+        #region Command
         public DelegateCommand SendCommand { get; }
         public DelegateCommand ClearCommand { get; }
         public DelegateCommand ConnectCommand { get; }
@@ -103,6 +105,8 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand SaveConfigCommand { get; }
         public DelegateCommand SaveStationConfigCommand { get; }
         public DelegateCommand AddNewStationCommand { get; }
+        #endregion
+
 
         public PlcDebugViewModel(ICommunicationService communicationService, ILogger logger, IStationConfigService stationConfigService)
         {
@@ -161,22 +165,16 @@ namespace AVS_Modules_Settings.ViewModels
                 ReceivedMessagesText = string.Empty;
                 _logger.Information("日志已清空");
             });
-
-
             _communicationService.ConnectionStatusChanged += OnConnectionStatusChanged;
-
             _communicationService.LogMessage += m => Application.Current.Dispatcher.Invoke(() =>
             {
                 Logs.Insert(0, $"{DateTime.Now:HH:mm:ss} {m}");
             });
-
             _communicationService.MessageReceived += (s, m) => HandleMessage(s, m);
-
             UpdateStatusMessage();
             UpdateCommandsCanExecute();
             _logger.Information("ViewModel 初始化，当前连接状态: {IsConnected}", IsConnected);
             _logger.Debug("通讯配置界面已打开");
-
         }
 
         private void OnConnectionStatusChanged(string stationId, bool isConnected)
@@ -233,14 +231,12 @@ namespace AVS_Modules_Settings.ViewModels
             StatusMessage = IsConnected ? "已连接" : "未连接";
         }
 
-
         public void OnNavigatedTo(NavigationContext navigationContext)
         {
             // 每次导航到此页面时触发
         }
 
         public bool IsNavigationTarget(NavigationContext navigationContext) => true;
-
 
         public void OnNavigatedFrom(NavigationContext navigationContext) { }
 
