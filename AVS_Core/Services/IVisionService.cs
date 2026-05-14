@@ -83,7 +83,7 @@ namespace AVS_Core.Services
         public async Task InitializeAsync(string stationId)
         {
             string sn = _stationConfig.GetStation(stationId).CameraRole;
-            var handle = _windowHandleRegistry.GetHandle(sn);
+            var handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
             if (stationId == "A")
             {

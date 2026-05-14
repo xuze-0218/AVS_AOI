@@ -3,8 +3,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Media.Media3D;
 
 namespace AVS_Common.Services
 {
@@ -22,6 +24,7 @@ namespace AVS_Common.Services
         void Register(string cameraRN, HWindow windowHandle);
         void Unregister(string cameraRN);
         HWindow GetHandle(string cameraRN);
+        Task<HWindow> WaitForHandleAsync(string cameraRN, CancellationToken ct = default);
     }
 
     public class WindowHandleRegistry : IWindowHandleRegistry
@@ -30,19 +33,39 @@ namespace AVS_Common.Services
         /// 存放相机SN与窗口句柄的映射关系，使用ConcurrentDictionary保证线程安全
         /// </summary>
         private readonly ConcurrentDictionary<string, HWindow> _handles = new();
+        private readonly ConcurrentDictionary<string, TaskCompletionSource<HWindow>> _pending = new();
+
         public HWindow GetHandle(string cameraRN)
         {
             return _handles.TryGetValue(cameraRN, out var handle) ? handle : null;
         }
 
-        public void Register(string cameraRN, HWindow windowHandle)
+        public void Register(string cameraRN, HWindow handle)
         {
-            _handles[cameraRN] = windowHandle;
+            _handles[cameraRN] = handle;
+            if (_pending.TryRemove(cameraRN, out var tcs))
+                tcs.TrySetResult(handle);
         }
 
         public void Unregister(string cameraRN)
         {
             _handles.TryRemove(cameraRN, out _);
+            if (_pending.TryRemove(cameraRN, out var tcs))
+                tcs.TrySetCanceled();
+        }
+
+        public async Task<HWindow> WaitForHandleAsync(string cameraRN, CancellationToken ct = default)
+        {
+            var existing = GetHandle(cameraRN);
+            if (existing != null)
+                return existing;
+            var tcs = new TaskCompletionSource<HWindow>();
+            _pending[cameraRN] = tcs;
+            using (ct.Register(() => tcs.TrySetCanceled()))
+            {
+                return await tcs.Task.ConfigureAwait(false);
+            }
+
         }
     }
 }
