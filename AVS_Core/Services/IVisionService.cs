@@ -55,7 +55,7 @@ namespace AVS_Core.Services
             _logger = logger;
             _parametersConfig = parametersConfig;
             //程序运行后卡住主窗体，耗时长
-            Task.Run(() => InitializeEngine());
+           // Task.Run(() => InitializeEngine());
 
         }
 
@@ -83,61 +83,61 @@ namespace AVS_Core.Services
                     paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamA.json");
                 else
                     paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamA.json");
-                _proc2DLoadParam = new HDevProcedure("LoadParam");
-                hCall01 = new HDevProcedureCall(_proc2DLoadParam);
+                //_proc2DLoadParam = new HDevProcedure("LoadParam");
+                //hCall01 = new HDevProcedureCall(_proc2DLoadParam);
 
                 //不应该在这里设置窗口,这样增加耦合,而且这里也无法获取窗口句柄。
-                //如果要在窗口中显示其他内容，而不仅仅是图像，该在处理？
-                hCall01.SetInputCtrlParamTuple("WindowHandle", "");
-                hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
-                hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
-                hCall01.Execute(); // 调用
-                hCall01.Dispose(); // 释放
-                _proc2DLoadParam.Dispose();
+                //如果要在窗口中显示其他内容，而不仅仅是图像，待优化？
+                //hCall01.SetInputCtrlParamTuple("WindowHandle", "");
+                //hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
+                //hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
+                //hCall01.Execute(); // 调用
+                //hCall01.Dispose(); // 释放
+                //_proc2DLoadParam.Dispose();
 
-                _proc2DCrop = new HDevProcedure("Crop2d");
-                if (isCirWeldMark)
-                    _proc2DMeasure = new HDevProcedure("Measure2d");
-                else
-                    _proc2DMeasure = new HDevProcedure("MeasureSB2D");
+                //_proc2DCrop = new HDevProcedure("Crop2d");
+                //if (isCirWeldMark)
+                //    _proc2DMeasure = new HDevProcedure("Measure2d");
+                //else
+                //    _proc2DMeasure = new HDevProcedure("MeasureSB2D");
             }
             else // B (3D)
             {
                 bool isNormalCheck = _parametersConfig.GetBool("ProductParam", "isNormalCheck");
                 bool isAiCheck = _parametersConfig.GetBool("ProductParam", "isAiCheck");
                 bool isPlanecheck = _parametersConfig.GetBool("ProductParam", "isPlanecheck");
-                if (isNormalCheck || isAiCheck)
-                {
-                    if (isSquareBarWeldMark)
-                        paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json");
-                    else
-                        paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
-                    _proc2DLoadParam = new HDevProcedure("LoadParam");
-                    //hCall01.SetInputCtrlParamTuple("WindowHandle", HWindow01.HalconWindow);//不应该在这里设置窗口,这样增加耦合
-                    hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
-                    hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
-                    hCall01.Execute(); // 调用
-                    hCall01.Dispose(); // 释放
-                    _proc3DLoadParam.Dispose();
+                //if (isNormalCheck || isAiCheck)
+                //{
+                //    if (isSquareBarWeldMark)
+                //        paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json");
+                //    else
+                //        paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
+                //    _proc2DLoadParam = new HDevProcedure("LoadParam");
+                //    //hCall01.SetInputCtrlParamTuple("WindowHandle", HWindow01.HalconWindow);//不应该在这里设置窗口,这样增加耦合
+                //    hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
+                //    hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
+                //    hCall01.Execute(); // 调用
+                //    hCall01.Dispose(); // 释放
+                //    _proc3DLoadParam.Dispose();
 
-                    _proc3DCrop = new HDevProcedure("Crop3d");
-                    if (isPlanecheck)    // 平面拟合模式
-                    {
-                        // 方形+条形焊缝
-                        if (isSquareBarWeldMark)
-                            _procPlaneFit3D = new HDevProcedure("PlaneFitSB3D");
-                        else
-                            // // 圆形焊缝
-                            _procPlaneFit3D = new HDevProcedure("PlaneFit3D");
-                    }
-                    else  // 非平面拟合模式（3D测量模式）
-                    {
-                        if (isSquareBarWeldMark)   // 方形电池的3D测量
-                            _proc3DMeasure = new HDevProcedure("MeasureSB3d");
-                        else   // 圆柱电池的3D测量
-                            _proc3DMeasure = new HDevProcedure("Measure3d");
-                    }
-                }
+                //    _proc3DCrop = new HDevProcedure("Crop3d");
+                //    if (isPlanecheck)    // 平面拟合模式
+                //    {
+                //        // 方形+条形焊缝
+                //        if (isSquareBarWeldMark)
+                //            _procPlaneFit3D = new HDevProcedure("PlaneFitSB3D");
+                //        else
+                //            // // 圆形焊缝
+                //            _procPlaneFit3D = new HDevProcedure("PlaneFit3D");
+                //    }
+                //    else  // 非平面拟合模式（3D测量模式）
+                //    {
+                //        if (isSquareBarWeldMark)   // 方形电池的3D测量
+                //            _proc3DMeasure = new HDevProcedure("MeasureSB3d");
+                //        else   // 圆柱电池的3D测量
+                //            _proc3DMeasure = new HDevProcedure("Measure3d");
+                //    }
+                //}
             }
             await Task.CompletedTask;
             _logger.Information("Vision engine initialized for {StationId}", stationId);
@@ -215,7 +215,6 @@ namespace AVS_Core.Services
             return Task.FromResult(result);
         }
 
-
         private string DoubleToString(double detectValue, int len)
         {
             //len   生成字符的总长度 
@@ -234,7 +233,6 @@ namespace AVS_Core.Services
             }
             return valueStr;
         }
-
         //-判断HObject对象是否为空
         private bool IsObjectEmpty(HObject image)
         {

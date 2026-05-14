@@ -24,6 +24,6 @@
                 Text="{Binding CameraRoleName}" />
         </Border>
 
-        <halcon:HSmartWindowControlWPF x:Name="HWindow" Grid.Row="1" />
+        <halcon:HSmartWindowControlWPF x:Name="HsmartWindow" Grid.Row="1" />
     </Grid>
 </UserControl>

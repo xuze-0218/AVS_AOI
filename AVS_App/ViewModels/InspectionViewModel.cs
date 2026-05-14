@@ -1,4 +1,5 @@
 ﻿using AVS_Common;
+using AVS_Common.Model;
 using AVS_Service;
 using AVS_Service.Models;
 using HalconDotNet;
@@ -62,7 +63,7 @@ namespace AVS_App.ViewModels
             {
                 CameraDisplayList.Add(new CameraDisplayItem
                 {
-                    CameraRoleName = cam.CameraRole ?? cam.SerilalNum, //使用逻辑角色名
+                    CameraRoleName = cam.CameraRole, //使用逻辑角色名
                     PhysicalSN = cam.SerilalNum
                 });
             }
@@ -84,24 +85,5 @@ namespace AVS_App.ViewModels
 
         public void OnNavigatedFrom(NavigationContext navigationContext) { }
 
-    }
-
-    public class CameraDisplayItem : BindableBase
-    {
-        public string CameraRoleName { get; set; }
-        public string PhysicalSN { get; set; }
-
-        private HObject _currentImage;
-        public HObject CurrentImage
-        {
-            get => _currentImage;
-            set
-            {
-                if (_currentImage != null)
-                    _currentImage.Dispose();
-                HObject newImage = value?.Clone();
-                SetProperty(ref _currentImage, newImage);
-            }
-        }
-    }
+    }   
 }

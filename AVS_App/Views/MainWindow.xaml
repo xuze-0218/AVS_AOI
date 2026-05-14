@@ -25,7 +25,6 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!--  1. 顶部标题与状态灯  -->
                 <StackPanel Grid.Row="0" Margin="0,20,0,10">
                     <TextBlock
                         HorizontalAlignment="Center"
@@ -34,7 +33,6 @@
                         Foreground="White"
                         Text="AOI 视觉系统" />
 
-                    <!--  PLC 状态指示  -->
                     <StackPanel
                         Margin="0,10"
                         HorizontalAlignment="Center"

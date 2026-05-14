@@ -1,5 +1,6 @@
 ﻿using AVS_App.Views;
 using AVS_Common;
+using AVS_Common.Services;
 using AVS_Core.Services;
 using AVS_Modules_Settings.Views;
 using AVS_Service;
@@ -40,11 +41,12 @@ namespace AVS_App
 
 
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
+            containerRegistry.RegisterSingleton<IWindowHandleRegistry, WindowHandleRegistry>();
             containerRegistry.RegisterSingleton<IVisionService, VisionService>();
             containerRegistry.RegisterSingleton<IStationSessionService, StationSessionService>();
             containerRegistry.RegisterSingleton<IPlcMessageRouter, PlcMessageRouter>();
             containerRegistry.RegisterSingleton<IParametersConfigService, ParametersConfigService>();
-            containerRegistry.RegisterSingleton<IProtocolConfigRepository,ProtocolConfigRepository>();
+            containerRegistry.RegisterSingleton<IProtocolConfigRepository, ProtocolConfigRepository>();
             containerRegistry.RegisterSingleton<IProtocolEngineService, ProtocolEngineService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
             containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
