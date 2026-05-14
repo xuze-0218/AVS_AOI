@@ -43,6 +43,8 @@ namespace AVS_Core.Services
 
     public class VisionService : IVisionService
     {
+        private readonly SemaphoreSlim _engineInitSemaphore = new SemaphoreSlim(1, 1);
+        private bool _engineInitialized = false;
         private readonly ILogger _logger;
         private readonly IParametersConfigService _parametersConfig;
         private readonly IStationConfigService _stationConfig;
@@ -62,26 +64,43 @@ namespace AVS_Core.Services
             _stationConfig = stationConfig;
             _parametersConfig = parametersConfig;
             _windowHandleRegistry = windowHandleRegistry;
-            //程序运行后卡住主窗体，耗时长
-            // Task.Run(() => InitializeEngine());
-
         }
-
-        private void InitializeEngine()
+       
+        private async Task InitializeEngineAsync()
         {
-            _engine = new HDevEngine();
-            _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "HalconEngine.hdpl")); // 从配置读取
-            _engine.StartDebugServer();
+            if (_engineInitialized)
+                return;
+            await _engineInitSemaphore.WaitAsync();
+            try
+            {
+                if (_engineInitialized) return;
+                await Task.Run(() => 
+                {
+                    _engine = new HDevEngine();
+                    _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "HalconEngine.hdpl"));
+                    _engine.StartDebugServer();
+                });
+                _engineInitialized = true;
+                _logger.Information("Halcon引擎初始化完成");
+            }
+            catch (Exception)
+            {
+            }
+            finally
+            {
+                _engineInitSemaphore.Release();
+            }
         }
 
         /// <summary>
-        /// 这里硬编码了工位A和B的区别，实际可以根据工位ID加载不同的配置文件来决定加载哪些过程
+        /// 这里硬编码了工位A和B，实际可以根据工位ID加载不同的配置文件来决定加载哪些过程
         /// 这里仅是halcon引擎初始化和过程加载的示例，实际还需要加载AI模型等资源
         /// </summary>
         /// <param name="stationId"></param>
         /// <returns></returns>
         public async Task InitializeAsync(string stationId)
         {
+            await InitializeEngineAsync();
             string sn = _stationConfig.GetStation(stationId).CameraRole;
             var handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
@@ -96,12 +115,11 @@ namespace AVS_Core.Services
                 hCall01 = new HDevProcedureCall(_proc2DLoadParam);
 
                 //不应该在这里设置窗口,这样增加耦合,而且这里也无法获取窗口句柄。
-                //如果要在窗口中显示其他内容，而不仅仅是图像，待优化？
                 hCall01.SetInputCtrlParamTuple("WindowHandle", handle);
                 hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
                 hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
-                hCall01.Execute(); // 调用
-                hCall01.Dispose(); // 释放
+                //hCall01.Execute(); // 调用
+                //hCall01.Dispose(); // 释放
                 _proc2DLoadParam.Dispose();
 
                 _proc2DCrop = new HDevProcedure("Crop2d");

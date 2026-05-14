@@ -74,6 +74,8 @@ namespace AVS_App
                 var registry = Container.Resolve<IWindowHandleRegistry>();
                 registry.Unregister(rn);
             };
+            var regionManager = Container.Resolve<IRegionManager>();
+            regionManager.RequestNavigate("MainContentRegion", "InspectionView");
             try
             {
                 var startupService = Container.Resolve<IApplicationStartupService>();
@@ -86,8 +88,7 @@ namespace AVS_App
                 Shutdown();
             }
 
-            var regionManager = Container.Resolve<IRegionManager>();
-            regionManager.RequestNavigate("MainContentRegion", "InspectionView");
+          
         }
 
         //protected override IModuleCatalog CreateModuleCatalog()
