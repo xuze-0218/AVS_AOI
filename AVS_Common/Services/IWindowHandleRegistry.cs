@@ -14,9 +14,14 @@ namespace AVS_Common.Services
     /// </summary>
     public interface IWindowHandleRegistry
     {
-        void Register(string cameraSN, HWindow windowHandle);
-        void Unregister(string cameraSN);
-        HWindow GetHandle(string cameraSN);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="cameraRN">相机角色名RoleName</param>
+        /// <param name="windowHandle"></param>
+        void Register(string cameraRN, HWindow windowHandle);
+        void Unregister(string cameraRN);
+        HWindow GetHandle(string cameraRN);
     }
 
     public class WindowHandleRegistry : IWindowHandleRegistry
@@ -25,19 +30,19 @@ namespace AVS_Common.Services
         /// 存放相机SN与窗口句柄的映射关系，使用ConcurrentDictionary保证线程安全
         /// </summary>
         private readonly ConcurrentDictionary<string, HWindow> _handles = new();
-        public HWindow GetHandle(string cameraSN)
+        public HWindow GetHandle(string cameraRN)
         {
-            return _handles.TryGetValue(cameraSN, out var handle) ? handle : null;
+            return _handles.TryGetValue(cameraRN, out var handle) ? handle : null;
         }
 
-        public void Register(string cameraSN, HWindow windowHandle)
+        public void Register(string cameraRN, HWindow windowHandle)
         {
-            _handles[cameraSN] = windowHandle;
+            _handles[cameraRN] = windowHandle;
         }
 
-        public void Unregister(string cameraSN)
+        public void Unregister(string cameraRN)
         {
-            _handles.TryRemove(cameraSN, out _);
+            _handles.TryRemove(cameraRN, out _);
         }
     }
 }

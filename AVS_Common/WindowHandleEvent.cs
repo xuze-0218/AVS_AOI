@@ -24,14 +24,14 @@ namespace AVS_Common
         /// </summary>
         public static event Action<string> HandleUnregistered;
 
-        internal static void RaiseHandleRegistered(string cameraSN, HWindow handle)
+        internal static void RaiseHandleRegistered(string CameraRoleName, HWindow handle)
         {
-            HandleRegistered?.Invoke(cameraSN, handle);
+            HandleRegistered?.Invoke(CameraRoleName, handle);
         }
 
-        internal static void RaiseHandleUnregistered(string cameraSN)
+        internal static void RaiseHandleUnregistered(string CameraRoleName)
         {
-            HandleUnregistered?.Invoke(cameraSN);
+            HandleUnregistered?.Invoke(CameraRoleName);
         }
     }
 }

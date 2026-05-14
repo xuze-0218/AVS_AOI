@@ -13,13 +13,20 @@ namespace AVS_Common
     public partial class CameraDisplayUnit : UserControl
     {
         //private readonly IWindowHandleRegistry _windowHandleRegistry;
-
+        private bool _isRegistered = false;
         public CameraDisplayUnit()
         {
             InitializeComponent();
+            SizeChanged += OnSizeChanged;
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
             DataContextChanged += OnDataContextChanged;
+        }
+
+        private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (e.NewSize.Width > 0 && e.NewSize.Height > 0)
+                TryRegister();
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -29,10 +36,11 @@ namespace AVS_Common
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
-            if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.PhysicalSN))
+            if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.CameraRoleName))
             {
-                WindowHandleEvent.RaiseHandleUnregistered(item.PhysicalSN);
+                WindowHandleEvent.RaiseHandleUnregistered(item.CameraRoleName);
             }
+            _isRegistered = false;
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
@@ -42,10 +50,20 @@ namespace AVS_Common
 
         private void TryRegister()
         {
-            if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.PhysicalSN))
+            if (_isRegistered) return;
+            if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.CameraRoleName))
             {
-                var hWindow = HsmartWindow.HalconWindow;
-                WindowHandleEvent.RaiseHandleRegistered(item.PhysicalSN, hWindow);
+                if (HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0)
+                    return;
+                try
+                {
+                    var hWindow = HsmartWindow.HalconWindow;
+                    WindowHandleEvent.RaiseHandleRegistered(item.CameraRoleName, hWindow);
+                    _isRegistered = true;
+                }
+                catch (Exception ex)
+                {
+                }
             }
         }
 

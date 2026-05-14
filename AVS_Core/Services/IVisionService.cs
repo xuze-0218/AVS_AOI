@@ -1,4 +1,5 @@
-﻿using AVS_Core.Models;
+﻿using AVS_Common.Services;
+using AVS_Core.Models;
 using AVS_Service;
 using HalconDotNet;
 using Serilog;
@@ -43,6 +44,7 @@ namespace AVS_Core.Services
     {
         private readonly ILogger _logger;
         private readonly IParametersConfigService _parametersConfig;
+        private readonly IWindowHandleRegistry _windowHandleRegistry;
         private string paramDir = string.Empty;
         private HDevEngine _engine;
         private HDevProcedure _proc2DLoadParam, _proc2DMeasure, _proc2DCrop;
@@ -50,12 +52,13 @@ namespace AVS_Core.Services
         private HDevProcedureCall hCall01;
         // ... 其他过程变量
 
-        public VisionService(ILogger logger, IParametersConfigService parametersConfig)
+        public VisionService(ILogger logger, IParametersConfigService parametersConfig, IWindowHandleRegistry windowHandleRegistry)
         {
             _logger = logger;
             _parametersConfig = parametersConfig;
+            _windowHandleRegistry = windowHandleRegistry;
             //程序运行后卡住主窗体，耗时长
-           // Task.Run(() => InitializeEngine());
+            // Task.Run(() => InitializeEngine());
 
         }
 
@@ -74,7 +77,7 @@ namespace AVS_Core.Services
         /// <returns></returns>
         public async Task InitializeAsync(string stationId)
         {
-
+            var handle = _windowHandleRegistry.GetHandle(stationId);
             bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
             if (stationId == "A")
             {

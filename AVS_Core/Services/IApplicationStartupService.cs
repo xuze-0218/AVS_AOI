@@ -64,15 +64,11 @@ namespace AVS_Core.Services
 
                 //加载通讯服务
                 await InitializeCommunicationAsync();
-
 #if !IsDebug
                 foreach (var item in _stationConfigService.Stations)
                 {
                     await _visionService.InitializeAsync(item.StationId);
                 }
-                //await _visionService.InitializeAsync("A");
-                //await _visionService.InitializeAsync("B");
-
 #endif
 
                 _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageCaptured);
