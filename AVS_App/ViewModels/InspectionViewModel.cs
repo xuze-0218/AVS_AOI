@@ -22,7 +22,7 @@ namespace AVS_App.ViewModels
         private readonly ICameraConfigService _cameraConfigService;
         private int _layoutColumns = 2;
         public int LayoutColumns { get => _layoutColumns; set => SetProperty(ref _layoutColumns, value); }
-        // 绑定给 ItemsControl 的相机数据集合
+        //相机数据集合
         public ObservableCollection<CameraDisplayItem> CameraDisplayList { get; set; }
         public DelegateCommand GoBackCommand => new DelegateCommand(() =>
         {
@@ -40,8 +40,6 @@ namespace AVS_App.ViewModels
 
             //根据配置加载相机窗体数量
             InitializeLayout(cameraService.AllSettings);
-
-            //订阅图像到达事件
             _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageReceived);
         }
 

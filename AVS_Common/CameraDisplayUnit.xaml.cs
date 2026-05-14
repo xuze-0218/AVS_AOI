@@ -1,8 +1,5 @@
 ﻿using AVS_Common.Model;
-using AVS_Common.Services;
-using DryIoc;
 using HalconDotNet;
-using Prism.Events;
 using System.Windows;
 using System.Windows.Controls;
 namespace AVS_Common

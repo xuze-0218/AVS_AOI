@@ -1,12 +1,7 @@
-﻿//#define IsDebug       
-
-using AVS_Common;
+﻿using AVS_Common;
 using AVS_Service;
-using Newtonsoft.Json.Linq;
 using Prism.Events;
 using Serilog;
-using System.ComponentModel;
-
 
 namespace AVS_Core.Services
 {
@@ -64,13 +59,10 @@ namespace AVS_Core.Services
 
                 //加载通讯服务
                 await InitializeCommunicationAsync();
-#if !IsDebug
                 foreach (var item in _stationConfigService.Stations)
                 {
                     await _visionService.InitializeAsync(item.StationId);
                 }
-#endif
-
                 _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageCaptured);
                 _backgroundInitializationTask = Task.Run(async () =>
                 {

@@ -1,7 +1,6 @@
 ﻿using AVS_Common.Services;
 using AVS_Core.Models;
 using AVS_Service;
-using AVS_Service.Models;
 using HalconDotNet;
 using Serilog;
 using System;
@@ -54,7 +53,6 @@ namespace AVS_Core.Services
         private HDevProcedure _proc2DLoadParam, _proc2DMeasure, _proc2DCrop;
         private HDevProcedure _proc3DLoadParam, _proc3DMeasure, _proc3DCrop, _procPlaneFit3D;
         private HDevProcedureCall hCall01;
-        // ... 其他过程变量
 
         public VisionService(ILogger logger,
             IStationConfigService stationConfig,
@@ -65,7 +63,7 @@ namespace AVS_Core.Services
             _parametersConfig = parametersConfig;
             _windowHandleRegistry = windowHandleRegistry;
         }
-       
+
         private async Task InitializeEngineAsync()
         {
             if (_engineInitialized)
@@ -74,7 +72,7 @@ namespace AVS_Core.Services
             try
             {
                 if (_engineInitialized) return;
-                await Task.Run(() => 
+                await Task.Run(() =>
                 {
                     _engine = new HDevEngine();
                     _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "HalconEngine.hdpl"));
@@ -93,8 +91,9 @@ namespace AVS_Core.Services
         }
 
         /// <summary>
-        /// 这里硬编码了工位A和B，实际可以根据工位ID加载不同的配置文件来决定加载哪些过程
-        /// 这里仅是halcon引擎初始化和过程加载的示例，实际还需要加载AI模型等资源
+        /// 这里仅是halcon引擎初始化和过程加载，实际还需要加载AI模型等资源
+        /// 这里硬编码很烂，增加了工位和视觉算法的耦合，换一个现场需要先配置好参数，不然程序执行到这里直接退出
+        /// 理想情况下应该有一个更灵活的机制来根据工位配置动态加载资源，而不是在代码里写死工位ID和过程名。
         /// </summary>
         /// <param name="stationId"></param>
         /// <returns></returns>
@@ -102,6 +101,8 @@ namespace AVS_Core.Services
         {
             await InitializeEngineAsync();
             string sn = _stationConfig.GetStation(stationId).CameraRole;
+            //这里获取窗口句柄绕了很大的圈，Halcon处理需要窗口句柄作为输入参数，
+            //但服务层不应该直接依赖UI组件来获取这个句柄，所以通过IWindowHandleRegistry接口来获取。
             var handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
             if (stationId == "A")
@@ -114,14 +115,14 @@ namespace AVS_Core.Services
                 _proc2DLoadParam = new HDevProcedure("LoadParam");
                 hCall01 = new HDevProcedureCall(_proc2DLoadParam);
 
-                //不应该在这里设置窗口,这样增加耦合,而且这里也无法获取窗口句柄。
+                //不应该在这里设置窗口,这样增加耦合
                 hCall01.SetInputCtrlParamTuple("WindowHandle", handle);
                 hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
                 hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
-                //hCall01.Execute(); // 调用
-                //hCall01.Dispose(); // 释放
+                //这里调用报错，halcon里解析路径失败，待调试
+                hCall01.Execute(); // 调用
+                hCall01.Dispose(); // 释放
                 _proc2DLoadParam.Dispose();
-
                 _proc2DCrop = new HDevProcedure("Crop2d");
                 if (isCirWeldMark)
                     _proc2DMeasure = new HDevProcedure("Measure2d");
@@ -167,7 +168,7 @@ namespace AVS_Core.Services
                 }
             }
             await Task.CompletedTask;
-            _logger.Information("Vision engine initialized for {StationId}", stationId);
+            _logger.Information("{StationId}工位视觉初始化成功", stationId);
         }
 
         public Task<HTuple> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param)

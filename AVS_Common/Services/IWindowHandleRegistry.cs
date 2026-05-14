@@ -1,12 +1,5 @@
 ﻿using HalconDotNet;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Media.Media3D;
 
 namespace AVS_Common.Services
 {
