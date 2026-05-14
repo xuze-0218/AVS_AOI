@@ -64,6 +64,10 @@ namespace AVS_App
         protected override async void OnInitialized()
         {
             base.OnInitialized();
+
+
+
+
             try
             {
                 var startupService = Container.Resolve<IApplicationStartupService>();
@@ -77,6 +81,16 @@ namespace AVS_App
             }
 
             var regionManager = Container.Resolve<IRegionManager>();
+            WindowHandleEvent.HandleRegistered += (sn, handle) =>
+            {
+                var registry = Container.Resolve<IWindowHandleRegistry>();
+                registry.Register(sn, handle);
+            };
+            WindowHandleEvent.HandleUnregistered += (sn) =>
+            {
+                var registry = Container.Resolve<IWindowHandleRegistry>();
+                registry.Unregister(sn);
+            };
             regionManager.RequestNavigate("MainContentRegion", "InspectionView");
         }
 

@@ -2,6 +2,7 @@
 using AVS_Common.Services;
 using DryIoc;
 using HalconDotNet;
+using Prism.Events;
 using System.Windows;
 using System.Windows.Controls;
 namespace AVS_Common
@@ -11,33 +12,40 @@ namespace AVS_Common
     /// </summary>
     public partial class CameraDisplayUnit : UserControl
     {
-        private readonly IWindowHandleRegistry _windowHandleRegistry;
-        public CameraDisplayUnit(IWindowHandleRegistry windowHandleRegistry) : this()
-        {
-            _windowHandleRegistry = windowHandleRegistry;
-        }
+        //private readonly IWindowHandleRegistry _windowHandleRegistry;
 
         public CameraDisplayUnit()
         {
             InitializeComponent();
-            //Loaded += OnLoaded;
-            //Unloaded += OnUnloaded;
+            Loaded += OnLoaded;
+            Unloaded += OnUnloaded;
+            DataContextChanged += OnDataContextChanged;
+        }
+
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            TryRegister();
         }
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
             if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.PhysicalSN))
             {
-                _windowHandleRegistry.Unregister(item.PhysicalSN);
+                WindowHandleEvent.RaiseHandleUnregistered(item.PhysicalSN);
             }
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            TryRegister();
+        }
+
+        private void TryRegister()
+        {
             if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.PhysicalSN))
             {
-                HWindow hWindow = HsmartWindow.HalconWindow;  // HSmartWindowControlWPF 的 HalconWindow 属性
-                _windowHandleRegistry.Register(item.PhysicalSN, hWindow);
+                var hWindow = HsmartWindow.HalconWindow;
+                WindowHandleEvent.RaiseHandleRegistered(item.PhysicalSN, hWindow);
             }
         }
 
