@@ -1,6 +1,7 @@
 ﻿using AVS_Common.Services;
 using AVS_Core.Models;
 using AVS_Service;
+using AVS_Service.Models;
 using HalconDotNet;
 using Serilog;
 using System;
@@ -32,18 +33,20 @@ namespace AVS_Core.Services
         /// <summary>
         /// 执行标定（返回标定结果数组）
         /// </summary>
-        Task<HTuple> ExecuteCalibrationAsync(HObject image, CalibrationParams param);
+        Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param);
 
         /// <summary>
         /// 执行点检（返回点检结果数组）
         /// </summary>
-        Task<HTuple> ExecuteVerificationAsync(HObject image, CalibrationParams param);
+        Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param);
     }
 
     public class VisionService : IVisionService
     {
         private readonly SemaphoreSlim _engineInitSemaphore = new SemaphoreSlim(1, 1);
         private bool _engineInitialized = false;
+        private HWindow handle;
+        private string SideStr;
         private readonly ILogger _logger;
         private readonly IParametersConfigService _parametersConfig;
         private readonly IStationConfigService _stationConfig;
@@ -103,8 +106,9 @@ namespace AVS_Core.Services
             string sn = _stationConfig.GetStation(stationId).CameraRole;
             //这里获取窗口句柄绕了很大的圈，Halcon处理需要窗口句柄作为输入参数，
             //但服务层不应该直接依赖UI组件来获取这个句柄，所以通过IWindowHandleRegistry接口来获取。
-            var handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
+            handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
+            SideStr = stationId;
             if (stationId == "A")
             {
                 bool isCirWeldMark = _parametersConfig.GetBool("ProductParam", "isCirWeldMark");
@@ -120,8 +124,8 @@ namespace AVS_Core.Services
                 hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
                 hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
                 //这里调用报错，halcon里解析路径失败，待调试
-                hCall01.Execute(); // 调用
-                hCall01.Dispose(); // 释放
+                //hCall01.Execute(); // 调用
+                //hCall01.Dispose(); // 释放
                 _proc2DLoadParam.Dispose();
                 _proc2DCrop = new HDevProcedure("Crop2d");
                 if (isCirWeldMark)
@@ -141,9 +145,9 @@ namespace AVS_Core.Services
                     else
                         paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
                     _proc2DLoadParam = new HDevProcedure("LoadParam");
-                    //hCall01.SetInputCtrlParamTuple("WindowHandle", HWindow01.HalconWindow);//不应该在这里设置窗口,这样增加耦合
+                    hCall01.SetInputCtrlParamTuple("WindowHandle", handle);
                     hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
-                    hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
+                    hCall01.SetInputCtrlParamTuple("ParamSide", SideStr);
                     hCall01.Execute(); // 调用
                     hCall01.Dispose(); // 释放
                     _proc3DLoadParam.Dispose();
@@ -181,11 +185,8 @@ namespace AVS_Core.Services
             throw new NotImplementedException();
         }
 
-        public Task<HTuple> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
+        public Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
         {
-            HDevProcedure hStep = new HDevProcedure();
-            hStep.LoadProcedure("Cali2d");
-            var procCall = new HDevProcedureCall(hStep);
             HTuple angleStart = _parametersConfig.GetDouble("TemplateMatch", "angleStart");
             HTuple angleExtent = _parametersConfig.GetDouble("TemplateMatch", "angleExtent");
             HTuple scaleMin = _parametersConfig.GetDouble("TemplateMatch", "minScale");
@@ -204,43 +205,85 @@ namespace AVS_Core.Services
             HOperatorSet.TupleConcat(matchParam, scaleMin, out matchParam);
             HOperatorSet.TupleConcat(matchParam, scaleMax, out matchParam);
             HOperatorSet.TupleConcat(matchParam, minScore, out matchParam);
-
             HOperatorSet.TupleConcat(matchParam, numMatch, out matchParam);
             HOperatorSet.TupleConcat(matchParam, maxOverlap, out matchParam);
             HOperatorSet.TupleConcat(matchParam, subPixel, out matchParam);
             HOperatorSet.TupleConcat(matchParam, numLevel, out matchParam);
             HOperatorSet.TupleConcat(matchParam, greediness, out matchParam);
+            HTuple fx = _parametersConfig.GetDouble("CalibrateParam", "fx");
+            HTuple fy = _parametersConfig.GetDouble("CalibrateParam", "fy");
+            HOperatorSet.TupleConcat(matchParam, fx, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, fy, out matchParam);
 
-            //HOperatorSet.TupleConcat(matchParam, Global.myParams.sideParamA.calParam.fx, out matchParam);
-            //HOperatorSet.TupleConcat(matchParam, Global.myParams.sideParamA.calParam.fy, out matchParam);
-
-            //procCall.SetInputCtrlParamTuple("SearchParam", matchParam);//从配置读取匹配参数
-            //procCall.SetInputCtrlParamTuple("ParamDir", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"));
-            //procCall.SetInputIconicParamObject("Image", image);
-            //procCall.Execute();
-            HTuple result = procCall.GetOutputCtrlParamTuple("ResultArray");
-            //procCall.Dispose();
-            //hStep.Dispose();
-
-            //string calibrateResult = result[0].D == 1 ? "01" : "02";
-            //string boardCenterX = DoubleToString(result[1].D, 8);
-            //string boardCenterY = DoubleToString(result[2].D, 8);
-            //_parametersConfig.UpdateParam();
-            //Global.myParams.sideParamA.calParam.fx = result[3].D;
-            //Global.myParams.sideParamA.calParam.fy = result[4].D;
-
-            //calibrateData = boardCenterX + boardCenterY;
-
-            return Task.FromResult(result);
-        }
-
-        public Task<HTuple> ExecuteVerificationAsync(HObject image, CalibrationParams param)
-        {
-            var procCall = new HDevProcedureCall(_proc2DMeasure);
+            HDevProcedure hStep = new HDevProcedure();
+            hStep.LoadProcedure("Cali2d");
+            var procCall = new HDevProcedureCall(hStep);
+            procCall.SetInputCtrlParamTuple("WindowHandle", handle);
+            procCall.SetInputCtrlParamTuple("ParamSide", SideStr);
+            procCall.SetInputCtrlParamTuple("SearchParam", matchParam);
+            procCall.SetInputCtrlParamTuple("ParamDir", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"));
             procCall.SetInputIconicParamObject("Image", image);
             procCall.Execute();
             HTuple result = procCall.GetOutputCtrlParamTuple("ResultArray");
-            return Task.FromResult(result);
+            procCall.Dispose();
+            hStep.Dispose();
+
+            string calibrateResult = result[0].D == 1 ? "01" : "02";
+            string boardCenterX = DoubleToString(result[1].D, 8);
+            string boardCenterY = DoubleToString(result[2].D, 8);
+            _parametersConfig.UpdateParam("CalibrateParam", "fx", result[3].D.ToString(), ParamOutputType.FLOAT);
+            _parametersConfig.UpdateParam("CalibrateParam", "fy", result[4].D.ToString(), ParamOutputType.FLOAT);
+            string calibrateData = boardCenterX + boardCenterY;
+            return Task.FromResult(calibrateResult + "," + calibrateData);
+        }
+
+        public Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param)
+        {
+            HTuple angleStart = _parametersConfig.GetDouble("TemplateMatch", "angleStart");
+            HTuple angleExtent = _parametersConfig.GetDouble("TemplateMatch", "angleExtent");
+            HTuple scaleMin = _parametersConfig.GetDouble("TemplateMatch", "minScale");
+            HTuple scaleMax = _parametersConfig.GetDouble("TemplateMatch", "maxScale");
+            HTuple minScore = _parametersConfig.GetDouble("TemplateMatch", "minScore");
+            HTuple numMatch = _parametersConfig.GetInt("TemplateMatch", "maxMatchNum");
+            HTuple maxOverlap = _parametersConfig.GetDouble("TemplateMatch", "maxOverlap");
+            HTuple subPixel = _parametersConfig.GetDouble("TemplateMatch", "subPixel");
+            HTuple numLevel = _parametersConfig.GetInt("TemplateMatch", "numLevel");
+            HTuple greediness = _parametersConfig.GetDouble("TemplateMatch", "greediness");
+            HTuple matchParam = new HTuple();
+            HOperatorSet.TupleConcat(matchParam, angleStart, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, angleExtent, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, scaleMin, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, scaleMax, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, minScore, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, numMatch, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, maxOverlap, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, subPixel, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, numLevel, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, greediness, out matchParam);
+            HTuple fx = _parametersConfig.GetDouble("CalibrateParam", "fx");
+            HTuple fy = _parametersConfig.GetDouble("CalibrateParam", "fy");
+            HOperatorSet.TupleConcat(matchParam, fx, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, fy, out matchParam);
+            HDevProcedure hStep = new HDevProcedure();
+            hStep.LoadProcedure("Check2d");
+            var procCall = new HDevProcedureCall(hStep);
+
+            procCall.SetInputCtrlParamTuple("WindowHandle", handle);
+            procCall.SetInputCtrlParamTuple("ParamSide", SideStr);
+            procCall.SetInputCtrlParamTuple("SearchParam", matchParam);
+            procCall.SetInputCtrlParamTuple("ParamDir", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"));
+            procCall.SetInputIconicParamObject("Image", image);
+            procCall.Execute();
+            HTuple result = procCall.GetOutputCtrlParamTuple("ResultArray");
+            procCall.Dispose();
+            hStep.Dispose();
+
+            string calibrateResult = result[0].D == 1 ? "01" : "02";
+            string boardCenterX = DoubleToString(result[1].D, 8);
+            string boardCenterY = DoubleToString(result[2].D, 8);
+            string calibrateData = boardCenterX + boardCenterY;
+
+            return Task.FromResult(calibrateResult + "," + calibrateData);
         }
 
         private string DoubleToString(double detectValue, int len)

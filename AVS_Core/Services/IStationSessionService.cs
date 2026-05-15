@@ -110,7 +110,7 @@ namespace AVS_Core.Services
             {
                 SessionWorkType.Inspect => "",
                 SessionWorkType.Calibrate => state.CalibResult + state.CalibData,
-                SessionWorkType.Verify => "",
+                SessionWorkType.Verify => state.CalibResult + state.CalibData,
                 _ => string.Empty
             };
         }
@@ -173,21 +173,23 @@ namespace AVS_Core.Services
 
         private async Task ProcessInspectImage(string stationId, SessionState state, HObject image)
         {
-
+            string result;
+            result = await _visionService.Execute2DInspectAsync(image, new CalibrationParams());
+            //结果汇总时用','连接
+            state.CalibResult = result.Split(',')[0];
+            state.CalibData = result.Split(',')[1];
         }
 
         private async Task ProcessCalibrationImage(SessionState state, HObject image, bool isVerification)
         {
-            HTuple result;
+            string result;
             if (isVerification)
-            {
                 result = await _visionService.ExecuteVerificationAsync(image, new CalibrationParams());
-                state.CalibResult = "";//这里还没赋值，需要根据算法结果判断
-                state.CalibData = result;
-            }
             else
                 result = await _visionService.ExecuteCalibrationAsync(image, new CalibrationParams());
-
+            //结果汇总时用','连接
+            state.CalibResult = result.Split(',')[0];
+            state.CalibData = result.Split(',')[1];
         }
 
         private string GenerateErrorResult(SessionWorkType type)

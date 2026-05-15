@@ -73,7 +73,7 @@ namespace AVS_Core.Services
                 // 完整解析输入字段
                 _protocolEngine.ParseInput(rawMessage, sessionConfig.InputFields);
 
-                // 根据功能码和 backup01 分发业务。
+                // 根据功能码和 backup01 划分。
                 // 0001：检测开始，相机准备开始     0002：检测结束，获取检测结果
                 string step = _protocolEngine.GetVariable("backup1") ?? "0001";
 
@@ -154,7 +154,7 @@ namespace AVS_Core.Services
                 isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
 
             string calibResult = _sessionService.GetResultData(stationId);
-            //假设 calibResult 格式为 "01+0000000+0000000" 共18字符，按协议拆分
+            //格式为 "01+0000000+0000000" 共18字符，按协议拆分
             // 标定初始化成功返回固定格式   这里是硬编码测试
             _protocolEngine.SetVariable("Result", calibResult.Substring(0, 2));
             _protocolEngine.SetVariable("backup2", calibResult.Substring(0, 2));
