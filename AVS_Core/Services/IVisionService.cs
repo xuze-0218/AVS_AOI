@@ -178,7 +178,25 @@ namespace AVS_Core.Services
 
         public Task<HTuple> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param)
         {
-            throw new NotImplementedException();
+            string result = string.Empty;
+
+            bool isAiCheck = _parametersConfig.GetBool("ProductParam", "isAiCheck");
+            if (isAiCheck)
+            {
+                if (_parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark"))
+                {
+                    //调用AI检测
+                }
+                else
+                {
+                    //调用AI检测
+                }
+            }
+            else
+            {
+
+            }
+
         }
 
         public Task<HTuple> Execute3DInspectAsync(HObject image, int poleNumber, InspectionParams param)
