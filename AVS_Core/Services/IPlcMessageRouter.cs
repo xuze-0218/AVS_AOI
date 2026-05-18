@@ -132,9 +132,25 @@ namespace AVS_Core.Services
 
         private string HandleInspectResult(string stationId, SessionConfig config)
         {
-            int start = int.Parse(_protocolEngine.GetVariable("backup02_start"));
-            int end = int.Parse(_protocolEngine.GetVariable("backup02_end"));
-            string resultData = _sessionService.GetResultData(stationId, start, end);
+            string result = "01";
+            string resultData = "";
+            int startPole = int.Parse(_protocolEngine.GetVariable("backup02").Substring(0, 2));
+            int endPole = int.Parse(_protocolEngine.GetVariable("backup02").Substring(2, 2));
+            int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
+            try
+            {
+                resultData =  _sessionService.GetResultData(stationId, startPole, endPole, msgPoleCapacity);
+            }
+            catch (TimeoutException)
+            {
+                _logger.Warning("工位 {StationId} 获取极柱 {Start}-{End} 结果超时", stationId, startPole, endPole);
+                resultData = string.Concat(Enumerable.Repeat("00" + new string('0', 48), msgPoleCapacity));
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "工位 {StationId} 获取结果失败", stationId);
+                resultData = string.Concat(Enumerable.Repeat("02" + new string('0', 48), msgPoleCapacity));
+            }
             _protocolEngine.SetVariable("Result", "01");
             _protocolEngine.SetVariable("ResultData", resultData);
             return _protocolEngine.BuildOutput(config.OutputFields);

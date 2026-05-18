@@ -23,7 +23,7 @@ namespace AVS_Core.Services
         /// <summary>
         /// 执行2D极柱检测
         /// </summary>
-        Task<HTuple> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param);
+        Task<string> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param);
 
         /// <summary>
         /// 执行3D极柱检测
@@ -55,7 +55,7 @@ namespace AVS_Core.Services
         private HDevEngine _engine;
         private HDevProcedure _proc2DLoadParam, _proc2DMeasure, _proc2DCrop;
         private HDevProcedure _proc3DLoadParam, _proc3DMeasure, _proc3DCrop, _procPlaneFit3D;
-        private HDevProcedureCall hCall01;
+        private HDevProcedureCall hCall01, hCall02, hCall03;
 
         public VisionService(ILogger logger,
             IStationConfigService stationConfig,
@@ -128,10 +128,12 @@ namespace AVS_Core.Services
                 //hCall01.Dispose(); // 释放
                 _proc2DLoadParam.Dispose();
                 _proc2DCrop = new HDevProcedure("Crop2d");
+                hCall02 = new HDevProcedureCall(_proc2DCrop);
                 if (isCirWeldMark)
                     _proc2DMeasure = new HDevProcedure("Measure2d");
                 else
                     _proc2DMeasure = new HDevProcedure("MeasureSB2D");
+                hCall03 = new HDevProcedureCall(_proc2DMeasure);
             }
             else // B (3D)
             {
@@ -176,25 +178,96 @@ namespace AVS_Core.Services
             _logger.Information("{StationId}工位视觉初始化成功", stationId);
         }
 
-        public Task<HTuple> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param)
+        public Task<string> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param)
         {
-            string result = string.Empty;
-
+            string result = "01";
+            HTuple resultArray = new HTuple();
+            HTuple beadRect01 = new HTuple();
+            HTuple beadRect02 = new HTuple();
+            HOperatorSet.GenEmptyObj(out HObject mask01);
+            HOperatorSet.GenEmptyObj(out HObject mask02);
+            HOperatorSet.GenEmptyObj(out HObject mask03);
             bool isAiCheck = _parametersConfig.GetBool("ProductParam", "isAiCheck");
             if (isAiCheck)
             {
-                if (_parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark"))
+                bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
+                if (isSquareBarWeldMark)
+                    //这里score要从本地配置里读取 先写死
+                    AiDrive.DetectImages(SideStr, 0, image, score: 0.8, out int[] beadType01, out beadRect01);
+                else
+                    AiDrive.DetectImage(SideStr, 0, image, score: 0.8, out int beadType01, out beadRect01);
+                if (beadRect01.Length < 4)
                 {
-                    //调用AI检测
+                    HOperatorSet.TupleGenConst(13, 2, out resultArray);
+                    string result01 = DoubleToString(resultArray[2].D, 8);//焊缝长度
+                    string result02 = DoubleToString(resultArray[4].D, 8);//焊缝宽度
+                    string result03 = DoubleToString(resultArray[6].D, 8);//焊缝偏移
+                    string result04 = DoubleToString(resultArray[8].D, 8);//爆孔面积
+                    string result05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
+                    string result06 = DoubleToString(resultArray[12].D, 8);//虚焊尺寸
+                    string measureResults = "02" + result01 + result02 + result03 + result04 + result05 + result06;
+                    return Task.FromResult(measureResults);
                 }
                 else
                 {
-                    //调用AI检测
+                    hCall02.SetInputCtrlParamTuple("WindowHandle", handle);
+                    hCall02.SetInputCtrlParamTuple("ParamSide", SideStr);
+                    hCall02.SetInputCtrlParamTuple("TargetRect", beadRect01); // 这里拿到检测框坐标数组
+                    hCall02.SetInputIconicParamObject("Image", image);
+                    hCall02.Execute();
+                    HObject imgBead = hCall02.GetOutputIconicParamObject("ImageRoi"); // 根据检测框裁切ROI
+                                                                                      //-分割模型应用
+                    if (isSquareBarWeldMark)
+                    {   // 检测方条焊缝
+                        AiDrive.DetectImages(SideStr, 0, imgBead, score: 0.8, out int[] beadType02, out beadRect02); // imgBead—>裁切ROI
+                        hCall03.SetInputCtrlParamTuple("BeadType", beadType02); // 数组类型
+                    }
+                    else
+                    { // 检测单个焊缝
+                        AiDrive.DetectImage(SideStr, 0, imgBead, score: 0.8, out int beadType02, out beadRect02);
+                        hCall03.SetInputCtrlParamTuple("BeadType", beadType02);
+                    }
+                    AiDrive.PredictImage(SideStr, 0, imgBead, out mask01);
+                    AiDrive.PredictImage(SideStr, 1, imgBead, out mask02); // 缺陷检测 识别爆孔、裂纹等缺陷
+                    AiDrive.PredictImage(SideStr, 2, imgBead, out mask03);
+
+                    //-焊缝尺度测量
+                    hCall03.SetInputCtrlParamTuple("WindowHandle", handle);
+                    hCall03.SetInputCtrlParamTuple("ParamSide", SideStr);
+                    hCall03.SetInputIconicParamObject("Image", imgBead);
+                    hCall03.SetInputIconicParamObject("Mask01", mask01);
+                    hCall03.SetInputIconicParamObject("Mask02", mask02);
+                    hCall03.SetInputIconicParamObject("Mask03", mask03);
+                    //hCall03.SetWaitForDebugConnection(true);
+                    hCall03.Execute();
+                    resultArray = hCall03.GetOutputCtrlParamTuple("ResultArray");
+                    imgBead.Dispose();
+                    //方形数据格式位  焊缝长度 - 方形焊缝宽度 - 条形焊缝宽度 -焊缝间距- 爆孔数量
+                    //圆形数据格式位  焊缝长度 - 焊缝宽度 - 焊缝偏移 -爆孔数量- 焊缝外径
+                    string data01 = DoubleToString(resultArray[2].D, 8);//焊缝长度
+                    string data02 = DoubleToString(resultArray[4].D, 8);//焊缝宽度
+                    string data03 = DoubleToString(resultArray[6].D, 8);//焊缝偏移
+                    string data04 = DoubleToString(resultArray[8].D, 8);//爆孔数量
+                    string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
+                    string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
+                    string measureResult = result + data01 + data02 + data03 + data04 + data05 + data06;
+                    return Task.FromResult(measureResult);
                 }
             }
             else
             {
-
+                result = "02";
+                resultArray = new HTuple();
+                HOperatorSet.TupleGenConst(13, 0, out resultArray);
+                resultArray[0] = 02;
+                string data01 = DoubleToString(resultArray[2].D, 8);//焊缝长度
+                string data02 = DoubleToString(resultArray[4].D, 8);//焊缝宽度
+                string data03 = DoubleToString(resultArray[6].D, 8);//焊缝偏移
+                string data04 = DoubleToString(resultArray[8].D, 8);//爆孔尺寸
+                string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
+                string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
+                string measureResult = result + data01 + data02 + data03 + data04 + data05 + data06;
+                return Task.FromResult(measureResult);
             }
 
         }

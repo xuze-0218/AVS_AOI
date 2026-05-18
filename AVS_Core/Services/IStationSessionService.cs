@@ -62,8 +62,17 @@ namespace AVS_Core.Services
             {
                 WorkType = workType,
                 Cts = new CancellationTokenSource(),
-                ImageQueue = new BlockingCollection<HObject>()
+                ImageQueue = new BlockingCollection<HObject>(),
+                PoleOrder = null,
+                MsgPoleCapacity = 0,
+                ReceivedCount = 0,
+                PoleResults = new string[100],//从InspectOrder或PoleOrder数量获取最大极柱数，暂定100
+                ResultSources = new TaskCompletionSource<string>[100]
             };
+            for (int i = 1; i <= 100; i++)
+            {
+                state.ResultSources[i] = new TaskCompletionSource<string>();
+            }
 
 
             // 根据类型初始化内部数据结构
@@ -118,10 +127,14 @@ namespace AVS_Core.Services
             if (_sessions.TryGetValue(stationId, out var state) && state.IsActive)
             {
                 state.ImageQueue.Add(image.Clone());
+                if (state.WorkType == SessionWorkType.Inspect)
+                {
+                    state.ReceivedCount++;
+                }
             }
             else
             {
-                _logger.Warning("No active session for {StationId}, discarding image", stationId);
+                _logger.Warning("没有激活的{StationId}对话", stationId);
                 image?.Dispose();
             }
         }
@@ -136,7 +149,7 @@ namespace AVS_Core.Services
 
             return state.WorkType switch
             {
-                SessionWorkType.Inspect => state.resultData,
+                SessionWorkType.Inspect => state.resultData,//不太对，要从state.PoleResults根据startIndex和endIndex拼接结果字符串，长度根据msgPoleCapacity确定
                 SessionWorkType.Calibrate => state.CalibResult + state.CalibData,
                 SessionWorkType.Verify => state.CalibResult + state.CalibData,
                 _ => string.Empty
@@ -174,7 +187,7 @@ namespace AVS_Core.Services
                                 break;
                             case SessionWorkType.Calibrate:
                                 await ProcessCalibrationImage(state, img, false);
-                                state.ImageQueue.CompleteAdding(); // 标定只需一张图
+                                state.ImageQueue.CompleteAdding();
                                 break;
                             case SessionWorkType.Verify:
                                 await ProcessCalibrationImage(state, img, true);
@@ -199,15 +212,36 @@ namespace AVS_Core.Services
             }
         }
 
+        /// <summary>
+        /// 检测图片
+        /// </summary>
+        /// <param name="stationId"></param>
+        /// <param name="state"></param>
+        /// <param name="image"></param>
+        /// <returns></returns>
         private async Task ProcessInspectImage(string stationId, SessionState state, HObject image)
         {
-            string result;
-            result = await _visionService.Execute2DInspectAsync(image, 10, new InspectionParams());
-            //结果汇总时用','连接
-            state.CalibResult = result.Split(',')[0];
-            state.CalibData = result.Split(',')[1];
+            string result = string.Empty;
+            int idx = state.ProcessIndex;
+            if (idx >= state.PoleOrder.Length)
+            {
+                _logger.Error("处理序号超出极柱总数，工位{StationId}", stationId);
+                return;
+            }
+            int poleNum = state.PoleOrder[idx];
+            state.ProcessIndex++;
+            result = await _visionService.Execute2DInspectAsync(image, poleNum, new InspectionParams());
+            state.PoleResults[poleNum] = result;
+            state.ResultSources[poleNum].TrySetResult(result);
         }
 
+        /// <summary>
+        /// 标定图像
+        /// </summary>
+        /// <param name="state"></param>
+        /// <param name="image"></param>
+        /// <param name="isVerification"></param>
+        /// <returns></returns>
         private async Task ProcessCalibrationImage(SessionState state, HObject image, bool isVerification)
         {
             string result;
@@ -238,12 +272,19 @@ namespace AVS_Core.Services
         public BlockingCollection<HObject> ImageQueue { get; set; }
         public bool IsActive => Cts != null && !Cts.IsCancellationRequested;
 
-        // —— 检测相关 ——
-        public int[] InspectOrder { get; set; }          // 极柱拍照顺序
-        public string[] PoleResults { get; set; }        // 每个极柱的结果字符串
-        public int ProcessedCount { get; set; }           // 已处理的极柱数量
-        public int MsgPoleCapacity { get; set; }          // 单次报文容量
-        public string resultData { get; set; }          // 结果数据字符串
+        //检测相关
+        public int[] PoleOrder { get; set; }        // 极柱拍照顺序（物理编号数组）
+        public string[] PoleResults { get; set; }   // 按物理编号存储每个极柱的结果字符串 "01+0001234+0005678..."
+        public string resultData { get; set; }      // 结果数据字符串
+        public int ReceivedCount { get; set; }      // 已入队图像数量（用于校验）
+        /// <summary>
+        /// 当前处理的极柱在 PoleOrder中的索引
+        /// </summary>
+        public int ProcessIndex { get; set; }
+        //为每个物理编号提供一个 TaskCompletionSource，用于异步等待该极柱的结果
+        public TaskCompletionSource<string>[] ResultSources { get; set; } // 索引 = 物理编号；
+        public int MsgPoleCapacity { get; set; }    // 单次报文最大极柱数（10 或 25）
+
 
         // —— 标定/点检相关 ——
         public string CalibResult { get; set; } = "00";  // 结果 01 ok/02 ng
