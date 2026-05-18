@@ -119,22 +119,14 @@ namespace AVS_Core.Services
 
         private string HandleInspectInit(string stationId, SessionConfig config)
         {
-            //// 从变量池提取初始化数据
-            //var initData = new InspectionInitData
-            //{
-            //    ModuleName = _protocolEngine.GetVariable("nameText") ?? "Unknown",
-            //    StartPole = int.Parse(_protocolEngine.GetVariable("backup02_start") ?? "1"),
-            //    EndPole = int.Parse(_protocolEngine.GetVariable("backup02_end") ?? "1"),
-            //    // 此处应从产品参数服务获取 inspectOrder
-            //    InspectOrder = GenerateInspectOrder(/* 根据 project 获取 */)
-            //};
-
             _sessionService.InitializeSession(stationId, SessionWorkType.Inspect);
-
+            string InspectResult = _sessionService.GetResultData(stationId);
             // 构建初始化成功报文（包含占位结果）
-            _protocolEngine.SetVariable("Result", "01");
-            string resultData = string.Concat(Enumerable.Repeat("01" + new string('0', 48), 25));
-            _protocolEngine.SetVariable("ResultData", resultData);
+            _protocolEngine.SetVariable("Result", InspectResult);
+            _protocolEngine.SetVariable("backup3", "0000");
+            _protocolEngine.SetVariable("backup4", "0000");
+            _protocolEngine.SetVariable("backup5", "0000");
+            _protocolEngine.SetVariable("backup6", "0000");
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 
@@ -157,6 +149,7 @@ namespace AVS_Core.Services
             //格式为 "01+0000000+0000000" 共18字符，按协议拆分
             // 标定初始化成功返回固定格式   这里是硬编码测试
             _protocolEngine.SetVariable("Result", calibResult.Substring(0, 2));
+            //backup1不需要，这里放了一个和Result一样的值，后面改
             _protocolEngine.SetVariable("backup2", calibResult.Substring(0, 2));
             _protocolEngine.SetVariable("backup3", calibResult.Substring(2, 4));
             _protocolEngine.SetVariable("backup4", calibResult.Substring(6, 4));
@@ -186,10 +179,5 @@ namespace AVS_Core.Services
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 
-        private int[] GenerateInspectOrder(/* 参数 */)
-        {
-            // 临时返回连续顺序，实际应从产品参数读取
-            return Enumerable.Range(1, 90).ToArray();
-        }
     }
 }

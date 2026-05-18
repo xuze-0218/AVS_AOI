@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,10 +19,8 @@ namespace AVS_Core.Models
         public double resolutionX;
         public double resolutionY;
         public double resolutionZ;
-
         public double pngRoiHih;
         public double pngRoiLow;
-
         public double imgScaleMul;
         public double hv_scaleAdd;
     }
@@ -32,20 +31,15 @@ namespace AVS_Core.Models
         public double rectLengthMax;
         public double angleTolerance;
         public double psnTolerance;
-
         public double fx;
         public double fy;
         public double fz;
-
         public double cornerX01;
         public double cornerY01;
-
         public double cornerX02;
         public double cornerY02;
-
         public double cornerX03;
         public double cornerY03;
-
         public double cornerX04;
         public double cornerY04;
     }
@@ -67,18 +61,14 @@ namespace AVS_Core.Models
     public struct ImgSaveParam
     {
         public bool isSaveOrnImg;        //是否保存原图
-
         public bool isSaveOkRenImg;        //是否保存OK结果图
         public bool isSaveNgRenImg;        //是否保存NG结果图
         public int saveOrnImgDays;         //保存原图图片天数
         public int saveRenImgDays;         //保存结果图图片天数
         public string imgSaveFolder;    //处理图像保存主路径
-
         public bool isPlanecheck;       //启用3D拟合平面
-
         public int radio;               //原图压缩比
         public string format;           //原图存储图像格式
-
         public bool isSquareBarWeldMark;      //方-条焊印
         public bool isCirWeldMark;      //圆形焊印
     }
@@ -101,8 +91,9 @@ namespace AVS_Core.Models
     {
         public int row;//排数
         public int col;//列数
-
+        [JsonIgnore]
         public int[] start;
+        [JsonIgnore]
         public int[] end;
     }
 
@@ -128,8 +119,6 @@ namespace AVS_Core.Models
         public bool isRotated;
         public string[] segModelPath = new string[6] { "xxx", "xxx", "xxx", "xxx", "xxx", "xxx" };
         public string[] detModelPath = new string[6] { "xxx", "xxx", "xxx", "xxx", "xxx", "xxx" };
-
-
 
     }
 }

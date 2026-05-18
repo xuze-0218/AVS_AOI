@@ -1,4 +1,5 @@
 ﻿using AVS_Core.Models;
+using AVS_Service;
 using HalconDotNet;
 using Serilog;
 using System.Collections.Concurrent;
@@ -38,12 +39,14 @@ namespace AVS_Core.Services
 
     public class StationSessionService : IStationSessionService
     {
+        private readonly IProtocolEngineService _protocolEngine;
         private readonly IVisionService _visionService;
         private readonly ILogger _logger;
         private readonly ConcurrentDictionary<string, SessionState> _sessions = new();
 
-        public StationSessionService(IVisionService visionService, ILogger logger)
+        public StationSessionService(IProtocolEngineService protocolEngine, IVisionService visionService, ILogger logger)
         {
+            _protocolEngine = protocolEngine;
             _visionService = visionService;
             _logger = logger;
         }
@@ -67,14 +70,39 @@ namespace AVS_Core.Services
             switch (workType)
             {
                 case SessionWorkType.Inspect:
-                    var inspectOrder = (parameters as int[]) ?? Array.Empty<int>();
-                    state.PoleResults = new string[inspectOrder.Length > 0 ? inspectOrder.Max() + 1 : 1];
-                    state.InspectOrder = inspectOrder;
-                    state.ProcessedCount = 0;
+
+                    int inspectStNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(0, 2)); //获取检测极柱开始序号
+                    int inspectEdNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(2, 2)); //获取检测极柱结束序号
+                    int numForInspect = inspectEdNum - inspectStNum + 1;                                        //获取需要检测的极柱总个数
+                    state.resultData = "";
+                    var inspectResult = new string[numForInspect];
+                    int[] inspectOrder = new int[numForInspect];
+
+
+                    int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
+                    int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));
+                    //inspectOrders是什么？
+                    //不理解电芯类型减1是什么鬼东西，索引默认取0？
+                    //这里是空值，还没赋值，后续本地读取
+                    //InspectOrder order = new ParamsSide().inspectOrders[orderIndex - 1];
+                    InspectOrder order = new InspectOrder() { row = 2, col = 13, start = [1, 26], end = [25, 2] };
+
+                    for (int j = 0; j < order.row; j++)
+                    {
+                        int mdiff = (int)(Math.Abs(order.end[j] - order.start[j])) / (order.col - 1);
+                        if (order.end[j] - order.start[j] < 0)
+                            mdiff = -mdiff;
+
+                        for (int i = 0; i < order.col; i++)
+                        {
+                            inspectOrder[i + j * order.col] = (int)order.start[j] + mdiff * i;
+                        }
+                    }
+                    state.resultData = string.Concat(Enumerable.Repeat("01" + new string('0', 48), msgPoleCapacity));
                     break;
                 case SessionWorkType.Calibrate:
                 case SessionWorkType.Verify:
-                    state.CalibResult = "97";//测试OK
+                    state.CalibResult = "97";//测试用
                     state.CalibData = "+8989333+1212666";
                     break;
             }
@@ -108,7 +136,7 @@ namespace AVS_Core.Services
 
             return state.WorkType switch
             {
-                SessionWorkType.Inspect => "",
+                SessionWorkType.Inspect => state.resultData,
                 SessionWorkType.Calibrate => state.CalibResult + state.CalibData,
                 SessionWorkType.Verify => state.CalibResult + state.CalibData,
                 _ => string.Empty
@@ -174,7 +202,7 @@ namespace AVS_Core.Services
         private async Task ProcessInspectImage(string stationId, SessionState state, HObject image)
         {
             string result;
-            result = await _visionService.Execute2DInspectAsync(image, new CalibrationParams());
+            result = await _visionService.Execute2DInspectAsync(image, 10, new InspectionParams());
             //结果汇总时用','连接
             state.CalibResult = result.Split(',')[0];
             state.CalibData = result.Split(',')[1];
@@ -214,6 +242,8 @@ namespace AVS_Core.Services
         public int[] InspectOrder { get; set; }          // 极柱拍照顺序
         public string[] PoleResults { get; set; }        // 每个极柱的结果字符串
         public int ProcessedCount { get; set; }           // 已处理的极柱数量
+        public int MsgPoleCapacity { get; set; }          // 单次报文容量
+        public string resultData { get; set; }          // 结果数据字符串
 
         // —— 标定/点检相关 ——
         public string CalibResult { get; set; } = "00";  // 结果 01 ok/02 ng

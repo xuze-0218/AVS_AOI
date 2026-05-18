@@ -144,11 +144,12 @@ namespace AVS_Core.Services
                         paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json");
                     else
                         paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
-                    _proc2DLoadParam = new HDevProcedure("LoadParam");
+                    _proc3DLoadParam = new HDevProcedure("LoadParam");
+                    hCall01 = new HDevProcedureCall(_proc3DLoadParam);
                     hCall01.SetInputCtrlParamTuple("WindowHandle", handle);
                     hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
                     hCall01.SetInputCtrlParamTuple("ParamSide", SideStr);
-                    hCall01.Execute(); // 调用
+                    //hCall01.Execute(); // 调用
                     hCall01.Dispose(); // 释放
                     _proc3DLoadParam.Dispose();
 
