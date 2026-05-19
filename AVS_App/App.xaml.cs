@@ -65,18 +65,12 @@ namespace AVS_App
         protected override async void OnInitialized()
         {
             base.OnInitialized();
-            WindowHandleEvent.HandleRegistered += (rn, handle) =>
-            {
-                var registry = Container.Resolve<IWindowHandleRegistry>();
-                registry.Register(rn, handle);
-            };
-            WindowHandleEvent.HandleUnregistered += (rn) =>
-            {
-                var registry = Container.Resolve<IWindowHandleRegistry>();
-                registry.Unregister(rn);
-            };
+            WindowHandleEvent.HandleRegistered += (rn, handle) => Container.Resolve<IWindowHandleRegistry>().Register(rn, handle);
+            WindowHandleEvent.HandleUnregistered += (rn) => Container.Resolve<IWindowHandleRegistry>().Unregister(rn);
             var regionManager = Container.Resolve<IRegionManager>();
             regionManager.RequestNavigate("MainContentRegion", "InspectionView");
+            // 等待 InspectionView 完全加载并注册所有窗口句柄
+            await WaitForCameraHandlesAsync();
             try
             {
                 var startupService = Container.Resolve<IApplicationStartupService>();
@@ -88,14 +82,27 @@ namespace AVS_App
                 MessageBox.Show("应用初始化失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown();
             }
-
-          
         }
 
         //protected override IModuleCatalog CreateModuleCatalog()
         //{
         //    return new DirectoryModuleCatalog() { ModulePath = @".\Modules" };
         //}
+
+        private async Task WaitForCameraHandlesAsync()
+        {
+            var registry = Container.Resolve<IWindowHandleRegistry>();
+            var cameraRoles = Container.Resolve<IStationConfigService>().Stations.Select(s => s.CameraRole).Distinct().ToList();
+            var timeout = TimeSpan.FromSeconds(5);
+            var start = DateTime.Now;
+            foreach (var role in cameraRoles)
+            {
+                while (registry.GetHandle(role) == null && DateTime.Now - start < timeout)
+                {
+                    await Task.Delay(50);
+                }
+            }
+        }
 
         protected override void OnExit(ExitEventArgs e)
         {

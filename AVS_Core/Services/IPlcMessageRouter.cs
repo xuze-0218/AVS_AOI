@@ -2,8 +2,7 @@
 using AVS_Service;
 using AVS_Service.Models;
 using Serilog;
-using System.Printing;
-using static MMDeploy.PoseTracker;
+
 
 
 namespace AVS_Core.Services
@@ -119,6 +118,12 @@ namespace AVS_Core.Services
             }
         }
 
+        /// <summary>
+        /// 第一次初始化检测会话里面包含了引擎加载及参数配置
+        /// </summary>
+        /// <param name="stationId"></param>
+        /// <param name="config"></param>
+        /// <returns></returns>
         private string HandleInspectInit(string stationId, SessionConfig config)
         {
             int inspectStNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(0, 2)); //获取检测极柱开始序号
@@ -192,9 +197,7 @@ namespace AVS_Core.Services
 
         private string HandleCalibInit(string stationId, SessionConfig config, bool isVerify)
         {
-            _sessionService.InitializeSession(stationId,
-                isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
-
+            _sessionService.InitializeSession(stationId, isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
             string calibResult = _sessionService.GetResultData(stationId);
             //格式为 "01+0000000+0000000" 共18字符，按协议拆分
             // 标定初始化成功返回固定格式   这里是硬编码测试

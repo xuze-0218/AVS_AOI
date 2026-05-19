@@ -16,7 +16,7 @@ namespace AVS_Core.Services
     public interface IVisionService
     {
         /// <summary>
-        /// 初始化指定工位的视觉资源（加载HDevelop过程、AI模型）
+        /// 负责Halcon引擎、参数文件、AI模型等配置加载，这些资源在整个应用程序生命周期中只初始化一次（每个工位）
         /// </summary>
         Task InitializeAsync(string stationId);
 
@@ -45,9 +45,6 @@ namespace AVS_Core.Services
     {
         private string _stationId;
         private readonly IHalconEngineProvider _engineProvider;
-        private HDevEngine _engine => _engineProvider.GetEngine();
-        //private readonly SemaphoreSlim _engineInitSemaphore = new SemaphoreSlim(1, 1);
-        //private bool _engineInitialized = false;
         private HWindow handle;
         private string SideStr;
         private readonly ILogger _logger;
@@ -68,7 +65,7 @@ namespace AVS_Core.Services
             _logger = logger;
             _stationConfig = stationConfig;
             _parametersConfig = parametersConfig;
-            _engineProvider = engineProvider;   
+            _engineProvider = engineProvider;
             _windowHandleRegistry = windowHandleRegistry;
         }
 
@@ -108,10 +105,12 @@ namespace AVS_Core.Services
         public async Task InitializeAsync(string stationId)
         {
             _stationId = stationId;
+            _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
             //await InitializeEngineAsync();
             string sn = _stationConfig.GetStation(stationId).CameraRole;
             //这里获取窗口句柄绕了很大的圈，Halcon处理需要窗口句柄作为输入参数，
             //但服务层不应该直接依赖UI组件来获取这个句柄，所以通过IWindowHandleRegistry接口来获取。
+            //handle = _windowHandleRegistry.GetHandle(sn);
             handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
             SideStr = stationId;
@@ -184,9 +183,10 @@ namespace AVS_Core.Services
             _logger.Information("{StationId}工位视觉初始化成功", stationId);
         }
 
-        public Task<string> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param)
+        public async Task<string> Execute2DInspectAsync(HObject image, int poleNumber, InspectionParams param)
         {
             string result = "01";
+            string measureResults = string.Empty;
             HTuple resultArray = new HTuple();
             HTuple beadRect01 = new HTuple();
             HTuple beadRect02 = new HTuple();
@@ -194,6 +194,8 @@ namespace AVS_Core.Services
             HOperatorSet.GenEmptyObj(out HObject mask02);
             HOperatorSet.GenEmptyObj(out HObject mask03);
             bool isAiCheck = _parametersConfig.GetBool("ProductParam", "isAiCheck");
+            string sn = _stationConfig.GetStation(_stationId).CameraRole;
+            handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             if (isAiCheck)
             {
                 bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
@@ -211,8 +213,8 @@ namespace AVS_Core.Services
                     string result04 = DoubleToString(resultArray[8].D, 8);//爆孔面积
                     string result05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                     string result06 = DoubleToString(resultArray[12].D, 8);//虚焊尺寸
-                    string measureResults = "02" + result01 + result02 + result03 + result04 + result05 + result06;
-                    return Task.FromResult(measureResults);
+                    measureResults = "02" + result01 + result02 + result03 + result04 + result05 + result06;
+                    await Task.FromResult(measureResults);
                 }
                 else
                 {
@@ -256,8 +258,8 @@ namespace AVS_Core.Services
                     string data04 = DoubleToString(resultArray[8].D, 8);//爆孔数量
                     string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                     string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
-                    string measureResult = result + data01 + data02 + data03 + data04 + data05 + data06;
-                    return Task.FromResult(measureResult);
+                    measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
+                    await Task.FromResult(measureResults);
                 }
             }
             else
@@ -272,10 +274,10 @@ namespace AVS_Core.Services
                 string data04 = DoubleToString(resultArray[8].D, 8);//爆孔尺寸
                 string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                 string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
-                string measureResult = result + data01 + data02 + data03 + data04 + data05 + data06;
-                return Task.FromResult(measureResult);
+                measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
+                await Task.FromResult(measureResults);
             }
-
+            return measureResults;
         }
 
         public Task<HTuple> Execute3DInspectAsync(HObject image, int poleNumber, InspectionParams param)

@@ -52,20 +52,20 @@ namespace AVS_Core.Services
     public class StationSessionService : IStationSessionService
     {
         private readonly IContainerProvider _containerProvider;
-        //private readonly IProtocolEngineService _protocolEngine;
-        //private readonly IVisionService _visionService;
         private readonly ILogger _logger;
+        /// <summary>
+        /// 
+        /// </summary>
         private readonly ConcurrentDictionary<string, SessionState> _sessions = new();
-
+        /// <summary>
+        /// 视觉服务缓存
+        /// </summary>
+        private readonly ConcurrentDictionary<string, IVisionService> _visionServices = new();
         public StationSessionService(
-            IProtocolEngineService protocolEngine, 
-            //IVisionService visionService,
             IContainerProvider containerProvider,
             ILogger logger)
         {
             _containerProvider = containerProvider;
-            //_protocolEngine = protocolEngine;
-            //_visionService = visionService;
             _logger = logger;
         }
 
@@ -76,15 +76,17 @@ namespace AVS_Core.Services
             if (_sessions.TryRemove(stationId, out var oldState))
                 oldState.Dispose();
 
-            // 为这个工位新建视觉服务实例
-
-            var visionService = _containerProvider.Resolve<IVisionService>();
-            visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
+            var visionService = _visionServices.GetOrAdd(stationId, sid =>
+            {
+                var svc = _containerProvider.Resolve<IVisionService>();
+                svc.InitializeAsync(sid).GetAwaiter().GetResult();
+                return svc;
+            });
 
             var state = new SessionState
             {
                 WorkType = workType,
-                visionService = visionService,
+                visionService = visionService,  //复用缓存实例
                 Cts = new CancellationTokenSource(),
                 ImageQueue = new BlockingCollection<HObject>(),
                 MsgPoleCapacity = 0,
@@ -207,7 +209,6 @@ namespace AVS_Core.Services
         }
 
 
-
         public void Reset(string stationId)
         {
             if (_sessions.TryRemove(stationId, out var state))
@@ -314,7 +315,11 @@ namespace AVS_Core.Services
         }
     }
 
-    // 内部状态类
+    // 会话状态
+    /// <summary>
+    /// 记录一次检测任务（一批产品）的临时数据，例如极柱拍照顺序PoleOrder、结果数组PoleResults、等待句柄ResultSources等。
+    /// 每批产品都会创建新的会话状态，任务结束后销毁。
+    /// </summary>
     internal class SessionState
     {
         public IVisionService visionService { get; set; }

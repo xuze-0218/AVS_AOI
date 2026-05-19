@@ -33,10 +33,10 @@ namespace AVS_Common
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
-            if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.CameraRoleName))
-            {
-                WindowHandleEvent.RaiseHandleUnregistered(item.CameraRoleName);
-            }
+            //if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.CameraRoleName))
+            //{
+            //    WindowHandleEvent.RaiseHandleUnregistered(item.CameraRoleName);
+            //}
             _isRegistered = false;
         }
 
