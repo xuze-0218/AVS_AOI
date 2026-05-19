@@ -2,6 +2,8 @@
 using AVS_Service;
 using AVS_Service.Models;
 using Serilog;
+using System.Printing;
+using static MMDeploy.PoseTracker;
 
 
 namespace AVS_Core.Services
@@ -84,7 +86,7 @@ namespace AVS_Core.Services
                     response = step switch
                     {
                         "0001" => HandleInspectInit(connectionPlcId, sessionConfig),
-                        "0002" => HandleInspectResult(connectionPlcId, sessionConfig),
+                        "0002" => await HandleInspectResult(connectionPlcId, sessionConfig),
                         _ => CreateErrorResponse(sessionConfig, "Unknown step")
                     };
                 }
@@ -119,10 +121,42 @@ namespace AVS_Core.Services
 
         private string HandleInspectInit(string stationId, SessionConfig config)
         {
-            _sessionService.InitializeSession(stationId, SessionWorkType.Inspect);
-            string InspectResult = _sessionService.GetResultData(stationId);
+            int inspectStNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(0, 2)); //获取检测极柱开始序号
+            int inspectEdNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(2, 2)); //获取检测极柱结束序号
+            int numForInspect = inspectEdNum - inspectStNum + 1;                                        //获取需要检测的极柱总个数
+            int[] inspectOrder = new int[numForInspect];
+
+            int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
+            string imageName = _protocolEngine.GetVariable("imageName");
+            int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));
+            //inspectOrders是什么？
+            //不理解电芯类型减1是什么鬼东西，索引默认取0？
+            //这里是空值，还没赋值，后续本地读取
+            //InspectOrder order = new ParamsSide().inspectOrders[orderIndex - 1];
+            //这里先硬编码
+            InspectOrder order = new InspectOrder() { row = 2, col = 13, start = [1, 26], end = [25, 2] };
+            for (int j = 0; j < order.row; j++)
+            {
+                int mdiff = (int)(Math.Abs(order.end[j] - order.start[j])) / (order.col - 1);
+                if (order.end[j] - order.start[j] < 0)
+                    mdiff = -mdiff;
+
+                for (int i = 0; i < order.col; i++)
+                {
+                    inspectOrder[i + j * order.col] = (int)order.start[j] + mdiff * i;
+                }
+            }
+            var initParams = new InspectionInitParams
+            {
+                ImageName = imageName,
+                MsgPoleCapacity = msgPoleCapacity,
+                PoleOrder = inspectOrder
+            };
+
+            _sessionService.InitializeSession(stationId, SessionWorkType.Inspect, initParams);
+            string initResultData = string.Concat(Enumerable.Repeat("01" + new string('0', 48), msgPoleCapacity));
             // 构建初始化成功报文（包含占位结果）
-            _protocolEngine.SetVariable("Result", InspectResult);
+            _protocolEngine.SetVariable("Result", initResultData);
             _protocolEngine.SetVariable("backup3", "0000");
             _protocolEngine.SetVariable("backup4", "0000");
             _protocolEngine.SetVariable("backup5", "0000");
@@ -130,16 +164,16 @@ namespace AVS_Core.Services
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 
-        private string HandleInspectResult(string stationId, SessionConfig config)
+        private async Task<string> HandleInspectResult(string stationId, SessionConfig config)
         {
             string result = "01";
             string resultData = "";
-            int startPole = int.Parse(_protocolEngine.GetVariable("backup02").Substring(0, 2));
-            int endPole = int.Parse(_protocolEngine.GetVariable("backup02").Substring(2, 2));
+            int startPole = int.Parse(_protocolEngine.GetVariable("backup2").Substring(0, 2));
+            int endPole = int.Parse(_protocolEngine.GetVariable("backup2").Substring(2, 2));
             int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
             try
             {
-                resultData =  _sessionService.GetResultData(stationId, startPole, endPole, msgPoleCapacity);
+                resultData = await _sessionService.GetResultDataAsync(stationId, startPole, endPole, msgPoleCapacity);
             }
             catch (TimeoutException)
             {

@@ -43,8 +43,11 @@ namespace AVS_Core.Services
 
     public class VisionService : IVisionService
     {
-        private readonly SemaphoreSlim _engineInitSemaphore = new SemaphoreSlim(1, 1);
-        private bool _engineInitialized = false;
+        private string _stationId;
+        private readonly IHalconEngineProvider _engineProvider;
+        private HDevEngine _engine => _engineProvider.GetEngine();
+        //private readonly SemaphoreSlim _engineInitSemaphore = new SemaphoreSlim(1, 1);
+        //private bool _engineInitialized = false;
         private HWindow handle;
         private string SideStr;
         private readonly ILogger _logger;
@@ -52,46 +55,48 @@ namespace AVS_Core.Services
         private readonly IStationConfigService _stationConfig;
         private readonly IWindowHandleRegistry _windowHandleRegistry;
         private string paramDir = string.Empty;
-        private HDevEngine _engine;
         private HDevProcedure _proc2DLoadParam, _proc2DMeasure, _proc2DCrop;
         private HDevProcedure _proc3DLoadParam, _proc3DMeasure, _proc3DCrop, _procPlaneFit3D;
         private HDevProcedureCall hCall01, hCall02, hCall03;
 
         public VisionService(ILogger logger,
             IStationConfigService stationConfig,
-            IParametersConfigService parametersConfig, IWindowHandleRegistry windowHandleRegistry)
+            IParametersConfigService parametersConfig,
+            IHalconEngineProvider engineProvider,
+            IWindowHandleRegistry windowHandleRegistry)
         {
             _logger = logger;
             _stationConfig = stationConfig;
             _parametersConfig = parametersConfig;
+            _engineProvider = engineProvider;   
             _windowHandleRegistry = windowHandleRegistry;
         }
 
-        private async Task InitializeEngineAsync()
-        {
-            if (_engineInitialized)
-                return;
-            await _engineInitSemaphore.WaitAsync();
-            try
-            {
-                if (_engineInitialized) return;
-                await Task.Run(() =>
-                {
-                    _engine = new HDevEngine();
-                    _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "HalconEngine.hdpl"));
-                    _engine.StartDebugServer();
-                });
-                _engineInitialized = true;
-                _logger.Information("Halcon引擎初始化完成");
-            }
-            catch (Exception)
-            {
-            }
-            finally
-            {
-                _engineInitSemaphore.Release();
-            }
-        }
+        //private async Task InitializeEngineAsync()
+        //{
+        //    if (_engineInitialized)
+        //        return;
+        //    await _engineInitSemaphore.WaitAsync();
+        //    try
+        //    {
+        //        if (_engineInitialized) return;
+        //        await Task.Run(() =>
+        //        {
+        //            _engine = new HDevEngine();
+        //            _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "HalconEngine.hdpl"));
+        //            _engine.StartDebugServer();
+        //        });
+        //        _engineInitialized = true;
+        //        _logger.Information("Halcon引擎初始化完成");
+        //    }
+        //    catch (Exception)
+        //    {
+        //    }
+        //    finally
+        //    {
+        //        _engineInitSemaphore.Release();
+        //    }
+        //}
 
         /// <summary>
         /// 这里仅是halcon引擎初始化和过程加载，实际还需要加载AI模型等资源
@@ -102,7 +107,8 @@ namespace AVS_Core.Services
         /// <returns></returns>
         public async Task InitializeAsync(string stationId)
         {
-            await InitializeEngineAsync();
+            _stationId = stationId;
+            //await InitializeEngineAsync();
             string sn = _stationConfig.GetStation(stationId).CameraRole;
             //这里获取窗口句柄绕了很大的圈，Halcon处理需要窗口句柄作为输入参数，
             //但服务层不应该直接依赖UI组件来获取这个句柄，所以通过IWindowHandleRegistry接口来获取。

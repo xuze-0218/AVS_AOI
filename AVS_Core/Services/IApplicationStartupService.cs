@@ -59,10 +59,10 @@ namespace AVS_Core.Services
 
                 //加载通讯服务
                 await InitializeCommunicationAsync();
-                foreach (var item in _stationConfigService.Stations)
-                {
-                    await _visionService.InitializeAsync(item.StationId);
-                }
+                //foreach (var item in _stationConfigService.Stations)
+                //{
+                //    await _visionService.InitializeAsync(item.StationId);
+                //}
                 _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageCaptured);
                 _backgroundInitializationTask = Task.Run(async () =>
                 {

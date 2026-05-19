@@ -42,7 +42,8 @@ namespace AVS_App
 
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
             containerRegistry.RegisterSingleton<IWindowHandleRegistry, WindowHandleRegistry>();
-            containerRegistry.RegisterSingleton<IVisionService, VisionService>();
+            containerRegistry.Register<IVisionService, VisionService>();//Transient,每个会话都会创建一个新的实例
+            containerRegistry.RegisterSingleton<IHalconEngineProvider, HalconEngineProvider>();
             containerRegistry.RegisterSingleton<IStationSessionService, StationSessionService>();
             containerRegistry.RegisterSingleton<IPlcMessageRouter, PlcMessageRouter>();
             containerRegistry.RegisterSingleton<IParametersConfigService, ParametersConfigService>();

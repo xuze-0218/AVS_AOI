@@ -1,7 +1,9 @@
 ﻿using AVS_Core.Models;
 using AVS_Service;
 using HalconDotNet;
+using Prism.Ioc;
 using Serilog;
+using System;
 using System.Collections.Concurrent;
 
 
@@ -26,10 +28,20 @@ namespace AVS_Core.Services
         void EnqueueImage(string stationId, HObject image);
 
         /// <summary>
-        /// 获取检测或标定的结果数据（用于PLC回复）
-        /// 检测模式需要提供极柱开始和结束序号
+        /// 获取标定\点检的结果数据（用于PLC回复）
         /// </summary>
         string GetResultData(string stationId, int? startIndex = null, int? endIndex = null);
+
+        /// <summary>
+        /// 获取检测的结果数据
+        /// </summary>
+        /// <param name="stationId"></param>
+        /// <param name="startPole"></param>
+        /// <param name="endPole"></param>
+        /// <param name="msgPoleCapacity"></param>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        Task<string> GetResultDataAsync(string stationId, int startPole, int endPole, int msgPoleCapacity, CancellationToken ct = default);
 
         /// <summary>
         /// 重置指定工位的会话
@@ -39,15 +51,21 @@ namespace AVS_Core.Services
 
     public class StationSessionService : IStationSessionService
     {
-        private readonly IProtocolEngineService _protocolEngine;
-        private readonly IVisionService _visionService;
+        private readonly IContainerProvider _containerProvider;
+        //private readonly IProtocolEngineService _protocolEngine;
+        //private readonly IVisionService _visionService;
         private readonly ILogger _logger;
         private readonly ConcurrentDictionary<string, SessionState> _sessions = new();
 
-        public StationSessionService(IProtocolEngineService protocolEngine, IVisionService visionService, ILogger logger)
+        public StationSessionService(
+            IProtocolEngineService protocolEngine, 
+            //IVisionService visionService,
+            IContainerProvider containerProvider,
+            ILogger logger)
         {
-            _protocolEngine = protocolEngine;
-            _visionService = visionService;
+            _containerProvider = containerProvider;
+            //_protocolEngine = protocolEngine;
+            //_visionService = visionService;
             _logger = logger;
         }
 
@@ -58,56 +76,36 @@ namespace AVS_Core.Services
             if (_sessions.TryRemove(stationId, out var oldState))
                 oldState.Dispose();
 
+            // 为这个工位新建视觉服务实例
+
+            var visionService = _containerProvider.Resolve<IVisionService>();
+            visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
+
             var state = new SessionState
             {
                 WorkType = workType,
+                visionService = visionService,
                 Cts = new CancellationTokenSource(),
                 ImageQueue = new BlockingCollection<HObject>(),
-                PoleOrder = null,
                 MsgPoleCapacity = 0,
                 ReceivedCount = 0,
-                PoleResults = new string[100],//从InspectOrder或PoleOrder数量获取最大极柱数，暂定100
-                ResultSources = new TaskCompletionSource<string>[100]
+
             };
-            for (int i = 1; i <= 100; i++)
-            {
-                state.ResultSources[i] = new TaskCompletionSource<string>();
-            }
-
-
             // 根据类型初始化内部数据结构
             switch (workType)
             {
                 case SessionWorkType.Inspect:
 
-                    int inspectStNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(0, 2)); //获取检测极柱开始序号
-                    int inspectEdNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(2, 2)); //获取检测极柱结束序号
-                    int numForInspect = inspectEdNum - inspectStNum + 1;                                        //获取需要检测的极柱总个数
-                    state.resultData = "";
-                    var inspectResult = new string[numForInspect];
-                    int[] inspectOrder = new int[numForInspect];
+                    var p = (InspectionInitParams)parameters;
+                    int maxPole = p.PoleOrder.Max();
 
-
-                    int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
-                    int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));
-                    //inspectOrders是什么？
-                    //不理解电芯类型减1是什么鬼东西，索引默认取0？
-                    //这里是空值，还没赋值，后续本地读取
-                    //InspectOrder order = new ParamsSide().inspectOrders[orderIndex - 1];
-                    InspectOrder order = new InspectOrder() { row = 2, col = 13, start = [1, 26], end = [25, 2] };
-
-                    for (int j = 0; j < order.row; j++)
-                    {
-                        int mdiff = (int)(Math.Abs(order.end[j] - order.start[j])) / (order.col - 1);
-                        if (order.end[j] - order.start[j] < 0)
-                            mdiff = -mdiff;
-
-                        for (int i = 0; i < order.col; i++)
-                        {
-                            inspectOrder[i + j * order.col] = (int)order.start[j] + mdiff * i;
-                        }
-                    }
-                    state.resultData = string.Concat(Enumerable.Repeat("01" + new string('0', 48), msgPoleCapacity));
+                    state.PoleOrder = p.PoleOrder;
+                    state.MsgPoleCapacity = p.MsgPoleCapacity;
+                    state.ProcessIndex = 0;
+                    state.PoleResults = new string[maxPole + 1];
+                    state.ResultSources = new TaskCompletionSource<string>[maxPole + 1];
+                    for (int i = 0; i <= maxPole; i++)
+                        state.ResultSources[i] = new TaskCompletionSource<string>();
                     break;
                 case SessionWorkType.Calibrate:
                 case SessionWorkType.Verify:
@@ -126,11 +124,18 @@ namespace AVS_Core.Services
         {
             if (_sessions.TryGetValue(stationId, out var state) && state.IsActive)
             {
-                state.ImageQueue.Add(image.Clone());
                 if (state.WorkType == SessionWorkType.Inspect)
                 {
+                    if (state.ReceivedCount >= state.PoleOrder.Length)
+                    {
+                        _logger.Warning("接收图像数超出预期，工位{StationId}，已接收{Received}，预期{Total}",
+                            stationId, state.ReceivedCount, state.PoleOrder.Length);
+                        image.Dispose();
+                        return;
+                    }
                     state.ReceivedCount++;
                 }
+                state.ImageQueue.Add(image.Clone());
             }
             else
             {
@@ -146,15 +151,62 @@ namespace AVS_Core.Services
                 _logger.Warning("No active session for {StationId} when querying results", stationId);
                 return GenerateErrorResult(state?.WorkType ?? SessionWorkType.Inspect);
             }
-
-            return state.WorkType switch
-            {
-                SessionWorkType.Inspect => state.resultData,//不太对，要从state.PoleResults根据startIndex和endIndex拼接结果字符串，长度根据msgPoleCapacity确定
-                SessionWorkType.Calibrate => state.CalibResult + state.CalibData,
-                SessionWorkType.Verify => state.CalibResult + state.CalibData,
-                _ => string.Empty
-            };
+            return state.CalibResult + state.CalibData;
         }
+
+        public async Task<string> GetResultDataAsync(string stationId, int startPole, int endPole, int msgPoleCapacity, CancellationToken ct = default)
+        {
+            if (!_sessions.TryGetValue(stationId, out var state) || state.WorkType != SessionWorkType.Inspect)
+            {
+                _logger.Warning("无效会话或非检测模式，工位 {StationId}", stationId);
+                return GenerateEmptyResult(msgPoleCapacity);
+            }
+
+            int requestedCount = endPole - startPole + 1;
+            if (requestedCount > msgPoleCapacity)
+            {
+                _logger.Warning("请求极柱数 {Requested} 超过单次容量 {Capacity}", requestedCount, msgPoleCapacity);
+                requestedCount = msgPoleCapacity;
+            }
+
+            var results = new List<string>();
+            for (int pole = startPole; pole <= endPole; pole++)
+            {
+                if (pole < 0 || pole >= state.ResultSources.Length)
+                {
+                    results.Add("00" + new string('0', 48));
+                    continue;
+                }
+
+                var tcs = state.ResultSources[pole];
+                // 等待结果或超时（5秒）
+                var timeoutTask = Task.Delay(5000, ct);
+                var completedTask = await Task.WhenAny(tcs.Task, timeoutTask).ConfigureAwait(false);
+                if (completedTask == tcs.Task)
+                {
+                    results.Add(await tcs.Task);
+                }
+                else
+                {
+                    _logger.Warning("极柱 {Pole} 检测超时", pole);
+                    results.Add("00" + new string('0', 48));
+                }
+            }
+
+            while (results.Count < msgPoleCapacity)
+            {
+                results.Add("00" + new string('0', 48));
+            }
+
+            return string.Concat(results);
+        }
+
+        private string GenerateEmptyResult(int capacity)
+        {
+            return string.Concat(Enumerable.Repeat("00" + new string('0', 48), capacity));
+        }
+
+
 
         public void Reset(string stationId)
         {
@@ -183,7 +235,7 @@ namespace AVS_Core.Services
                         switch (state.WorkType)
                         {
                             case SessionWorkType.Inspect:
-                                await ProcessInspectImage(stationId, state, img);
+                                await ProcessInspectImage(state, img);
                                 break;
                             case SessionWorkType.Calibrate:
                                 await ProcessCalibrationImage(state, img, false);
@@ -215,22 +267,21 @@ namespace AVS_Core.Services
         /// <summary>
         /// 检测图片
         /// </summary>
-        /// <param name="stationId"></param>
         /// <param name="state"></param>
         /// <param name="image"></param>
         /// <returns></returns>
-        private async Task ProcessInspectImage(string stationId, SessionState state, HObject image)
+        private async Task ProcessInspectImage(SessionState state, HObject image)
         {
             string result = string.Empty;
             int idx = state.ProcessIndex;
             if (idx >= state.PoleOrder.Length)
             {
-                _logger.Error("处理序号超出极柱总数，工位{StationId}", stationId);
+                _logger.Error("处理序号超出极柱总数");
                 return;
             }
             int poleNum = state.PoleOrder[idx];
             state.ProcessIndex++;
-            result = await _visionService.Execute2DInspectAsync(image, poleNum, new InspectionParams());
+            result = await state.visionService.Execute2DInspectAsync(image, poleNum, new InspectionParams());
             state.PoleResults[poleNum] = result;
             state.ResultSources[poleNum].TrySetResult(result);
         }
@@ -246,9 +297,9 @@ namespace AVS_Core.Services
         {
             string result;
             if (isVerification)
-                result = await _visionService.ExecuteVerificationAsync(image, new CalibrationParams());
+                result = await state.visionService.ExecuteVerificationAsync(image, new CalibrationParams());
             else
-                result = await _visionService.ExecuteCalibrationAsync(image, new CalibrationParams());
+                result = await state.visionService.ExecuteCalibrationAsync(image, new CalibrationParams());
             //结果汇总时用','连接
             state.CalibResult = result.Split(',')[0];
             state.CalibData = result.Split(',')[1];
@@ -266,6 +317,7 @@ namespace AVS_Core.Services
     // 内部状态类
     internal class SessionState
     {
+        public IVisionService visionService { get; set; }
         public SessionWorkType WorkType { get; set; }
         public CancellationTokenSource Cts { get; set; }
         public Task ProcessTask { get; set; }
