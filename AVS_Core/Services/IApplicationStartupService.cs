@@ -21,7 +21,6 @@ namespace AVS_Core.Services
         //private readonly IWorkflowService _workflowService;
         private readonly IStationSessionService _sessionService;
         private readonly IPlcMessageRouter _messageRouter;
-        private readonly IVisionService _visionService;
         private readonly ICommunicationService _communicationService;
         //private readonly IParametersConfigService _parametersConfigService;
         private readonly ICameraConfigService _cameraConfigService;
@@ -33,7 +32,6 @@ namespace AVS_Core.Services
             IPlcMessageRouter messageRouter,
             IEventAggregator eventAggregator,
             IStationSessionService sessionService,
-            IVisionService visionService,
             ICommunicationService communicationService,
             IStationConfigService stationConfigService,
             //IParametersConfigService parametersConfigService,
@@ -42,7 +40,6 @@ namespace AVS_Core.Services
             _logger = logger;
             _eventAggregator = eventAggregator;
             _sessionService = sessionService;
-            _visionService = visionService;
             _messageRouter = messageRouter;
             _stationConfigService = stationConfigService;
             //_parametersConfigService = parametersConfigService;
@@ -56,9 +53,9 @@ namespace AVS_Core.Services
 
             try
             {
-
                 //加载通讯服务
                 await InitializeCommunicationAsync();
+                ///避免单例冲突和重复初始化
                 //foreach (var item in _stationConfigService.Stations)
                 //{
                 //    await _visionService.InitializeAsync(item.StationId);

@@ -46,7 +46,7 @@ namespace AVS_Core.Services
         private string _stationId;
         private readonly IHalconEngineProvider _engineProvider;
         private HWindow handle;
-        private string SideStr;
+      
         private readonly ILogger _logger;
         private readonly IParametersConfigService _parametersConfig;
         private readonly IStationConfigService _stationConfig;
@@ -113,7 +113,7 @@ namespace AVS_Core.Services
             //handle = _windowHandleRegistry.GetHandle(sn);
             handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
-            SideStr = stationId;
+           
             if (stationId == "A")
             {
                 bool isCirWeldMark = _parametersConfig.GetBool("ProductParam", "isCirWeldMark");
@@ -155,7 +155,7 @@ namespace AVS_Core.Services
                     hCall01 = new HDevProcedureCall(_proc3DLoadParam);
                     hCall01.SetInputCtrlParamTuple("WindowHandle", handle);
                     hCall01.SetInputCtrlParamTuple("ParamDir", paramDir);
-                    hCall01.SetInputCtrlParamTuple("ParamSide", SideStr);
+                    hCall01.SetInputCtrlParamTuple("ParamSide", _stationId);
                     //hCall01.Execute(); // 调用
                     hCall01.Dispose(); // 释放
                     _proc3DLoadParam.Dispose();
@@ -201,9 +201,9 @@ namespace AVS_Core.Services
                 bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
                 if (isSquareBarWeldMark)
                     //这里score要从本地配置里读取 先写死
-                    AiDrive.DetectImages(SideStr, 0, image, score: 0.8, out int[] beadType01, out beadRect01);
+                    AiDrive.DetectImages(_stationId, 0, image, score: 0.8, out int[] beadType01, out beadRect01);
                 else
-                    AiDrive.DetectImage(SideStr, 0, image, score: 0.8, out int beadType01, out beadRect01);
+                    AiDrive.DetectImage(_stationId, 0, image, score: 0.8, out int beadType01, out beadRect01);
                 if (beadRect01.Length < 4)
                 {
                     HOperatorSet.TupleGenConst(13, 2, out resultArray);
@@ -214,12 +214,12 @@ namespace AVS_Core.Services
                     string result05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                     string result06 = DoubleToString(resultArray[12].D, 8);//虚焊尺寸
                     measureResults = "02" + result01 + result02 + result03 + result04 + result05 + result06;
-                    await Task.FromResult(measureResults);
+                    return measureResults;
                 }
                 else
                 {
                     hCall02.SetInputCtrlParamTuple("WindowHandle", handle);
-                    hCall02.SetInputCtrlParamTuple("ParamSide", SideStr);
+                    hCall02.SetInputCtrlParamTuple("ParamSide", _stationId);
                     hCall02.SetInputCtrlParamTuple("TargetRect", beadRect01); // 这里拿到检测框坐标数组
                     hCall02.SetInputIconicParamObject("Image", image);
                     hCall02.Execute();
@@ -227,21 +227,21 @@ namespace AVS_Core.Services
                                                                                       //-分割模型应用
                     if (isSquareBarWeldMark)
                     {   // 检测方条焊缝
-                        AiDrive.DetectImages(SideStr, 0, imgBead, score: 0.8, out int[] beadType02, out beadRect02); // imgBead—>裁切ROI
+                        AiDrive.DetectImages(_stationId, 0, imgBead, score: 0.8, out int[] beadType02, out beadRect02); // imgBead—>裁切ROI
                         hCall03.SetInputCtrlParamTuple("BeadType", beadType02); // 数组类型
                     }
                     else
                     { // 检测单个焊缝
-                        AiDrive.DetectImage(SideStr, 0, imgBead, score: 0.8, out int beadType02, out beadRect02);
+                        AiDrive.DetectImage(_stationId, 0, imgBead, score: 0.8, out int beadType02, out beadRect02);
                         hCall03.SetInputCtrlParamTuple("BeadType", beadType02);
                     }
-                    AiDrive.PredictImage(SideStr, 0, imgBead, out mask01);
-                    AiDrive.PredictImage(SideStr, 1, imgBead, out mask02); // 缺陷检测 识别爆孔、裂纹等缺陷
-                    AiDrive.PredictImage(SideStr, 2, imgBead, out mask03);
+                    AiDrive.PredictImage(_stationId, 0, imgBead, out mask01);
+                    AiDrive.PredictImage(_stationId, 1, imgBead, out mask02); // 缺陷检测 识别爆孔、裂纹等缺陷
+                    AiDrive.PredictImage(_stationId, 2, imgBead, out mask03);
 
                     //-焊缝尺度测量
                     hCall03.SetInputCtrlParamTuple("WindowHandle", handle);
-                    hCall03.SetInputCtrlParamTuple("ParamSide", SideStr);
+                    hCall03.SetInputCtrlParamTuple("ParamSide", _stationId);
                     hCall03.SetInputIconicParamObject("Image", imgBead);
                     hCall03.SetInputIconicParamObject("Mask01", mask01);
                     hCall03.SetInputIconicParamObject("Mask02", mask02);
@@ -259,7 +259,7 @@ namespace AVS_Core.Services
                     string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                     string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
                     measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
-                    await Task.FromResult(measureResults);
+                    return measureResults;
                 }
             }
             else
@@ -319,7 +319,7 @@ namespace AVS_Core.Services
             hStep.LoadProcedure("Cali2d");
             var procCall = new HDevProcedureCall(hStep);
             procCall.SetInputCtrlParamTuple("WindowHandle", handle);
-            procCall.SetInputCtrlParamTuple("ParamSide", SideStr);
+            procCall.SetInputCtrlParamTuple("ParamSide", _stationId);
             procCall.SetInputCtrlParamTuple("SearchParam", matchParam);
             procCall.SetInputCtrlParamTuple("ParamDir", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"));
             procCall.SetInputIconicParamObject("Image", image);
@@ -369,7 +369,7 @@ namespace AVS_Core.Services
             var procCall = new HDevProcedureCall(hStep);
 
             procCall.SetInputCtrlParamTuple("WindowHandle", handle);
-            procCall.SetInputCtrlParamTuple("ParamSide", SideStr);
+            procCall.SetInputCtrlParamTuple("ParamSide", _stationId);
             procCall.SetInputCtrlParamTuple("SearchParam", matchParam);
             procCall.SetInputCtrlParamTuple("ParamDir", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"));
             procCall.SetInputIconicParamObject("Image", image);

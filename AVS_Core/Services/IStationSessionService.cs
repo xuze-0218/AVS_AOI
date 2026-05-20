@@ -3,6 +3,7 @@ using AVS_Service;
 using HalconDotNet;
 using Prism.Ioc;
 using Serilog;
+using Serilog.Core;
 using System;
 using System.Collections.Concurrent;
 
@@ -47,11 +48,17 @@ namespace AVS_Core.Services
         /// 重置指定工位的会话
         /// </summary>
         void Reset(string stationId);
+        /// <summary>
+        /// 预加载参数避免首轮检测/标定时的延迟
+        /// </summary>
+        /// <returns></returns>
+        Task PreloadAllStationsAsync();
     }
 
     public class StationSessionService : IStationSessionService
     {
         private readonly IContainerProvider _containerProvider;
+        private readonly IStationConfigService _stationConfig;
         private readonly ILogger _logger;
         /// <summary>
         /// 
@@ -61,14 +68,13 @@ namespace AVS_Core.Services
         /// 视觉服务缓存
         /// </summary>
         private readonly ConcurrentDictionary<string, IVisionService> _visionServices = new();
-        public StationSessionService(
-            IContainerProvider containerProvider,
-            ILogger logger)
+
+        public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfig, ILogger logger)
         {
             _containerProvider = containerProvider;
+            _stationConfig = stationConfig;
             _logger = logger;
         }
-
 
         public void InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
         {
@@ -76,12 +82,14 @@ namespace AVS_Core.Services
             if (_sessions.TryRemove(stationId, out var oldState))
                 oldState.Dispose();
 
-            var visionService = _visionServices.GetOrAdd(stationId, sid =>
+            // 从缓存中获取视觉服务（此时应已预加载完成，若未完成则同步等待）
+            if (!_visionServices.TryGetValue(stationId,out var visionService))
             {
-                var svc = _containerProvider.Resolve<IVisionService>();
-                svc.InitializeAsync(sid).GetAwaiter().GetResult();
-                return svc;
-            });
+                visionService = _containerProvider.Resolve<IVisionService>();
+                visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
+                _visionServices.TryAdd(stationId, visionService);
+                _logger.Warning("工位 {StationId} 未预加载，已同步初始化", stationId);
+            }
 
             var state = new SessionState
             {
@@ -143,6 +151,15 @@ namespace AVS_Core.Services
             {
                 _logger.Warning("没有激活的{StationId}对话", stationId);
                 image?.Dispose();
+            }
+        }
+
+        public void Reset(string stationId)
+        {
+            if (_sessions.TryRemove(stationId, out var state))
+            {
+                state.Dispose();
+                _logger.Information("Session on {StationId} reset", stationId);
             }
         }
 
@@ -208,15 +225,26 @@ namespace AVS_Core.Services
             return string.Concat(Enumerable.Repeat("00" + new string('0', 48), capacity));
         }
 
-
-        public void Reset(string stationId)
+        public async Task PreloadAllStationsAsync()
         {
-            if (_sessions.TryRemove(stationId, out var state))
+            var tasks = _stationConfig.Stations.Select(async station =>
             {
-                state.Dispose();
-                _logger.Information("Session on {StationId} reset", stationId);
-            }
+                try
+                {
+                    var visionService = _containerProvider.Resolve<IVisionService>();
+                    await visionService.InitializeAsync(station.StationId);
+                    _visionServices.TryAdd(station.StationId, visionService);
+                    _logger.Information("工位 {StationId} 视觉服务预加载完成", station.StationId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "工位 {StationId} 视觉服务预加载失败", station.StationId);
+                }
+            });
+            await Task.WhenAll(tasks);
+            _logger.Information("所有工位视觉服务预加载完成");
         }
+
 
         /// <summary>
         /// 图像处理

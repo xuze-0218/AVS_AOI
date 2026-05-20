@@ -10,6 +10,7 @@ using Prism.Ioc;
 using Prism.Modularity;
 using Prism.Regions;
 using Serilog;
+using Serilog.Core;
 using System.Configuration;
 using System.Data;
 using System.Windows;
@@ -65,12 +66,17 @@ namespace AVS_App
         protected override async void OnInitialized()
         {
             base.OnInitialized();
+            //注册窗口句柄事件
             WindowHandleEvent.HandleRegistered += (rn, handle) => Container.Resolve<IWindowHandleRegistry>().Register(rn, handle);
             WindowHandleEvent.HandleUnregistered += (rn) => Container.Resolve<IWindowHandleRegistry>().Unregister(rn);
+            //导航到InspectionView
             var regionManager = Container.Resolve<IRegionManager>();
             regionManager.RequestNavigate("MainContentRegion", "InspectionView");
             // 等待 InspectionView 完全加载并注册所有窗口句柄
             await WaitForCameraHandlesAsync();
+            //预加载所有工位的视觉服务
+            var stationSessionService = Container.Resolve<IStationSessionService>();
+            await stationSessionService.PreloadAllStationsAsync();  // 等待预加载完成
             try
             {
                 var startupService = Container.Resolve<IApplicationStartupService>();
@@ -89,6 +95,10 @@ namespace AVS_App
         //    return new DirectoryModuleCatalog() { ModulePath = @".\Modules" };
         //}
 
+        /// <summary>
+        /// 等待所有相机的窗口句柄注册完成,因为视觉服务初始化需要窗口句柄
+        /// </summary>
+        /// <returns></returns>
         private async Task WaitForCameraHandlesAsync()
         {
             var registry = Container.Resolve<IWindowHandleRegistry>();
