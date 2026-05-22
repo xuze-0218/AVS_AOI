@@ -3,8 +3,6 @@ using AVS_Service;
 using AVS_Service.Models;
 using Serilog;
 
-
-
 namespace AVS_Core.Services
 {
     public interface IPlcMessageRouter
@@ -84,7 +82,7 @@ namespace AVS_Core.Services
                 {
                     response = step switch
                     {
-                        "0001" => HandleInspectInit(connectionPlcId, sessionConfig),
+                        "0001" => await HandleInspectInit(connectionPlcId, sessionConfig),
                         "0002" => await HandleInspectResult(connectionPlcId, sessionConfig),
                         _ => CreateErrorResponse(sessionConfig, "Unknown step")
                     };
@@ -95,7 +93,7 @@ namespace AVS_Core.Services
                     bool isverify = _protocolEngine.GetVariable("calibType") == "04";
                     response = step switch
                     {
-                        "0001" => HandleCalibInit(connectionPlcId, sessionConfig, isverify),
+                        "0001" => await HandleCalibInit(connectionPlcId, sessionConfig, isverify),
                         "0002" => HandleCalibResult(connectionPlcId, sessionConfig),
                         _ => CreateErrorResponse(sessionConfig, "Unknown step")
                     };
@@ -124,7 +122,7 @@ namespace AVS_Core.Services
         /// <param name="stationId"></param>
         /// <param name="config"></param>
         /// <returns></returns>
-        private string HandleInspectInit(string stationId, SessionConfig config)
+        private async Task<string> HandleInspectInit(string stationId, SessionConfig config)
         {
             int inspectStNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(0, 2)); //获取检测极柱开始序号
             int inspectEdNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(2, 2)); //获取检测极柱结束序号
@@ -158,7 +156,7 @@ namespace AVS_Core.Services
                 PoleOrder = inspectOrder
             };
 
-            _sessionService.InitializeSession(stationId, SessionWorkType.Inspect, initParams);
+            await _sessionService.InitializeSession(stationId, SessionWorkType.Inspect, initParams);
             string initResultData = string.Concat(Enumerable.Repeat("01" + new string('0', 48), msgPoleCapacity));
             // 构建初始化成功报文（包含占位结果）
             _protocolEngine.SetVariable("Result", initResultData);
@@ -195,9 +193,9 @@ namespace AVS_Core.Services
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 
-        private string HandleCalibInit(string stationId, SessionConfig config, bool isVerify)
+        private async Task<string> HandleCalibInit(string stationId, SessionConfig config, bool isVerify)
         {
-            _sessionService.InitializeSession(stationId, isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
+            await _sessionService.InitializeSession(stationId, isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
             string calibResult = _sessionService.GetResultData(stationId);
             //格式为 "01+0000000+0000000" 共18字符，按协议拆分
             // 标定初始化成功返回固定格式   这里是硬编码测试

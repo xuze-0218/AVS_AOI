@@ -6,6 +6,7 @@ using Serilog;
 using Serilog.Core;
 using System;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 
 namespace AVS_Core.Services
@@ -21,7 +22,7 @@ namespace AVS_Core.Services
         /// <param name="stationId">工位（"左侧2D"/"右侧3D"）</param>
         /// <param name="workType">会话类型（检测、标定、点检）</param>
         /// <param name="parameters">可选的初始化参数，如检测的 inspectOrder，标定所需的配置等</param>
-        void InitializeSession(string stationId, SessionWorkType workType, object parameters = null);
+        Task InitializeSession(string stationId, SessionWorkType workType, object parameters = null);
 
         /// <summary>
         /// 相机采集到图像后，将其放入对应工位的处理队列
@@ -60,6 +61,9 @@ namespace AVS_Core.Services
         private readonly IContainerProvider _containerProvider;
         private readonly IStationConfigService _stationConfig;
         private readonly ILogger _logger;
+        private readonly object _preloadLock = new object();
+        private Task _preloadTask; // 后台预加载任务
+
         /// <summary>
         /// 
         /// </summary>
@@ -76,17 +80,19 @@ namespace AVS_Core.Services
             _logger = logger;
         }
 
-        public void InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
+        public async Task InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
         {
+            await EnsurePreloadCompletedAsync();
             // 清理旧会话
             if (_sessions.TryRemove(stationId, out var oldState))
                 oldState.Dispose();
 
             // 从缓存中获取视觉服务（此时应已预加载完成，若未完成则同步等待）
-            if (!_visionServices.TryGetValue(stationId,out var visionService))
+            if (!_visionServices.TryGetValue(stationId, out var visionService))
             {
                 visionService = _containerProvider.Resolve<IVisionService>();
-                visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
+                //visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
+                await visionService.InitializeAsync(stationId);
                 _visionServices.TryAdd(stationId, visionService);
                 _logger.Warning("工位 {StationId} 未预加载，已同步初始化", stationId);
             }
@@ -94,7 +100,7 @@ namespace AVS_Core.Services
             var state = new SessionState
             {
                 WorkType = workType,
-                visionService = visionService,  //复用缓存实例
+                visionService = visionService,  //复用缓存
                 Cts = new CancellationTokenSource(),
                 ImageQueue = new BlockingCollection<HObject>(),
                 MsgPoleCapacity = 0,
@@ -225,26 +231,41 @@ namespace AVS_Core.Services
             return string.Concat(Enumerable.Repeat("00" + new string('0', 48), capacity));
         }
 
-        public async Task PreloadAllStationsAsync()
+        public Task PreloadAllStationsAsync()
         {
-            var tasks = _stationConfig.Stations.Select(async station =>
+            lock (_preloadLock)
             {
-                try
+                if (_preloadTask != null) return _preloadTask;
+
+                _preloadTask = Task.Run(async () =>
                 {
-                    var visionService = _containerProvider.Resolve<IVisionService>();
-                    await visionService.InitializeAsync(station.StationId);
-                    _visionServices.TryAdd(station.StationId, visionService);
-                    _logger.Information("工位 {StationId} 视觉服务预加载完成", station.StationId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "工位 {StationId} 视觉服务预加载失败", station.StationId);
-                }
-            });
-            await Task.WhenAll(tasks);
-            _logger.Information("所有工位视觉服务预加载完成");
+                    var tasks = _stationConfig.Stations.Select(async station =>
+                    {
+                        try
+                        {
+                            var visionService = _containerProvider.Resolve<IVisionService>();
+                            await visionService.InitializeAsync(station.StationId);
+                            _visionServices.TryAdd(station.StationId, visionService);
+                            _logger.Information("工位 {StationId} 视觉服务预加载完成", station.StationId);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(ex, "工位 {StationId} 视觉服务预加载失败", station.StationId);
+                        }
+                    });
+                    await Task.WhenAll(tasks);
+                    _logger.Information("所有工位视觉服务预加载完成");
+                });
+            }
+            return _preloadTask;
+            
         }
 
+        private async Task EnsurePreloadCompletedAsync()
+        {
+            if (_preloadTask != null)
+                await _preloadTask;
+        }
 
         /// <summary>
         /// 图像处理

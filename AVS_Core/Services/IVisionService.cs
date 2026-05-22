@@ -69,32 +69,6 @@ namespace AVS_Core.Services
             _windowHandleRegistry = windowHandleRegistry;
         }
 
-        //private async Task InitializeEngineAsync()
-        //{
-        //    if (_engineInitialized)
-        //        return;
-        //    await _engineInitSemaphore.WaitAsync();
-        //    try
-        //    {
-        //        if (_engineInitialized) return;
-        //        await Task.Run(() =>
-        //        {
-        //            _engine = new HDevEngine();
-        //            _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "HalconEngine.hdpl"));
-        //            _engine.StartDebugServer();
-        //        });
-        //        _engineInitialized = true;
-        //        _logger.Information("Halcon引擎初始化完成");
-        //    }
-        //    catch (Exception)
-        //    {
-        //    }
-        //    finally
-        //    {
-        //        _engineInitSemaphore.Release();
-        //    }
-        //}
-
         /// <summary>
         /// 这里仅是halcon引擎初始化和过程加载，实际还需要加载AI模型等资源
         /// 这里硬编码很烂，增加了工位和视觉算法的耦合，换一个现场需要先配置好参数，不然程序执行到这里直接退出
@@ -130,7 +104,7 @@ namespace AVS_Core.Services
                 hCall01.SetInputCtrlParamTuple("ParamSide", stationId);
                 //这里调用报错，halcon里解析路径失败，待调试
                 //hCall01.Execute(); // 调用
-                //hCall01.Dispose(); // 释放
+                //hCall01.Dispose(); // 释放 
                 _proc2DLoadParam.Dispose();
                 _proc2DCrop = new HDevProcedure("Crop2d");
                 hCall02 = new HDevProcedureCall(_proc2DCrop);

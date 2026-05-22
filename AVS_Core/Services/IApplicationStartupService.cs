@@ -18,7 +18,6 @@ namespace AVS_Core.Services
         /// </summary>
         private Task _backgroundInitializationTask;
         private readonly IEventAggregator _eventAggregator;
-        //private readonly IWorkflowService _workflowService;
         private readonly IStationSessionService _sessionService;
         private readonly IPlcMessageRouter _messageRouter;
         private readonly ICommunicationService _communicationService;
