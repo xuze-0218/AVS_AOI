@@ -35,6 +35,7 @@ namespace AVS_App
             containerRegistry.RegisterForNavigation<InspectionView>();
             containerRegistry.RegisterForNavigation<StationConfigView>();
             containerRegistry.RegisterForNavigation<ParameterConfigView>();
+            containerRegistry.RegisterForNavigation<TempAndCaliDebugView>();
             containerRegistry.RegisterForNavigation<ProtocolConfigView>();
             containerRegistry.RegisterForNavigation<CameraDebugView>();
             containerRegistry.RegisterForNavigation<PlcDebugView>();
@@ -43,6 +44,7 @@ namespace AVS_App
 
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
             containerRegistry.RegisterSingleton<IWindowHandleRegistry, WindowHandleRegistry>();
+            containerRegistry.RegisterSingleton<IAiDriveService, AiDriveService>();
             containerRegistry.Register<IVisionService, VisionService>();//Transient,每个会话都会创建一个新的实例
             containerRegistry.RegisterSingleton<IHalconEngineProvider, HalconEngineProvider>();
             containerRegistry.RegisterSingleton<IStationSessionService, StationSessionService>();
@@ -52,6 +54,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<IProtocolEngineService, ProtocolEngineService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
             containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
+            containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()

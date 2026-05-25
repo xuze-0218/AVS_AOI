@@ -230,6 +230,11 @@
                         CommandParameter="HistoryRecordView"
                         Content="📋 历史记录"
                         Style="{StaticResource NavButtonStyle}" />
+                    <Button
+                        Command="{Binding NavigateCommand}"
+                        CommandParameter="TempAndCaliDebugView"
+                        Content="📋 模型创建"
+                        Style="{StaticResource NavButtonStyle}" />
                 </StackPanel>
 
                 <TextBlock

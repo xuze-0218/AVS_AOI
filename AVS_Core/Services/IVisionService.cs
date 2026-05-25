@@ -45,8 +45,9 @@ namespace AVS_Core.Services
     {
         private string _stationId;
         private readonly IHalconEngineProvider _engineProvider;
+        private readonly IAiDriveService _aiDrive;
         private HWindow handle;
-      
+
         private readonly ILogger _logger;
         private readonly IParametersConfigService _parametersConfig;
         private readonly IStationConfigService _stationConfig;
@@ -60,13 +61,15 @@ namespace AVS_Core.Services
             IStationConfigService stationConfig,
             IParametersConfigService parametersConfig,
             IHalconEngineProvider engineProvider,
-            IWindowHandleRegistry windowHandleRegistry)
+            IWindowHandleRegistry windowHandleRegistry,
+            IAiDriveService aiDrive)
         {
             _logger = logger;
             _stationConfig = stationConfig;
             _parametersConfig = parametersConfig;
             _engineProvider = engineProvider;
             _windowHandleRegistry = windowHandleRegistry;
+            _aiDrive = aiDrive;
         }
 
         /// <summary>
@@ -175,9 +178,9 @@ namespace AVS_Core.Services
                 bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");
                 if (isSquareBarWeldMark)
                     //这里score要从本地配置里读取 先写死
-                    AiDrive.DetectImages(_stationId, 0, image, score: 0.8, out int[] beadType01, out beadRect01);
+                    _aiDrive.DetectMulti(_stationId, 0, image, 0.8, out int[] beadType01, out beadRect01);
                 else
-                    AiDrive.DetectImage(_stationId, 0, image, score: 0.8, out int beadType01, out beadRect01);
+                    _aiDrive.Detect(_stationId, 0, image, 0.8, out int beadType01, out beadRect01);
                 if (beadRect01.Length < 4)
                 {
                     HOperatorSet.TupleGenConst(13, 2, out resultArray);
@@ -201,17 +204,17 @@ namespace AVS_Core.Services
                                                                                       //-分割模型应用
                     if (isSquareBarWeldMark)
                     {   // 检测方条焊缝
-                        AiDrive.DetectImages(_stationId, 0, imgBead, score: 0.8, out int[] beadType02, out beadRect02); // imgBead—>裁切ROI
+                        _aiDrive.DetectMulti(_stationId, 0, imgBead, 0.8, out int[] beadType02, out beadRect02); // imgBead—>裁切ROI
                         hCall03.SetInputCtrlParamTuple("BeadType", beadType02); // 数组类型
                     }
                     else
                     { // 检测单个焊缝
-                        AiDrive.DetectImage(_stationId, 0, imgBead, score: 0.8, out int beadType02, out beadRect02);
+                        _aiDrive.Detect(_stationId, 0, imgBead, 0.8, out int beadType02, out beadRect02);
                         hCall03.SetInputCtrlParamTuple("BeadType", beadType02);
                     }
-                    AiDrive.PredictImage(_stationId, 0, imgBead, out mask01);
-                    AiDrive.PredictImage(_stationId, 1, imgBead, out mask02); // 缺陷检测 识别爆孔、裂纹等缺陷
-                    AiDrive.PredictImage(_stationId, 2, imgBead, out mask03);
+                    _aiDrive.Predict(_stationId, 0, imgBead, out mask01);
+                    _aiDrive.Predict(_stationId, 1, imgBead, out mask02); // 缺陷检测 识别爆孔、裂纹等缺陷
+                    _aiDrive.Predict(_stationId, 2, imgBead, out mask03);
 
                     //-焊缝尺度测量
                     hCall03.SetInputCtrlParamTuple("WindowHandle", handle);

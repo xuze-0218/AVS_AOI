@@ -1,356 +1,283 @@
 ﻿using HalconDotNet;
 using MMDeploy;
 using OpenCvSharp;
+using Serilog;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Controls.Primitives;
-using DataType = MMDeploy.DataType;
-
 
 namespace AVS_Core.Services
 {
-    public static class AiDrive
+    /// <summary>
+    /// AI推理服务接口
+    /// </summary>
+    public interface IAiDriveService : IDisposable
     {
-        static readonly string deviceName = "cuda";
-        //***********************************************************************************************************************
-        //-A
-        public static string[] segModelPathsA;
-        //static List<string> imagePaths;
-        public static List<Segmentor> segHandlesA;
-
-        public static string[] detectModelPathsA;
-        //public static List<string> detectImagePaths;
-        public static List<Detector> detectHandlesA;
-        //***********************************************************************************************************************
-        //-B
-        public static string[] segModelPathsB;
-        //static List<string> imagePaths;
-        public static List<Segmentor> segHandlesB;
-
-        public static string[] detectModelPathsB;
-        //public static List<string> detectImagePaths;
-        public static List<Detector> detectHandlesB;
-        //***********************************************************************************************************************
-
-        public static bool LoadAiSegModel(string modelSide, string[] modelPaths)
-        {
-            try
-            {
-                if (modelSide == "A")
-                {
-                    segHandlesA = new List<Segmentor>();
-                    if (segHandlesA != null)
-                    {
-                        segHandlesA.ForEach(x => x.Close());
-                        segHandlesA.Clear();
-                    }
-                    int modelNum = modelPaths.Count();
-                    for (int i = 0; i < modelNum; i++)
-                    {
-                        // 创建Segmentor实例：模型路径 + 设备 + 设备ID
-                        segHandlesA.Add(new Segmentor(modelPaths[i], deviceName, 0));
-                    }
-                    //segModelPaths.ForEach(x => segHandles.Add(new Segmentor(x, deviceName, 0)));
-                    return true;
-                }
-                else if (modelSide == "B")
-                {
-                    segHandlesB = new List<Segmentor>();
-                    if (segHandlesB != null)
-                    {
-                        segHandlesB.ForEach(x => x.Close());
-                        segHandlesB.Clear();
-                    }
-                    int modelNum = modelPaths.Count();
-                    for (int i = 0; i < modelNum; i++)
-                    {
-                        segHandlesB.Add(new Segmentor(modelPaths[i], deviceName, 0));
-                    }
-                    //segModelPaths.ForEach(x => segHandles.Add(new Segmentor(x, deviceName, 0)));
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-
-        public static bool LoadAiDetModel(string modelSide, string[] modelPaths)
-        {
-            try
-            {
-                if (modelSide == "A")
-                {
-                    detectHandlesA = new List<Detector>();
-                    if (detectHandlesA != null)
-                    {
-                        detectHandlesA.ForEach(x => x.Close());
-                        detectHandlesA.Clear();
-                    }
-                    int modelNum = modelPaths.Count();
-                    for (int i = 0; i < modelNum; i++)
-                    {
-                        detectHandlesA.Add(new Detector(modelPaths[i], deviceName, 0));
-                    }
-                    //detectModelPaths.ForEach(x => detectHandles.Add(new Segmentor(x, deviceName, 0)));
-                    return true;
-                }
-                else if (modelSide == "B")
-                {
-                    detectHandlesB = new List<Detector>();
-                    if (detectHandlesB != null)
-                    {
-                        detectHandlesB.ForEach(x => x.Close());
-                        detectHandlesB.Clear();
-                    }
-                    int modelNum = modelPaths.Count();
-                    for (int i = 0; i < modelNum; i++)
-                    {
-                        detectHandlesB.Add(new Detector(modelPaths[i], deviceName, 0));
-                    }
-                    //detectModelPaths.ForEach(x => detectHandles.Add(new Segmentor(x, deviceName, 0)));
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
+        /// <summary>
+        /// 加载分割模型
+        /// </summary>
+        bool LoadSegModel(string stationId, string[] modelPaths);
 
         /// <summary>
-        /// 图像推理分割
+        /// 加载检测模型
         /// </summary>
-        /// <param name="modelNum"></param>
-        /// <param name="originGrayImg"></param>
-        /// <param name="imgMask"></param>
-        public static void PredictImage(string modelSide, int modelNum, HObject imgGray, out HObject imgMask)
+        bool LoadDetModel(string stationId, string[] modelPaths);
+
+        /// <summary>
+        /// 图像分割推理
+        /// </summary>
+        void Predict(string stationId, int modelIndex, HObject imgGray, out HObject imgMask);
+
+        /// <summary>
+        /// 图像目标检测（单目标）
+        /// </summary>
+        void Detect(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect);
+
+        /// <summary>
+        /// 图像目标检测（多目标，最多2个）
+        /// </summary>
+        void DetectMulti(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int[] targetLabels, out HTuple targetRect);
+
+        /// <summary>
+        /// 释放指定工位的所有模型
+        /// </summary>
+        void UnloadStation(string stationId);
+    }
+
+    /// <summary>
+    /// AI推理驱动服务，封装MMDeploy推理引擎的加载与调用。
+    /// 支持多工位、多模型管理，通过依赖注入使用。
+    /// </summary>
+    public class AiDriveService : IAiDriveService
+    {
+        private readonly string _deviceName;
+        private readonly int _deviceId;
+        private readonly ILogger _logger;
+
+        private readonly Dictionary<string, List<Segmentor>> _segHandles = new();
+        private readonly Dictionary<string, List<Detector>> _detHandles = new();
+        private readonly object _lock = new();
+
+        private bool _disposed;
+
+        public AiDriveService(string deviceName = "cuda", int deviceId = 0, ILogger logger = null)
+        {
+            _deviceName = deviceName;
+            _deviceId = deviceId;
+            _logger = logger;
+        }
+
+        // ========== 模型加载 ==========
+
+        public bool LoadSegModel(string stationId, string[] modelPaths)
+        {
+            if (string.IsNullOrEmpty(stationId) || modelPaths == null || modelPaths.Length == 0)
+            {
+                _logger?.Warning("[AiDrive] LoadSegModel: stationId 或 modelPaths 无效");
+                return false;
+            }
+
+            try
+            {
+                lock (_lock)
+                {
+                    // 释放旧模型
+                    DisposeHandles(_segHandles, stationId);
+                    var handles = new List<Segmentor>();
+                    foreach (var path in modelPaths)
+                    {
+                        handles.Add(new Segmentor(path, _deviceName, _deviceId));
+                    }
+                    _segHandles[stationId] = handles;
+                }
+                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个分割模型完成", stationId, modelPaths.Length);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载分割模型失败", stationId);
+                return false;
+            }
+        }
+
+        public bool LoadDetModel(string stationId, string[] modelPaths)
+        {
+            if (string.IsNullOrEmpty(stationId) || modelPaths == null || modelPaths.Length == 0)
+            {
+                _logger?.Warning("[AiDrive] LoadDetModel: stationId 或 modelPaths 无效");
+                return false;
+            }
+
+            try
+            {
+                lock (_lock)
+                {
+                    DisposeHandles(_detHandles, stationId);
+                    var handles = new List<Detector>();
+                    foreach (var path in modelPaths)
+                    {
+                        handles.Add(new Detector(path, _deviceName, _deviceId));
+                    }
+                    _detHandles[stationId] = handles;
+                }
+                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个检测模型完成", stationId, modelPaths.Length);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载检测模型失败", stationId);
+                return false;
+            }
+        }
+
+        // ========== 推理接口 ==========
+
+        public void Predict(string stationId, int modelIndex, HObject imgGray, out HObject imgMask)
         {
             HOperatorSet.GenEmptyObj(out imgMask);
 
+            if (!TryGetHandle(_segHandles, stationId, modelIndex, out var segmentor))
+                return;
+
             try
             {
-                // 步骤1：Halcon图像 → MMDeploy.Mat
                 Halcon2MmMat(imgGray, out var mats);
-                // 步骤2：执行推理
-                List<SegmentorOutput> output = null;
-                if (modelSide == "A")
-                {
-                    output = segHandlesA[modelNum].Apply(mats);
-                }
-                else if (modelSide == "B")
-                {
-                    output = segHandlesB[modelNum].Apply(mats);
-                }
-                else
-                {
-                    return;
-                }
-                for (int j = 0; j < 15; j++)
-                {
-                    //var d1 = DateTime.Now;
-                    //output = segHandles[modelNum].Apply(mats);
-                    //Console.WriteLine("Predict Time=" + DateTime.Now.Subtract(d1).TotalMilliseconds);
-                    //System.Threading.Thread.Sleep(3000);
-                }
-                // 推理结果 → 彩色Mask
+                var output = segmentor.Apply(mats);
                 ResultToColorMask(output[0], out OpenCvSharp.Mat colorMask);
-                // 步骤4：Mat → Halcon图像
                 Mat2HalconRgb(colorMask, out imgMask);
                 colorMask.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 分割推理失败 (modelIndex={Index})", stationId, modelIndex);
                 HOperatorSet.GenEmptyObj(out imgMask);
             }
         }
 
-        /// <summary>
-        /// 图像目标检测
-        /// </summary>
-        /// <param name="modelNum"></param>
-        /// <param name="imgGray"></param>
-        /// <param name="targetRect"></param>
-        public static void DetectImages(string modelSide, int modelNum, HObject imgGray, double score, out int[] targetLabel, out HTuple targetRect)
+        public void Detect(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect)
         {
+            DetectInternal(stationId, modelIndex, imgGray, scoreThreshold, multiTarget: false, out var labels, out targetRect);
+            targetLabel = labels.Length > 0 ? labels[0] : -1;
+        }
+
+        public void DetectMulti(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int[] targetLabels, out HTuple targetRect)
+        {
+            DetectInternal(stationId, modelIndex, imgGray, scoreThreshold, multiTarget: true, out targetLabels, out targetRect);
+        }
+
+        private void DetectInternal(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, bool multiTarget,
+            out int[] targetLabels, out HTuple targetRect)
+        {
+            targetRect = new HTuple();
+            targetLabels = multiTarget ? new int[2] { -1, -1 } : new int[1] { -1 };
+
+            if (!TryGetHandle(_detHandles, stationId, modelIndex, out var detector))
+                return;
 
             try
             {
-                targetRect = new HTuple();
-                // 用于方形模组，检测多个焊缝
-                targetLabel = new int[2] { -1, -1 };
-                //float score = 0.1f;
-                int i = 0;
                 Halcon2MmMat(imgGray, out var mats);
-
-                List<DetectorOutput> output = null;
-                if (modelSide == "A")
-                {
-                    output = detectHandlesA[modelNum].Apply(mats);
-                }
-                else if (modelSide == "B")
-                {
-                    output = detectHandlesB[modelNum].Apply(mats);
-                }
-                else
-                {
-                    return;
-                }
+                var output = detector.Apply(mats);
 
                 if (output == null || output.Count == 0 || output[0].Results == null)
                 {
-                    //AddLog("AI检测输出为空，未检测到目标！");
-                    targetLabel = new int[2] { -1, -1 };
-                    targetRect = new HTuple();
+                    _logger?.Debug("[AiDrive] 工位 {StationId} 检测输出为空", stationId);
                     return;
                 }
 
+                int idx = 0;
+                int maxCount = targetLabels.Length;
                 foreach (var obj in output[0].Results)
                 {
-                    //int num = output[0].Results.Count;
-                    //Vec3b[] palette = GenPalette(num);
+                    if (obj.Score < scoreThreshold)
+                        continue;
 
-                    if (obj.Score > 0.7)
-                    {
-                        score = obj.Score;
-                        targetLabel[i] = obj.LabelId;
+                    targetLabels[idx] = obj.LabelId;
 
-                        float x1 = Math.Max((float)Math.Floor(obj.BBox.Top) - 1, 0f);
-                        float y1 = Math.Max((float)Math.Floor(obj.BBox.Left) - 1, 0f);
+                    float x1 = Math.Max((float)Math.Floor(obj.BBox.Top) - 1, 0f);
+                    float y1 = Math.Max((float)Math.Floor(obj.BBox.Left) - 1, 0f);
+                    float x2 = Math.Max((float)Math.Floor(obj.BBox.Bottom) - 1, 0f);
+                    float y2 = Math.Max((float)Math.Floor(obj.BBox.Right) - 1, 0f);
 
-                        float x2 = Math.Max((float)Math.Floor(obj.BBox.Bottom) - 1, 0f);
-                        float y2 = Math.Max((float)Math.Floor(obj.BBox.Right) - 1, 0f);
+                    HOperatorSet.TupleConcat(targetRect, x1, out targetRect);
+                    HOperatorSet.TupleConcat(targetRect, y1, out targetRect);
+                    HOperatorSet.TupleConcat(targetRect, x2, out targetRect);
+                    HOperatorSet.TupleConcat(targetRect, y2, out targetRect);
 
-                        double xC = (x1 + x2) * 0.5;
-                        double yC = (y1 + y2) * 0.5;
-
-                        double ra = Math.Abs(x1 - x2) * 0.5;
-                        double rb = Math.Abs(y1 - y2) * 0.5;
-
-                        HOperatorSet.TupleConcat(targetRect, x1, out targetRect);
-                        HOperatorSet.TupleConcat(targetRect, y1, out targetRect);
-                        HOperatorSet.TupleConcat(targetRect, x2, out targetRect);
-                        HOperatorSet.TupleConcat(targetRect, y2, out targetRect);
-                        i++;
-                    }
+                    idx++;
+                    if (idx >= maxCount)
+                        break;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                targetLabel = new int[2] { -1, -1 };
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 检测推理失败 (modelIndex={Index})", stationId, modelIndex);
+                targetLabels = multiTarget ? new int[2] { -1, -1 } : new int[1] { -1 };
                 targetRect = new HTuple();
             }
         }
-        /// <summary>
-        /// 图像目标检测
-        /// </summary>
-        /// <param name="modelNum"></param>
-        /// <param name="imgGray"></param>
-        /// <param name="targetRect"></param>
-        public static void DetectImage(string modelSide, int modelNum, HObject imgGray, double score, out int targetLabel, out HTuple targetRect)
+
+        // ========== 资源管理 ==========
+
+        public void UnloadStation(string stationId)
         {
-
-            try
+            lock (_lock)
             {
-                targetRect = new HTuple();
-                targetLabel = -1;
-                //float score = 0.1f;
-
-                Halcon2MmMat(imgGray, out var mats);
-
-                List<DetectorOutput> output = null;
-                if (modelSide == "A")
-                {
-                    output = detectHandlesA[modelNum].Apply(mats);
-                }
-                else if (modelSide == "B")
-                {
-                    output = detectHandlesB[modelNum].Apply(mats);
-                }
-                else
-                {
-                    return;
-                }
-
-                if (output == null || output.Count == 0 || output[0].Results == null)
-                {
-                    //AddLog("AI检测输出为空，未检测到目标！");
-                    targetLabel = -1;
-                    targetRect = new HTuple();
-                    return;
-                }
-
-                foreach (var obj in output[0].Results)
-                {
-                    //int num = output[0].Results.Count;
-                    //Vec3b[] palette = GenPalette(num);
-
-                    if (obj.Score > 0.7)
-                    {
-                        score = obj.Score;
-                        targetLabel = obj.LabelId;
-                        targetRect = new HTuple();
-
-                        float x1 = Math.Max((float)Math.Floor(obj.BBox.Top) - 1, 0f);
-                        float y1 = Math.Max((float)Math.Floor(obj.BBox.Left) - 1, 0f);
-
-                        float x2 = Math.Max((float)Math.Floor(obj.BBox.Bottom) - 1, 0f);
-                        float y2 = Math.Max((float)Math.Floor(obj.BBox.Right) - 1, 0f);
-
-                        double xC = (x1 + x2) * 0.5;
-                        double yC = (y1 + y2) * 0.5;
-
-                        double ra = Math.Abs(x1 - x2) * 0.5;
-                        double rb = Math.Abs(y1 - y2) * 0.5;
-
-                        HOperatorSet.TupleConcat(targetRect, x1, out targetRect);
-                        HOperatorSet.TupleConcat(targetRect, y1, out targetRect);
-                        HOperatorSet.TupleConcat(targetRect, x2, out targetRect);
-                        HOperatorSet.TupleConcat(targetRect, y2, out targetRect);
-                    }
-                }
+                DisposeHandles(_segHandles, stationId);
+                DisposeHandles(_detHandles, stationId);
             }
-            catch
-            {
-                targetLabel = -1;
-                targetRect = new HTuple();
-            }
+            _logger?.Information("[AiDrive] 工位 {StationId} 模型已卸载", stationId);
         }
 
-
-        private static void CvMatToMat(OpenCvSharp.Mat[] cvMats, out MMDeploy.Mat[] mats)
+        public void Dispose()
         {
-            mats = new MMDeploy.Mat[cvMats.Length];
-            unsafe
-            {
-                for (int i = 0; i < cvMats.Length; i++)
-                {
+            if (_disposed) return;
+            _disposed = true;
 
-                    mats[i].Data = cvMats[i].DataPointer;
-                    mats[i].Height = cvMats[i].Height;
-                    mats[i].Width = cvMats[i].Width;
-                    mats[i].Channel = cvMats[i].Dims;
-                    mats[i].Format = PixelFormat.BGR;
-                    mats[i].Type = DataType.Int8;
-                    mats[i].Device = null;
-                }
+            lock (_lock)
+            {
+                foreach (var kv in _segHandles)
+                    DisposeHandles(_segHandles, kv.Key);
+                foreach (var kv in _detHandles)
+                    DisposeHandles(_detHandles, kv.Key);
+                _segHandles.Clear();
+                _detHandles.Clear();
+            }
+            _logger?.Information("[AiDrive] AiDriveService 已释放所有资源");
+        }
+
+        // ========== 内部辅助方法 ==========
+
+        private static void DisposeHandles<T>(Dictionary<string, List<T>> storage, string stationId) where T : IDisposable
+        {
+            if (storage.TryGetValue(stationId, out var handles))
+            {
+                foreach (var h in handles)
+                    h.Dispose();
+                storage.Remove(stationId);
             }
         }
+
+        private bool TryGetHandle<T>(Dictionary<string, List<T>> storage, string stationId, int index, out T handle) where T : class
+        {
+            handle = null;
+            if (!storage.TryGetValue(stationId, out var handles))
+            {
+                _logger?.Warning("[AiDrive] 工位 {StationId} {Type} 模型未加载", stationId, typeof(T).Name);
+                return false;
+            }
+            if (index < 0 || index >= handles.Count)
+            {
+                _logger?.Error("[AiDrive] 工位 {StationId} {Type} 模型索引 {Index} 越界 (总数={Count})",
+                    stationId, typeof(T).Name, index, handles.Count);
+                return false;
+            }
+            handle = handles[index];
+            return true;
+        }
+
+        // ========== 图像格式转换 ==========
 
         private static void Halcon2MmMat(HObject imgGray, out MMDeploy.Mat[] mats)
         {
@@ -360,79 +287,60 @@ namespace AVS_Core.Services
                 mats = new MMDeploy.Mat[1];
                 unsafe
                 {
-                    HTuple ptrGray, type, width, height;
-
-                    HOperatorSet.GetImagePointer1(imgGray, out ptrGray, out type, out width, out height);
-
+                    HOperatorSet.GetImagePointer1(imgGray, out HTuple ptrGray, out HTuple type, out HTuple width, out HTuple height);
                     IntPtr ptr2 = ptrGray;
                     int bytes = width * height;
                     byte[] rgbvalues = new byte[bytes];
                     Marshal.Copy(ptr2, rgbvalues, 0, bytes);
-                    //OpenCvSharp.Mat mat = new OpenCvSharp.Mat(height, width, MatType.CV_8UC1, rgbvalues);
 
                     OpenCvSharp.Mat mat = new OpenCvSharp.Mat();
                     mat.Create(height, width, MatType.CV_8UC1);
                     Marshal.Copy(rgbvalues, 0, mat.Data, rgbvalues.Length);
 
-                    //OpenCvSharp.Cv2.ImWrite("D:\\h2c.jpg", mat);
-
-                    for (int i = 0; i < 1; i++)
-                    {
-                        mats[i].Data = mat.DataPointer;
-                        mats[i].Height = mat.Height;
-                        mats[i].Width = mat.Width;
-                        mats[i].Channel = mat.Dims;
-                        mats[i].Format = PixelFormat.Grayscale;
-                        mats[i].Type = DataType.Int8;
-                        mats[i].Device = null;
-                    }
+                    mats[0].Data = mat.DataPointer;
+                    mats[0].Height = mat.Height;
+                    mats[0].Width = mat.Width;
+                    mats[0].Channel = mat.Dims;
+                    mats[0].Format = PixelFormat.Grayscale;
+                    mats[0].Type = DataType.Int8;
+                    mats[0].Device = null;
                 }
             }
             else if ((int)chs.D == 3)
             {
-                HTuple ptrRed, ptrGreen, ptrBlue, type, width, height;
-
-                HOperatorSet.GetImagePointer3(imgGray, out ptrRed, out ptrGreen, out ptrBlue, out type, out width, out height);
-
+                HOperatorSet.GetImagePointer3(imgGray, out HTuple ptrRed, out HTuple ptrGreen, out HTuple ptrBlue,
+                    out HTuple type, out HTuple width, out HTuple height);
                 int bytes = width * height * 3;
                 byte[] rgbvalues = new byte[bytes];
 
                 unsafe
                 {
-                    IntPtr ptrR = ptrRed;
-                    IntPtr ptrG = ptrGreen;
-                    IntPtr ptrB = ptrBlue;
-
-                    byte* r = (byte*)(ptrR);
-                    byte* g = (byte*)(ptrG);
-                    byte* b = (byte*)(ptrB);
-
-                    int lengh = width * height;
-                    for (int i = 0; i < lengh; i++)
+                    byte* r = (byte*)(IntPtr)ptrRed;
+                    byte* g = (byte*)(IntPtr)ptrGreen;
+                    byte* b = (byte*)(IntPtr)ptrBlue;
+                    int length = width * height;
+                    for (int i = 0; i < length; i++)
                     {
-                        rgbvalues[i * 3 + 0] = (b)[i];
-                        rgbvalues[i * 3 + 1] = (g)[i];
-                        rgbvalues[i * 3 + 2] = (r)[i];
-                        //bptr[i * 4 + 3] = 255;
+                        rgbvalues[i * 3 + 0] = b[i];
+                        rgbvalues[i * 3 + 1] = g[i];
+                        rgbvalues[i * 3 + 2] = r[i];
                     }
                 }
-                //OpenCvSharp.Mat mat = new OpenCvSharp.Mat(height, width, MatType.CV_8UC3, rgbvalues);
+
                 OpenCvSharp.Mat mat = new OpenCvSharp.Mat();
                 mat.Create(height, width, MatType.CV_8UC3);
                 Marshal.Copy(rgbvalues, 0, mat.Data, rgbvalues.Length);
+
                 mats = new MMDeploy.Mat[1];
                 unsafe
                 {
-                    for (int i = 0; i < 1; i++)
-                    {
-                        mats[i].Data = mat.DataPointer;
-                        mats[i].Height = mat.Height;
-                        mats[i].Width = mat.Width;
-                        mats[i].Channel = mat.Dims;
-                        mats[i].Format = PixelFormat.BGR;
-                        mats[i].Type = DataType.Int8;
-                        mats[i].Device = null;
-                    }
+                    mats[0].Data = mat.DataPointer;
+                    mats[0].Height = mat.Height;
+                    mats[0].Width = mat.Width;
+                    mats[0].Channel = mat.Dims;
+                    mats[0].Format = PixelFormat.BGR;
+                    mats[0].Type = DataType.Int8;
+                    mats[0].Device = null;
                 }
             }
             else
@@ -468,7 +376,6 @@ namespace AVS_Core.Services
                 }
                 else
                 {
-                    //int pos = 0;
                     fixed (float* _score = output.Score)
                     {
                         float* score = _score;
@@ -477,7 +384,7 @@ namespace AVS_Core.Services
                         {
                             for (int j = 0; j < output.Width; j++)
                             {
-                                List<Tuple<float, int>> scores = new List<Tuple<float, int>>();
+                                var scores = new List<Tuple<float, int>>();
                                 for (int k = 0; k < output.Classes; k++)
                                 {
                                     scores.Add(new Tuple<float, int>(score[k * total + i * output.Width + j], k));
@@ -501,15 +408,12 @@ namespace AVS_Core.Services
             Vec3b[] palette = new Vec3b[classes];
             for (int i = 0; i < classes; i++)
             {
-                byte v1 = (byte)rnd.Next(0, 255);
-                byte v2 = (byte)rnd.Next(0, 255);
-                byte v3 = (byte)rnd.Next(0, 255);
-                palette[i] = new Vec3b(v1, v2, v3);
+                palette[i] = new Vec3b((byte)rnd.Next(0, 255), (byte)rnd.Next(0, 255), (byte)rnd.Next(0, 255));
             }
             return palette;
         }
 
-        public static void Mat2HalconRgb(OpenCvSharp.Mat mat, out HObject image)
+        private static void Mat2HalconRgb(OpenCvSharp.Mat mat, out HObject image)
         {
             int ImageWidth = mat.Width;
             int ImageHeight = mat.Height;
@@ -518,24 +422,19 @@ namespace AVS_Core.Services
             int col_byte_num = ImageWidth * channel;
 
             byte[] rgbValues = new byte[size];
-            //IntPtr imgptr = System.Runtime.InteropServices.Marshal.AllocHGlobal(rgbValues.Length);
             unsafe
             {
                 for (int i = 0; i < mat.Height; i++)
                 {
                     IntPtr c = mat.Ptr(i);
-                    //byte* c1 = (byte*)c;
-                    System.Runtime.InteropServices.Marshal.Copy(c, rgbValues, i * col_byte_num, col_byte_num);
+                    Marshal.Copy(c, rgbValues, i * col_byte_num, col_byte_num);
                 }
 
-                void* p;
-                IntPtr ptr;
                 fixed (byte* pc = rgbValues)
                 {
-                    p = (void*)pc;
-                    ptr = new IntPtr(p);
+                    IntPtr ptr = new IntPtr(pc);
+                    HOperatorSet.GenImageInterleaved(out image, ptr, "bgr", ImageWidth, ImageHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
                 }
-                HOperatorSet.GenImageInterleaved(out image, ptr, "bgr", ImageWidth, ImageHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
             }
         }
     }

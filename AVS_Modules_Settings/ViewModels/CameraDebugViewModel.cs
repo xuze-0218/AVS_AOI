@@ -308,7 +308,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void ExecuteSaveImage(string format)
         {
-            // 注意：此功能由于未在调试界面截取 Bitmap，需根据实际情况处理，此处保留原框架逻辑
             StatusMessage = "调试模式暂不支持直接保存，请通过主程序保存";
         }
 
