@@ -306,8 +306,9 @@ namespace AVS_Modules_Settings.ViewModels
             // 绘制掩膜半透明红
             if (_accumulatedMaskRegion != null && _accumulatedMaskRegion.IsInitialized())
             {
-                _halconWindow.SetColor("red");
+                //_halconWindow.SetColor("red");
                 _halconWindow.SetDraw("fill");
+                _halconWindow.SetRgba(255,0,0,150);
                 _halconWindow.SetLineWidth(1);
                 _halconWindow.DispObj(_accumulatedMaskRegion);
             }
