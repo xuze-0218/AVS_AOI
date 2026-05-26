@@ -62,7 +62,7 @@ namespace AVS_Modules_Settings.Views
         {
             if (_viewModel?.IsMaskEditing == true && e.LeftButton == MouseButtonState.Pressed)
             {
-                var pos = e.GetPosition(CameraDisplay);
+                var pos = e.GetPosition(CameraDisplay.HsmartWindowControl);
                 CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out double row, out double col);
                 _viewModel.OnMouseMove(row, col);
                 e.Handled = true;
@@ -90,7 +90,7 @@ namespace AVS_Modules_Settings.Views
         private void OnMouseLeftDown(object sender, MouseButtonEventArgs e)
         {
             if (_viewModel == null) return;
-            var pos = e.GetPosition(CameraDisplay);
+            var pos = e.GetPosition(CameraDisplay.HsmartWindowControl);
             CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out double row, out double col);
             if (_viewModel.IsMaskEditing)
             {

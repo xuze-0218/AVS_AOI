@@ -13,6 +13,11 @@ namespace AVS_Common
         private bool _isRegistered = false;
         public HWindow HalconWindow { get; private set; }
 
+        /// <summary>
+        /// 暴露 HSmartWindowControlWPF 控件引用，以便外部进行精确的窗口坐标到图像坐标转换
+        /// </summary>
+        public HSmartWindowControlWPF HsmartWindowControl => HsmartWindow;
+
         public bool HMoveContent
         {
             get => HsmartWindow.HMoveContent;
