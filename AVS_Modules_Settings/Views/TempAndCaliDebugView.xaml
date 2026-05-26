@@ -28,10 +28,10 @@
                     Width="40"
                     Margin="3,0"
                     Text="{Binding EraserSize, UpdateSourceTrigger=PropertyChanged}" />
-                <ComboBox Width="80" SelectedItem="{Binding EraserType}">
-                    <ComboBoxItem Content="rectangle" />
-                    <ComboBoxItem Content="circle" />
-                </ComboBox>
+                <ComboBox
+                    Width="80"
+                    ItemsSource="{Binding EraserTypes}"
+                    SelectedItem="{Binding EraserType}" />
             </StackPanel>
             <Button Command="{Binding ClearMaskCommand}" Content="清除掩膜" />
             <Separator />

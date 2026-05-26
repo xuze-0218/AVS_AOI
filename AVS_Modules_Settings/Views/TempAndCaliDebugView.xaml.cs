@@ -11,6 +11,8 @@ namespace AVS_Modules_Settings.Views
     /// </summary>
     public partial class TempAndCaliDebugView : UserControl
     {
+        private double _lastRightClickRow;
+        private double _lastRightClickCol;
         private TempAndCaliDebugViewModel _viewModel;
         public TempAndCaliDebugView()
         {
@@ -74,11 +76,18 @@ namespace AVS_Modules_Settings.Views
         }
         private void OnMouseRightDown(object sender, MouseButtonEventArgs e)
         {
+            var pos = e.GetPosition(CameraDisplay.HsmartWindowControl);
+            CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out _lastRightClickRow, out _lastRightClickCol);
+            if (_viewModel != null)
+            {
+                _viewModel.CurrentMouseRow = _lastRightClickRow;
+                _viewModel.CurrentMouseCol = _lastRightClickCol;
+            }
             if (_viewModel?.IsDrawingPolygon == true)
             {
                 _viewModel.FinishPolygon();
                 e.Handled = true;
-            }
+            }          
         }
         private void HalconWindow_Loaded(object sender, RoutedEventArgs e)
         {

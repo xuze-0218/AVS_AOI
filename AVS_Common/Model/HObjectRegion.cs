@@ -72,13 +72,13 @@ namespace AVS_Common.Model
                 switch (Style)
                 {
                     case RoiType.RECTANGLE1:
-                        HOperatorSet.GenRectangle1(out tempRegion, LeftX, LeftY, RightX, RightY);
+                        HOperatorSet.GenRectangle1(out tempRegion, LeftY, LeftX, RightY, RightX);
                         break;
                     case RoiType.RECTANGLE2:
-                        HOperatorSet.GenRectangle2(out tempRegion, X, Y, Angle, Length1, Length2);
+                        HOperatorSet.GenRectangle2(out tempRegion, Y, X, Angle, Length1, Length2);
                         break;
                     case RoiType.CIRCLE:
-                        HOperatorSet.GenCircle(out tempRegion, X, Y, Radius);
+                        HOperatorSet.GenCircle(out tempRegion, Y, X, Radius);
                         break;
                     case RoiType.POLYGON:
                         if (PolyRows.Length > 0)
@@ -120,13 +120,13 @@ namespace AVS_Common.Model
                 {
                     case RoiType.RECTANGLE1:
 
-                        HOperatorSet.CreateDrawingObjectRectangle1(LeftX, LeftY, RightX, RightY, out _drawingObject);
+                        HOperatorSet.CreateDrawingObjectRectangle1(LeftY, LeftX, RightY, RightX, out _drawingObject);
                         break;
                     case RoiType.RECTANGLE2:
-                        HOperatorSet.CreateDrawingObjectRectangle2(X, Y, Angle, Length1, Length2, out _drawingObject);
+                        HOperatorSet.CreateDrawingObjectRectangle2(Y, X, Angle, Length1, Length2, out _drawingObject);
                         break;
                     case RoiType.CIRCLE:
-                        HOperatorSet.CreateDrawingObjectCircle(X, Y, Radius, out _drawingObject);
+                        HOperatorSet.CreateDrawingObjectCircle(Y, X, Radius, out _drawingObject);
                         break;
                     default:
                         HOperatorSet.SetSystem("flush_graphic", "true");
@@ -176,7 +176,7 @@ namespace AVS_Common.Model
                         HOperatorSet.GetDrawingObjectParams(_drawingObject, "length1", out HTuple l1);
                         HOperatorSet.GetDrawingObjectParams(_drawingObject, "length2", out HTuple l2);
                         HOperatorSet.GetDrawingObjectParams(_drawingObject, "phi", out HTuple phi);
-                        X = row.D; Y = col.D;
+                        Y = row.D; X = col.D;
                         Length1 = l1.D; Length2 = l2.D;
                         Angle = phi.D;
                         Radius = Math.Min(Length1, Length2);
@@ -187,7 +187,7 @@ namespace AVS_Common.Model
                         HOperatorSet.GetDrawingObjectParams(_drawingObject, "row", out HTuple cr);
                         HOperatorSet.GetDrawingObjectParams(_drawingObject, "column", out HTuple cc);
                         HOperatorSet.GetDrawingObjectParams(_drawingObject, "radius", out HTuple crd);
-                        X = cr.D; Y = cc.D; Radius = crd.D;
+                        Y = cr.D; X = cc.D; Radius = crd.D;
                         Length1 = Length2 = Radius;
                         LeftX = X - Radius; LeftY = Y - Radius;
                         RightX = X + Radius; RightY = Y + Radius;
@@ -209,8 +209,8 @@ namespace AVS_Common.Model
             // 计算中心点
             if (rows.Length > 0)
             {
-                X = rows.TupleMean().D;
-                Y = cols.TupleMean().D;
+                Y = rows.TupleMean().D;
+                X = cols.TupleMean().D;
             }
         }
 

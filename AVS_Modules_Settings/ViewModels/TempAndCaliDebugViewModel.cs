@@ -28,6 +28,10 @@ namespace AVS_Modules_Settings.ViewModels
             get => _isDrawingPolygon;
             set => SetProperty(ref _isDrawingPolygon, value);
         }
+
+        private double _currentMouseRow, _currentMouseCol;
+        public double CurrentMouseRow { get => _currentMouseRow; set => SetProperty(ref _currentMouseRow, value); }
+        public double CurrentMouseCol { get => _currentMouseCol; set => SetProperty(ref _currentMouseCol, value); }
         /// <summary>
         /// 绑定图像
         /// </summary>
@@ -46,6 +50,7 @@ namespace AVS_Modules_Settings.ViewModels
             get => _currentRegionDisplay;
             set => SetProperty(ref _currentRegionDisplay, value);
         }
+        public List<string> EraserTypes { get; } = new List<string> { "rectangle", "circle" };
         // ========== 掩膜相关 ==========
         private bool _isMaskEditing;
         private double _eraserSize = 10;
@@ -189,9 +194,45 @@ namespace AVS_Modules_Settings.ViewModels
         private void StartDraw(RoiType type, string color)
         {
             if (_halconWindow == null || IsMaskEditing) return;
+
             _currentRoi.DetachDrawingObject();
             _currentRoi.Style = type;
             _currentRoi.Color = color;
+
+            // 以鼠标右键点击位置为中心，设置默认大小
+            double size = 100; // 默认初始尺寸
+            double col = _currentMouseCol;
+            double row = _currentMouseRow;
+
+            switch (type)
+            {
+                case RoiType.RECTANGLE1:
+                    // 矩形1 (左上-右下)
+                    _currentRoi.LeftX = col - size / 2;
+                    _currentRoi.LeftY = row - size / 2;
+                    _currentRoi.RightX = col + size / 2;
+                    _currentRoi.RightY = row + size / 2;
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    break;
+                case RoiType.RECTANGLE2:
+                    // 旋转矩形 (中心、半宽、半高、角度)
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    _currentRoi.Length1 = size / 2;
+                    _currentRoi.Length2 = size / 2;
+                    _currentRoi.Angle = 0;
+                    break;
+                case RoiType.CIRCLE:
+                    // 圆形 (中心、半径)
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    _currentRoi.Radius = size / 2;
+                    break;
+                default:
+                    break;
+            }
+
             if (!_currentRoi.AttachDrawingObject(_halconWindow))
                 StatusMessage = $"无法创建 {type} 绘图对象";
             else
@@ -206,6 +247,12 @@ namespace AVS_Modules_Settings.ViewModels
         private void EnterMaskEdit()
         {
             if (_halconWindow == null) return;
+            //如果当前有可拖拽的绘图对象（矩形、圆等），同步参数并生成 Region
+            if (_currentRoi.Style != RoiType.POLYGON)
+            {
+                _currentRoi.SyncFromDrawingObject();
+                _currentRoi.GenerateRegion();
+            }
             _currentRoi.DetachDrawingObject();
             StatusMessage = "掩膜编辑：按住鼠标左键拖动擦除干扰区域";
             RefreshDisplayWithMask();
@@ -276,6 +323,7 @@ namespace AVS_Modules_Settings.ViewModels
                 UpdateFinalRegionDisplay();
             StatusMessage = "掩膜已清除";
         }
+
         // 更新最终区域显示（ROI - 掩膜）
         private void UpdateFinalRegionDisplay()
         {
