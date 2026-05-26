@@ -36,7 +36,10 @@ namespace AVS_Common
         private void OnSizeChanged(object sender, SizeChangedEventArgs e)
         {
             if (e.NewSize.Width > 0 && e.NewSize.Height > 0)
+            {
                 TryRegister();
+                UpdateDisplay();
+            }
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -122,7 +125,7 @@ namespace AVS_Common
         private void UpdateDisplay()
         {
             // 窗口尚未完成布局或尺寸无效时，直接访问 HsmartWindow.HalconWindow
-            // 会触发 HALCON 内部 HInitializeWindow → open_window，若 size=0 则抛出 #5122
+            // 会触发 HALCON 内部 HInitializeWindow → open_window，若 size=0 则抛出
             if (!IsLoaded || HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0)
                 return;
 
@@ -143,7 +146,7 @@ namespace AVS_Common
             if (DispImage != null && DispImage.IsInitialized())
             {
                 HOperatorSet.GetImageSize(DispImage, out HTuple width, out HTuple height);
-                hw.SetPart(0, 0, (int)height - 1, (int)width - 1);
+                SetPartKeepAspectRatio(hw, (int)width, (int)height);
                 hw.DispObj(DispImage);
             }
 
@@ -154,6 +157,43 @@ namespace AVS_Common
                 hw.SetDraw("margin");
                 hw.DispObj(DispRegion);
             }
+        }
+
+        /// <summary>
+        /// 根据窗口实际尺寸和图像尺寸，计算等比例显示的 SetPart 区域，
+        /// 使图像始终等比例居中显示（类似双击 HSmartWindowControl 的效果）。
+        /// </summary>
+        private void SetPartKeepAspectRatio(HWindow hw, int imageWidth, int imageHeight)
+        {
+            double winWidth = HsmartWindow.ActualWidth;
+            double winHeight = HsmartWindow.ActualHeight;
+            double imgRatio = (double)imageWidth / imageHeight;
+            double winRatio = winWidth / winHeight;
+
+            double row1, col1, row2, col2;
+
+            if (imgRatio > winRatio)
+            {
+                // 图像比窗口更宽：宽度填满，上下留黑边
+                double dispHeight = imageWidth / winRatio;
+                double offset = (dispHeight - imageHeight) / 2.0;
+                row1 = -offset;
+                col1 = 0;
+                row2 = imageHeight - 1 + offset;
+                col2 = imageWidth - 1;
+            }
+            else
+            {
+                // 图像比窗口更高（或相等）：高度填满，左右留黑边
+                double dispWidth = imageHeight * winRatio;
+                double offset = (dispWidth - imageWidth) / 2.0;
+                row1 = 0;
+                col1 = -offset;
+                row2 = imageHeight - 1;
+                col2 = imageWidth - 1 + offset;
+            }
+
+            hw.SetPart((int)row1, (int)col1, (int)row2, (int)col2);
         }
 
     }

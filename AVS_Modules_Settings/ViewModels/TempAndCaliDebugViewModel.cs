@@ -56,7 +56,9 @@ namespace AVS_Modules_Settings.ViewModels
         private double _eraserSize = 10;
         private string _eraserType = "rectangle";
         private HObject _accumulatedMaskRegion = new HObject();
+        private HObject _accumulatedEraseRegion = new HObject();
         private bool _isMouseDown;
+        private bool _isEraseMode;
         public bool IsMaskEditing
         {
             get => _isMaskEditing;
@@ -66,6 +68,17 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     if (value) EnterMaskEdit();
                     else ExitMaskEdit();
+                }
+            }
+        }
+        public bool IsEraseMode
+        {
+            get => _isEraseMode;
+            set
+            {
+                if (SetProperty(ref _isEraseMode, value))
+                {
+                    StatusMessage = value ? "擦除模式：按住鼠标左键拖动擦除已有掩膜" : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
                 }
             }
         }
@@ -89,6 +102,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             _matchingService = matchingService;
             _accumulatedMaskRegion.GenEmptyObj();
+            _accumulatedEraseRegion.GenEmptyObj();
             CurrentImage.GenEmptyObj();
             CurrentRegionDisplay.GenEmptyObj();
 
@@ -106,7 +120,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             _currentRoi.DetachDrawingObject();
             _halconWindow?.ClearWindow();
-            _matchingService.DisplayImage();
+            DisplayImagePreserveZoom();
             CurrentRegionDisplay?.Dispose();
             CurrentRegionDisplay = new HObject();
             CurrentRegionDisplay.GenEmptyObj();
@@ -154,14 +168,14 @@ namespace AVS_Modules_Settings.ViewModels
             if (IsDrawingPolygon)
             {
                 IsDrawingPolygon = false;
-                _halconWindow?.DispObj(_currentImage); // 简单重绘原图清除临时线，可优化
+                DisplayImagePreserveZoom(); // 重绘原图清除临时线
             }
         }
         // 绘制临时多边形（未闭合时的折线）
         private void DrawTempPolygon()
         {
             if (_halconWindow == null || _polygonTempRows.Count < 2) return;
-            _matchingService.DisplayImage(); // 重绘原图
+            DisplayImagePreserveZoom(); // 重绘原图，保留当前缩放比例
             _halconWindow.SetColor("magenta");
             _halconWindow.SetLineWidth(1);
             double[] rows = _polygonTempRows.ToArray();
@@ -241,8 +255,12 @@ namespace AVS_Modules_Settings.ViewModels
         private void ExitMaskEdit()
         {
             _isMouseDown = false;
+            IsEraseMode = false;
+            ClearErasePreview();
             StatusMessage = "掩膜编辑已退出，可创建模板";
             UpdateFinalRegionDisplay();
+            DisplayImagePreserveZoom();
+            RefreshDisplayWithMask();
         }
         private void EnterMaskEdit()
         {
@@ -254,7 +272,8 @@ namespace AVS_Modules_Settings.ViewModels
                 _currentRoi.GenerateRegion();
             }
             _currentRoi.DetachDrawingObject();
-            StatusMessage = "掩膜编辑：按住鼠标左键拖动擦除干扰区域";
+            ClearErasePreview();
+            StatusMessage = IsEraseMode ? "擦除模式：按住鼠标左键拖动擦除已有掩膜" : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
             RefreshDisplayWithMask();
         }
         public void OnMouseDown(double row, double col)
@@ -272,8 +291,42 @@ namespace AVS_Modules_Settings.ViewModels
         {
             if (!IsMaskEditing) return;
             _isMouseDown = false;
+            if (IsEraseMode && _accumulatedEraseRegion != null && _accumulatedEraseRegion.IsInitialized() && _accumulatedEraseRegion.CountObj() > 0)
+            {
+                ApplyErase();
+            }
+            ClearErasePreview();
             RefreshDisplayWithMask();
         }
+
+        /// <summary>
+        /// 将累积的擦除区域从掩膜中减去
+        /// </summary>
+        private void ApplyErase()
+        {
+            if (_accumulatedMaskRegion == null || !_accumulatedMaskRegion.IsInitialized() || _accumulatedMaskRegion.CountObj() == 0)
+                return;
+            HObject result = new HObject();
+            HOperatorSet.Difference(_accumulatedMaskRegion, _accumulatedEraseRegion, out result);
+            _accumulatedMaskRegion.Dispose();
+            _accumulatedMaskRegion = result;
+        }
+
+        /// <summary>
+        /// 清空擦除预览区域
+        /// </summary>
+        private void ClearErasePreview()
+        {
+            _accumulatedEraseRegion?.Dispose();
+            _accumulatedEraseRegion = new HObject();
+            _accumulatedEraseRegion.GenEmptyObj();
+        }
+
+        /// <summary>
+        /// 绘制|擦除掩膜区域
+        /// </summary>
+        /// <param name="row"></param>
+        /// <param name="col"></param>
         private void AddEraserAt(double row, double col)
         {
             HObject eraser;
@@ -282,17 +335,40 @@ namespace AVS_Modules_Settings.ViewModels
             else
                 HOperatorSet.GenCircle(out eraser, row, col, EraserSize);
 
-            HObject temp = new HObject();
-            HOperatorSet.Union2(_accumulatedMaskRegion, eraser, out temp);
-            _accumulatedMaskRegion.Dispose();
-            _accumulatedMaskRegion = temp;
+            if (IsEraseMode)
+            {
+                // 擦除模式：累积擦除区域
+                HObject temp = new HObject();
+                HOperatorSet.Union2(_accumulatedEraseRegion, eraser, out temp);
+                _accumulatedEraseRegion.Dispose();
+                _accumulatedEraseRegion = temp;
+            }
+            else
+            {
+                // 绘制模式：累积掩膜区域
+                HObject temp = new HObject();
+                HOperatorSet.Union2(_accumulatedMaskRegion, eraser, out temp);
+                _accumulatedMaskRegion.Dispose();
+                _accumulatedMaskRegion = temp;
+            }
             eraser.Dispose();
             RefreshDisplayWithMask();
         }
+        /// <summary>
+        /// 只刷新图像显示，不重置 SetPart，保留当前的局部放大/平移状态
+        /// </summary>
+        private void DisplayImagePreserveZoom()
+        {
+            _halconWindow.ClearWindow();
+            HObject img = _matchingService.GetCurrentImage();
+            if (img != null && img.IsInitialized())
+                img.DispObj(_halconWindow);
+        }
+
         private void RefreshDisplayWithMask()
         {
             if (_halconWindow == null) return;
-            _matchingService.DisplayImage();
+            DisplayImagePreserveZoom();
 
             // 绘制基本 ROI 轮廓（如果存在）
             if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
@@ -306,11 +382,19 @@ namespace AVS_Modules_Settings.ViewModels
             // 绘制掩膜半透明红
             if (_accumulatedMaskRegion != null && _accumulatedMaskRegion.IsInitialized())
             {
-                //_halconWindow.SetColor("red");
                 _halconWindow.SetDraw("fill");
-                _halconWindow.SetRgba(255,0,0,150);
+                _halconWindow.SetRgba(255, 0, 0, 150);
                 _halconWindow.SetLineWidth(1);
                 _halconWindow.DispObj(_accumulatedMaskRegion);
+            }
+
+            // 绘制擦除预览（蓝色半透明，表示即将被擦除的区域）
+            if (IsEraseMode && _accumulatedEraseRegion != null && _accumulatedEraseRegion.IsInitialized() && _accumulatedEraseRegion.CountObj() > 0)
+            {
+                _halconWindow.SetDraw("fill");
+                _halconWindow.SetRgba(0, 0, 255, 120);
+                _halconWindow.SetLineWidth(1);
+                _halconWindow.DispObj(_accumulatedEraseRegion);
             }
         }
         public void ClearMask()
@@ -318,6 +402,7 @@ namespace AVS_Modules_Settings.ViewModels
             _accumulatedMaskRegion?.Dispose();
             _accumulatedMaskRegion = new HObject();
             _accumulatedMaskRegion.GenEmptyObj();
+            ClearErasePreview();
             if (IsMaskEditing)
                 RefreshDisplayWithMask();
             else
@@ -396,6 +481,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             _currentRoi.Dispose();
             _accumulatedMaskRegion?.Dispose();
+            _accumulatedEraseRegion?.Dispose();
             CurrentImage?.Dispose();
             CurrentRegionDisplay?.Dispose();
         }

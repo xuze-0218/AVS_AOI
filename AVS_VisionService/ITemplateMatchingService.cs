@@ -12,7 +12,6 @@ namespace AVS_Service
         void SetHalconWindow(HWindow window);
         void LoadImage(string filePath);
         HObject GetCurrentImage();
-        void DisplayImage();
         HTuple CreateShapeModel(HObject region, double minScore = 0.7);
         void FindShapeModel(HTuple modelId, out HTuple row, out HTuple col, out HTuple angle, out HTuple score);
         void DisplayResult(HTuple row, HTuple col, HTuple angle, HTuple score);
@@ -30,11 +29,9 @@ namespace AVS_Service
         {
             _currentImage?.Dispose();
             HOperatorSet.ReadImage(out _currentImage, filePath);
-            _currentImage.DispObj(_halconWindow);
         }
 
         public HObject GetCurrentImage() => _currentImage;
-        public void DisplayImage() => _currentImage?.DispObj(_halconWindow);
 
         public HTuple CreateShapeModel(HObject region, double minScore = 0.7)
         {

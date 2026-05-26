@@ -22,6 +22,7 @@
             <Button Command="{Binding LoadImageCommand}" Content="加载图像" />
             <Separator />
             <ToggleButton Content="掩膜编辑" IsChecked="{Binding IsMaskEditing}" />
+            <ToggleButton Content="擦除模式" IsChecked="{Binding IsEraseMode}" IsEnabled="{Binding IsMaskEditing}" />
             <StackPanel Margin="5,0" Orientation="Horizontal">
                 <TextBlock VerticalAlignment="Center" Text="大小:" />
                 <TextBox
