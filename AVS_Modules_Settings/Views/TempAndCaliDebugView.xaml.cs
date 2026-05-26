@@ -1,18 +1,8 @@
 ﻿using AVS_Modules_Settings.ViewModels;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace AVS_Modules_Settings.Views
 {
@@ -32,7 +22,11 @@ namespace AVS_Modules_Settings.Views
         {
             if (e.NewValue is TempAndCaliDebugViewModel vm)
             {
+                if (_viewModel != null)
+                    _viewModel.PropertyChanged -= _viewModel_PropertyChanged;
                 _viewModel = vm;
+                _viewModel.PropertyChanged += _viewModel_PropertyChanged;
+                UpdateMoveContentState();
                 CameraDisplay.MouseLeftButtonDown += OnMouseLeftDown;
                 CameraDisplay.MouseLeftButtonUp += OnMouseLeftUp;
                 CameraDisplay.MouseMove += CameraDisplay_MouseMove;
@@ -40,6 +34,7 @@ namespace AVS_Modules_Settings.Views
             }
             if (e.OldValue is TempAndCaliDebugViewModel oldVm)
             {
+                oldVm.PropertyChanged -= _viewModel_PropertyChanged;
                 CameraDisplay.MouseLeftButtonDown -= OnMouseLeftDown;
                 CameraDisplay.MouseLeftButtonUp -= OnMouseLeftUp;
                 CameraDisplay.MouseMove -= CameraDisplay_MouseMove;
@@ -47,13 +42,20 @@ namespace AVS_Modules_Settings.Views
             }
         }
 
-        private void OnMouseRightDown(object sender, MouseButtonEventArgs e)
+        private void _viewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (_viewModel?.IsDrawingPolygon == true)
+            if (e.PropertyName == nameof(TempAndCaliDebugViewModel.IsMaskEditing) ||
+            e.PropertyName == nameof(TempAndCaliDebugViewModel.IsDrawingPolygon))
             {
-                _viewModel.FinishPolygon();
-                e.Handled = true;
+                UpdateMoveContentState();
             }
+        }
+
+        private void UpdateMoveContentState()
+        {
+            if (_viewModel == null) return;
+            bool customMode = _viewModel.IsMaskEditing || _viewModel.IsDrawingPolygon;
+            CameraDisplay.HMoveContent = !customMode;
         }
 
         private void CameraDisplay_MouseMove(object sender, MouseEventArgs e)
@@ -66,13 +68,11 @@ namespace AVS_Modules_Settings.Views
                 e.Handled = true;
             }
         }
-
         private void CameraDisplay_Loaded(object sender, RoutedEventArgs e)
         {
             _viewModel?.SetHalconWindow(CameraDisplay.HalconWindow);
         }
-
-        private void OnMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        private void OnMouseRightDown(object sender, MouseButtonEventArgs e)
         {
             if (_viewModel?.IsDrawingPolygon == true)
             {
@@ -80,28 +80,6 @@ namespace AVS_Modules_Settings.Views
                 e.Handled = true;
             }
         }
-
-        private void OnMouseLeftDown(object sender, MouseButtonEventArgs e)
-        {
-            if (_viewModel?.IsMaskEditing == true)
-            {
-                var pos = e.GetPosition(CameraDisplay);
-                CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out double row, out double col);
-                _viewModel.OnMouseDown(row, col);
-                e.Handled = true;
-            }
-        }
-
-        private void OnMouseLeftUp(object sender, MouseButtonEventArgs e)
-        {
-            if (_viewModel?.IsMaskEditing == true)
-            {
-                _viewModel.OnMouseUp();
-                e.Handled = true;
-            }
-        }
-
-
         private void HalconWindow_Loaded(object sender, RoutedEventArgs e)
         {
             if (DataContext is TempAndCaliDebugViewModel vm)
@@ -109,5 +87,29 @@ namespace AVS_Modules_Settings.Views
                 _viewModel?.SetHalconWindow(CameraDisplay.HalconWindow);
             }
         }
+        private void OnMouseLeftDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_viewModel == null) return;
+            var pos = e.GetPosition(CameraDisplay);
+            CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out double row, out double col);
+            if (_viewModel.IsMaskEditing)
+            {
+                _viewModel.OnMouseDown(row, col);
+                e.Handled = true;
+            }
+            else if (_viewModel.IsDrawingPolygon)
+            {
+                _viewModel.AddPolygonPoint(row, col);
+                e.Handled = true;
+            }
+        }
+        private void OnMouseLeftUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_viewModel?.IsMaskEditing == true)
+            {
+                _viewModel.OnMouseUp();
+                e.Handled = true;
+            }
+        }     
     }
 }

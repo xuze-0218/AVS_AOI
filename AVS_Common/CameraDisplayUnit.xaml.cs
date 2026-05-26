@@ -2,6 +2,7 @@
 using HalconDotNet;
 using System.Windows;
 using System.Windows.Controls;
+
 namespace AVS_Common
 {
     /// <summary>
@@ -9,9 +10,15 @@ namespace AVS_Common
     /// </summary>
     public partial class CameraDisplayUnit : UserControl
     {
-        //private readonly IWindowHandleRegistry _windowHandleRegistry;
         private bool _isRegistered = false;
-        public HWindow HalconWindow => HsmartWindow.HalconWindow;
+        public HWindow HalconWindow { get; private set; }
+
+        public bool HMoveContent
+        {
+            get => HsmartWindow.HMoveContent;
+            set => HsmartWindow.HMoveContent = value;
+        }
+
         public CameraDisplayUnit()
         {
             InitializeComponent();
@@ -34,16 +41,25 @@ namespace AVS_Common
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
-            //if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.CameraRoleName))
-            //{
-            //    WindowHandleEvent.RaiseHandleUnregistered(item.CameraRoleName);
-            //}
             _isRegistered = false;
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            //TryRegister();
+            // 确保 HalconWindow 始终可用，不依赖 DataContext 类型
+            if (HalconWindow == null)
+            {
+                try
+                {
+                    if (HsmartWindow.ActualWidth > 0 && HsmartWindow.ActualHeight > 0)
+                        HalconWindow = HsmartWindow.HalconWindow;
+                }
+                catch (HalconException)
+                {
+                    // 尺寸为 0 时 HALCON 初始化会失败，等下次 SizeChanged 触发
+                }
+            }
+            TryRegister();
         }
 
         private void TryRegister()
@@ -55,12 +71,19 @@ namespace AVS_Common
                     return;
                 try
                 {
-                    var hWindow = HsmartWindow.HalconWindow;
+                    var hWindow = HalconWindow = HsmartWindow.HalconWindow;
                     WindowHandleEvent.RaiseHandleRegistered(item.CameraRoleName, hWindow);
                     _isRegistered = true;
                 }
+                catch (HalconException)
+                {
+                    // HALCON 窗口未就绪，标记未注册，下次事件触发时重试
+                    _isRegistered = false;
+                }
                 catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"CameraDisplayUnit.TryRegister failed: {ex.Message}");
+                    _isRegistered = false;
                 }
             }
         }
@@ -71,10 +94,19 @@ namespace AVS_Common
             set { SetValue(DispImageProperty, value); }
         }
 
-        // Using a DependencyProperty as the backing store for DispImage.  This enables animation, styling, binding, etc...
         public static readonly DependencyProperty DispImageProperty =
-            DependencyProperty.Register("DispImage", typeof(HObject), typeof(CameraDisplayUnit), new PropertyMetadata(null, OnHObjectChanged));
+            DependencyProperty.Register("DispImage", typeof(HObject), typeof(CameraDisplayUnit),
+                new PropertyMetadata(null, OnHObjectChanged));
 
+        public HObject DispRegion
+        {
+            get { return (HObject)GetValue(DispRegionProperty); }
+            set { SetValue(DispRegionProperty, value); }
+        }
+
+        public static readonly DependencyProperty DispRegionProperty =
+            DependencyProperty.Register("DispRegion", typeof(HObject), typeof(CameraDisplayUnit),
+                new PropertyMetadata(null, OnHObjectChanged));
 
         private static void OnHObjectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -84,37 +116,40 @@ namespace AVS_Common
 
         private void UpdateDisplay()
         {
-            if (HalconWindow == null) return;
-            HalconWindow.ClearWindow();
+            // 窗口尚未完成布局或尺寸无效时，直接访问 HsmartWindow.HalconWindow
+            // 会触发 HALCON 内部 HInitializeWindow → open_window，若 size=0 则抛出 #5122
+            if (!IsLoaded || HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0)
+                return;
 
-            // 显示图像
+            HWindow hw;
+            try
+            {
+                hw = HsmartWindow.HalconWindow;
+                if (hw == null) return;
+            }
+            catch (HalconException)
+            {
+                // HALCON 窗口初始化失败（如尺寸 0），延迟重试
+                return;
+            }
+
+            hw.ClearWindow();
+
             if (DispImage != null && DispImage.IsInitialized())
             {
                 HOperatorSet.GetImageSize(DispImage, out HTuple width, out HTuple height);
-                HalconWindow.SetPart(0, 0, (int)height - 1, (int)width - 1);
-                HalconWindow.DispObj(DispImage);
+                hw.SetPart(0, 0, (int)height - 1, (int)width - 1);
+                hw.DispObj(DispImage);
             }
-            // 叠加显示区域
+
             if (DispRegion != null && DispRegion.IsInitialized() && DispRegion.CountObj() > 0)
             {
-                HalconWindow.SetColor("green");
-                HalconWindow.SetLineWidth(2);
-                HalconWindow.SetDraw("margin");
-                HalconWindow.DispObj(DispRegion);
+                hw.SetColor("green");
+                hw.SetLineWidth(2);
+                hw.SetDraw("margin");
+                hw.DispObj(DispRegion);
             }
         }
-
-
-        public HObject DispRegion
-        {
-            get { return (HObject)GetValue(DispRegionProperty); }
-            set { SetValue(DispRegionProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for DispRegion.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty DispRegionProperty =
-            DependencyProperty.Register("DispRegion", typeof(HObject), typeof(CameraDisplayUnit), new PropertyMetadata(null, OnHObjectChanged));
-
 
     }
 }

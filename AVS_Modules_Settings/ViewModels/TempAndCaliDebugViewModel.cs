@@ -19,18 +19,15 @@ namespace AVS_Modules_Settings.ViewModels
     {
         private readonly ITemplateMatchingService _matchingService;
         private HWindow _halconWindow;
-        private HObjectRegion _currentRoi;
-
+        private readonly HObjectRegion _currentRoi = new HObjectRegion();
         private List<double> _polygonTempRows = new List<double>();
         private List<double> _polygonTempCols = new List<double>();
-
         private bool _isDrawingPolygon = false;
         public bool IsDrawingPolygon
         {
             get => _isDrawingPolygon;
             set => SetProperty(ref _isDrawingPolygon, value);
         }
-
         /// <summary>
         /// 绑定图像
         /// </summary>
@@ -49,15 +46,12 @@ namespace AVS_Modules_Settings.ViewModels
             get => _currentRegionDisplay;
             set => SetProperty(ref _currentRegionDisplay, value);
         }
-
-
         // ========== 掩膜相关 ==========
         private bool _isMaskEditing;
         private double _eraserSize = 10;
         private string _eraserType = "rectangle";
         private HObject _accumulatedMaskRegion = new HObject();
         private bool _isMouseDown;
-
         public bool IsMaskEditing
         {
             get => _isMaskEditing;
@@ -70,12 +64,8 @@ namespace AVS_Modules_Settings.ViewModels
                 }
             }
         }
-
-
-
         public double EraserSize { get => _eraserSize; set => SetProperty(ref _eraserSize, value); }
         public string EraserType { get => _eraserType; set => SetProperty(ref _eraserType, value); }
-
         private string _statusMessage = "右键绘制形状，掩膜编辑剔除干扰";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         private HTuple _currentModelId = null;
@@ -107,7 +97,6 @@ namespace AVS_Modules_Settings.ViewModels
             FindModelCommand = new DelegateCommand(FindModel, () => _currentModelId != null);
             ClearMaskCommand = new DelegateCommand(ClearMask);
         }
-
         private void ClearDrawing()
         {
             _currentRoi.DetachDrawingObject();
@@ -119,10 +108,10 @@ namespace AVS_Modules_Settings.ViewModels
             RaisePropertyChanged(nameof(CurrentRegionDisplay));
             StatusMessage = "绘图已清除";
         }
-
         private void StartPolygonDraw()
         {
             if (_halconWindow == null || IsMaskEditing) return;
+            EndPolygonDraw(); // 强制结束之前的多边形绘制
             _currentRoi.DetachDrawingObject();
             _currentRoi.Style = RoiType.POLYGON;
             _currentRoi.Color = "cyan";
@@ -131,8 +120,6 @@ namespace AVS_Modules_Settings.ViewModels
             _isDrawingPolygon = true;
             StatusMessage = "多边形绘制：左键添加顶点，右键闭合结束";
         }
-
-
         public void AddPolygonPoint(double row, double col)
         {
             if (!_isDrawingPolygon) return;
@@ -140,7 +127,6 @@ namespace AVS_Modules_Settings.ViewModels
             _polygonTempCols.Add(col);
             DrawTempPolygon();
         }
-
         //鼠标右键调用
         public void FinishPolygon()
         {
@@ -157,7 +143,6 @@ namespace AVS_Modules_Settings.ViewModels
             UpdateFinalRegionDisplay();
             StatusMessage = "多边形绘制完成，可创建模板";
         }
-
         // 强制结束绘制（如选择其他形状）
         private void EndPolygonDraw()
         {
@@ -167,7 +152,6 @@ namespace AVS_Modules_Settings.ViewModels
                 _halconWindow?.DispObj(_currentImage); // 简单重绘原图清除临时线，可优化
             }
         }
-
         // 绘制临时多边形（未闭合时的折线）
         private void DrawTempPolygon()
         {
@@ -182,7 +166,6 @@ namespace AVS_Modules_Settings.ViewModels
             for (int i = 0; i < rows.Length; i++)
                 _halconWindow.DispCross(rows[i], cols[i], 6, 0);
         }
-
         private void LoadImage()
         {
             OpenFileDialog ofd = new OpenFileDialog();
@@ -198,13 +181,11 @@ namespace AVS_Modules_Settings.ViewModels
                 catch (Exception ex) { StatusMessage = $"加载失败：{ex.Message}"; }
             }
         }
-
         public void SetHalconWindow(HWindow window)
         {
             _halconWindow = window;
             _matchingService.SetHalconWindow(window);
         }
-
         private void StartDraw(RoiType type, string color)
         {
             if (_halconWindow == null || IsMaskEditing) return;
@@ -216,14 +197,12 @@ namespace AVS_Modules_Settings.ViewModels
             else
                 StatusMessage = $"绘制 {type}：拖动调整大小和位置";
         }
-
         private void ExitMaskEdit()
         {
             _isMouseDown = false;
             StatusMessage = "掩膜编辑已退出，可创建模板";
             UpdateFinalRegionDisplay();
         }
-
         private void EnterMaskEdit()
         {
             if (_halconWindow == null) return;
@@ -231,28 +210,23 @@ namespace AVS_Modules_Settings.ViewModels
             StatusMessage = "掩膜编辑：按住鼠标左键拖动擦除干扰区域";
             RefreshDisplayWithMask();
         }
-
         public void OnMouseDown(double row, double col)
         {
             if (!IsMaskEditing) return;
             _isMouseDown = true;
             AddEraserAt(row, col);
         }
-
         public void OnMouseMove(double row, double col)
         {
             if (!IsMaskEditing || !_isMouseDown) return;
             AddEraserAt(row, col);
         }
-
         public void OnMouseUp()
         {
             if (!IsMaskEditing) return;
             _isMouseDown = false;
             RefreshDisplayWithMask();
         }
-
-
         private void AddEraserAt(double row, double col)
         {
             HObject eraser;
@@ -268,7 +242,6 @@ namespace AVS_Modules_Settings.ViewModels
             eraser.Dispose();
             RefreshDisplayWithMask();
         }
-
         private void RefreshDisplayWithMask()
         {
             if (_halconWindow == null) return;
@@ -292,7 +265,6 @@ namespace AVS_Modules_Settings.ViewModels
                 _halconWindow.DispObj(_accumulatedMaskRegion);
             }
         }
-
         public void ClearMask()
         {
             _accumulatedMaskRegion?.Dispose();
@@ -304,7 +276,6 @@ namespace AVS_Modules_Settings.ViewModels
                 UpdateFinalRegionDisplay();
             StatusMessage = "掩膜已清除";
         }
-
         // 更新最终区域显示（ROI - 掩膜）
         private void UpdateFinalRegionDisplay()
         {
