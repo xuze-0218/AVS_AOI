@@ -30,12 +30,13 @@
             Background="#E8F0E8"
             BorderBrush="#AAA"
             BorderThickness="1"
-            CornerRadius="3">
+            CornerRadius="3"
+            ToolTip="鼠标右键确定区域中心">
             <StackPanel>
                 <TextBlock
                     Margin="0,0,0,4"
-                    FontWeight="Bold"
                     FontSize="12"
+                    FontWeight="Bold"
                     Text="ROI 绘制（右键图像选择形状）:" />
                 <WrapPanel>
                     <Button
@@ -88,8 +89,8 @@
             <StackPanel>
                 <TextBlock
                     Margin="0,0,0,4"
-                    FontWeight="Bold"
                     FontSize="12"
+                    FontWeight="Bold"
                     Text="掩膜编辑:" />
                 <WrapPanel Margin="0,0,0,4">
                     <CheckBox
@@ -139,8 +140,8 @@
                     <ComboBox
                         Grid.Row="1"
                         Grid.Column="1"
-                        Margin="2"
                         Height="22"
+                        Margin="2"
                         ItemsSource="{Binding EraserTypes}"
                         SelectedItem="{Binding EraserType}" />
                 </Grid>

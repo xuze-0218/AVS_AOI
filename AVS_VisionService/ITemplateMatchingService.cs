@@ -14,7 +14,7 @@ namespace AVS_Service
         HObject GetCurrentImage();
 
         /// <summary>
-        /// 创建形状模板（简化版）
+        /// 创建形状模板
         /// </summary>
         /// <param name="templateImage">已缩小的模板图像</param>
         /// <param name="angleStart">起始角度(弧度)</param>
@@ -36,7 +36,7 @@ namespace AVS_Service
             string optimization);
 
         /// <summary>
-        /// 查找形状模板（简化版）
+        /// 查找形状模板
         /// </summary>
         /// <param name="modelId">模板句柄</param>
         /// <param name="angleStart">起始角度</param>
