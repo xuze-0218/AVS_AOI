@@ -38,7 +38,7 @@ namespace AVS_Common.Model
         public HTuple PolyRows { get; set; }
         public HTuple PolyCols { get; set; }
         //只读，通过 GenerateRegion() 更新
-        public HObject Region { get; private set; }
+        public HObject Region { get; set; }
         private HTuple _drawingObject = null;
 
         public HObjectRegion()

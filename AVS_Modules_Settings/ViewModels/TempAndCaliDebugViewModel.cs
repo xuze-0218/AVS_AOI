@@ -4,486 +4,331 @@ using HalconDotNet;
 using Microsoft.Win32;
 using Prism.Commands;
 using Prism.Mvvm;
-using Prism.Services.Dialogs;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input;
 
 namespace AVS_Modules_Settings.ViewModels
 {
+    /// <summary>
+    /// 温度与标定调试 - 协调器ViewModel
+    /// 统一管理子ViewModel，模板匹配和卡尺测量逻辑委托给子ViewModel，
+    /// 区域绘制和掩膜操作完全由 TemplateMatchingViewModel 负责（参照 PreviousTempAndCaliDebugViewModel 设计）。
+    /// </summary>
     public class TempAndCaliDebugViewModel : BindableBase
     {
         private readonly ITemplateMatchingService _matchingService;
+        private readonly ICaliperService _caliperService;
         private HWindow _halconWindow;
-        private readonly HObjectRegion _currentRoi = new HObjectRegion();
-        private List<double> _polygonTempRows = new List<double>();
-        private List<double> _polygonTempCols = new List<double>();
-        private bool _isDrawingPolygon = false;
-        public bool IsDrawingPolygon
+
+        #region 子ViewModel
+        private TemplateMatchingViewModel _templateMatchingVM;
+        public TemplateMatchingViewModel TemplateMatchingVM
         {
-            get => _isDrawingPolygon;
-            set => SetProperty(ref _isDrawingPolygon, value);
+            get => _templateMatchingVM;
+            set => SetProperty(ref _templateMatchingVM, value);
         }
 
-        private double _currentMouseRow, _currentMouseCol;
-        public double CurrentMouseRow { get => _currentMouseRow; set => SetProperty(ref _currentMouseRow, value); }
-        public double CurrentMouseCol { get => _currentMouseCol; set => SetProperty(ref _currentMouseCol, value); }
-        /// <summary>
-        /// 绑定图像
-        /// </summary>
+        private CaliperMeasureViewModel _caliperMeasureVM;
+        public CaliperMeasureViewModel CaliperMeasureVM
+        {
+            get => _caliperMeasureVM;
+            set => SetProperty(ref _caliperMeasureVM, value);
+        }
+        #endregion
+
+        #region 构造函数
+        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService, ICaliperService caliperService)
+        {
+            _matchingService = matchingService;
+            _caliperService = caliperService;
+
+            TemplateMatchingVM = new TemplateMatchingViewModel(matchingService);
+            CaliperMeasureVM = new CaliperMeasureViewModel(caliperService);
+
+            RunCommand = new DelegateCommand(OnRun);
+            ConfirmCommand = new DelegateCommand(OnConfirm);
+            CancelCommand = new DelegateCommand(OnCancel);
+            LoadImageCommand = new DelegateCommand(OnLoadImage);
+            CreateModelCommand = new DelegateCommand(() => TemplateMatchingVM?.CreateModelCommand?.Execute());
+            FindModelCommand = new DelegateCommand(() => TemplateMatchingVM?.FindModelCommand?.Execute());
+            SaveModelCommand = new DelegateCommand(() => TemplateMatchingVM?.SaveModelCommand?.Execute());
+            LoadModelCommand = new DelegateCommand(() => TemplateMatchingVM?.LoadModelCommand?.Execute());
+            SaveRoiCommand = new DelegateCommand(OnSaveRoi);
+            LoadRoiCommand = new DelegateCommand(OnLoadRoi);
+            ClearRoiCommand = new DelegateCommand(OnClearRoi);
+        }
+        #endregion
+
+        #region 公共属性 - 图像与Halcon窗口
+        public HWindow HalconWindow
+        {
+            get => _halconWindow;
+            set
+            {
+                if (SetProperty(ref _halconWindow, value))
+                {
+                    if (TemplateMatchingVM != null) TemplateMatchingVM.HalconWindow = value;
+                    if (CaliperMeasureVM != null) CaliperMeasureVM.HalconWindow = value;
+                    _matchingService.SetHalconWindow(value);
+                    _caliperService.SetHalconWindow(value);
+                }
+            }
+        }
+
         private HObject _currentImage = new HObject();
         public HObject CurrentImage
         {
             get => _currentImage;
-            set => SetProperty(ref _currentImage, value);
+            set
+            {
+                if (SetProperty(ref _currentImage, value))
+                {
+                    _caliperService.SetImage(value);
+                    if (TemplateMatchingVM != null) TemplateMatchingVM.CurrentImage = value;
+                    if (CaliperMeasureVM != null) CaliperMeasureVM.CurrentImage = value;
+                }
+            }
         }
-        /// <summary>
-        /// 绑定区域
-        /// </summary>
+
         private HObject _currentRegionDisplay = new HObject();
         public HObject CurrentRegionDisplay
         {
             get => _currentRegionDisplay;
             set => SetProperty(ref _currentRegionDisplay, value);
         }
-        public List<string> EraserTypes { get; } = new List<string> { "rectangle", "circle" };
-        // ========== 掩膜相关 ==========
-        private bool _isMaskEditing;
-        private double _eraserSize = 10;
-        private string _eraserType = "rectangle";
-        private HObject _accumulatedMaskRegion = new HObject();
-        private HObject _accumulatedEraseRegion = new HObject();
-        private bool _isMouseDown;
-        private bool _isEraseMode;
-        public bool IsMaskEditing
+
+        private HObjectRegion _currentRoi = new HObjectRegion();
+        public HObjectRegion CurrentRoi => _currentRoi;
+
+        private string _imagePath;
+        public string ImagePath
         {
-            get => _isMaskEditing;
+            get => _imagePath;
+            set => SetProperty(ref _imagePath, value);
+        }
+
+        private double _currentMouseRow;
+        public double CurrentMouseRow { get => _currentMouseRow; set => SetProperty(ref _currentMouseRow, value); }
+
+        private double _currentMouseCol;
+        public double CurrentMouseCol { get => _currentMouseCol; set => SetProperty(ref _currentMouseCol, value); }
+
+        private bool _isSearchRegion;
+        public bool IsSearchRegion
+        {
+            get => _isSearchRegion;
+            set => SetProperty(ref _isSearchRegion, value);
+        }
+
+        /// <summary>当前是否处于自定义交互模式（委托给 TemplateMatchingVM）</summary>
+        public bool IsCustomMode => TemplateMatchingVM?.IsCustomMode ?? false;
+        #endregion
+
+        #region 公共属性 - 运行结果
+        private string _runTime = "0 ms";
+        public string RunTime { get => _runTime; set => SetProperty(ref _runTime, value); }
+
+        private string _runResult = "---";
+        public string RunResult { get => _runResult; set => SetProperty(ref _runResult, value); }
+
+        private bool _isPass;
+        public bool IsPass { get => _isPass; set => SetProperty(ref _isPass, value); }
+
+        private string _modelPath;
+        public string ModelPath
+        {
+            get => TemplateMatchingVM?.ModelPath;
             set
             {
-                if (SetProperty(ref _isMaskEditing, value))
+                if (TemplateMatchingVM != null)
+                    TemplateMatchingVM.ModelPath = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        private string _roiPath;
+        public string RoiPath { get => _roiPath; set => SetProperty(ref _roiPath, value); }
+        #endregion
+
+        #region 命令
+        public DelegateCommand RunCommand { get; }
+        public DelegateCommand ConfirmCommand { get; }
+        public DelegateCommand CancelCommand { get; }
+        public DelegateCommand LoadImageCommand { get; }
+        public DelegateCommand CreateModelCommand { get; }
+        public DelegateCommand FindModelCommand { get; }
+        public DelegateCommand SaveModelCommand { get; }
+        public DelegateCommand LoadModelCommand { get; }
+        public DelegateCommand SaveRoiCommand { get; }
+        public DelegateCommand LoadRoiCommand { get; }
+        public DelegateCommand ClearRoiCommand { get; }
+        #endregion
+
+        #region Halcon窗口设置
+        public void SetHalconWindow(HWindow window)
+        {
+            HalconWindow = window;
+        }
+        #endregion
+
+        #region 命令实现
+        private void OnRun()
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                if (TemplateMatchingVM != null)
                 {
-                    if (value) EnterMaskEdit();
-                    else ExitMaskEdit();
+                    TemplateMatchingVM.ModelRegion = _currentRoi.Region;
+                    TemplateMatchingVM.FindModelCommand?.Execute();
+                }
+                if (CaliperMeasureVM != null && _currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+                {
+                    CaliperMeasureVM.Measure(_currentRoi.Region);
+                }
+                RunResult = "OK";
+                IsPass = true;
+                // 执行完成后重绘图像
+                RedrawImage();
+            }
+            catch (Exception ex)
+            {
+                RunResult = "ERROR";
+                IsPass = false;
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+            sw.Stop();
+            RunTime = $"{sw.ElapsedMilliseconds} ms";
+        }
+
+        private void OnConfirm()
+        {
+            // 确认操作：更新并锁定当前 ROI
+            if (TemplateMatchingVM != null)
+            {
+                // 同步模板匹配VM中的Region到协调器
+                var finalRegion = TemplateMatchingVM.FinalRegion;
+                if (finalRegion != null && finalRegion.IsInitialized())
+                {
+                    _currentRoi.Region?.Dispose();
+                    _currentRoi.Region = finalRegion.Clone();
                 }
             }
+            RedrawImage();
         }
-        public bool IsEraseMode
-        {
-            get => _isEraseMode;
-            set
-            {
-                if (SetProperty(ref _isEraseMode, value))
-                {
-                    StatusMessage = value ? "擦除模式：按住鼠标左键拖动擦除已有掩膜" : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
-                }
-            }
-        }
-        public double EraserSize { get => _eraserSize; set => SetProperty(ref _eraserSize, value); }
-        public string EraserType { get => _eraserType; set => SetProperty(ref _eraserType, value); }
-        private string _statusMessage = "右键绘制形状，掩膜编辑剔除干扰";
-        public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
-        private HTuple _currentModelId = null;
 
-        public ICommand LoadImageCommand { get; }
-        public ICommand DrawRect1Command { get; }
-        public ICommand DrawRect2Command { get; }
-        public ICommand DrawCircleCommand { get; }
-        public ICommand DrawPolygonCommand { get; }
-        public ICommand ClearDrawingCommand { get; }
-        public ICommand CreateModelCommand { get; }
-        public ICommand FindModelCommand { get; }
-        public ICommand ClearMaskCommand { get; }
+        private void OnCancel()
+        {
+            // 取消操作：重绘图像
+            RedrawImage();
+        }
 
-        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService)
+        private void OnLoadImage()
         {
-            _matchingService = matchingService;
-            _accumulatedMaskRegion.GenEmptyObj();
-            _accumulatedEraseRegion.GenEmptyObj();
-            CurrentImage.GenEmptyObj();
-            CurrentRegionDisplay.GenEmptyObj();
-
-            LoadImageCommand = new DelegateCommand(LoadImage);
-            DrawRect1Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE1, "red"));
-            DrawRect2Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE2, "green"));
-            DrawCircleCommand = new DelegateCommand(() => StartDraw(RoiType.CIRCLE, "yellow"));
-            DrawPolygonCommand = new DelegateCommand(StartPolygonDraw);
-            ClearDrawingCommand = new DelegateCommand(ClearDrawing);
-            CreateModelCommand = new DelegateCommand(CreateModel);
-            FindModelCommand = new DelegateCommand(FindModel, () => _currentModelId != null);
-            ClearMaskCommand = new DelegateCommand(ClearMask);
-        }
-        private void ClearDrawing()
-        {
-            _currentRoi.DetachDrawingObject();
-            _halconWindow?.ClearWindow();
-            DisplayImagePreserveZoom();
-            CurrentRegionDisplay?.Dispose();
-            CurrentRegionDisplay = new HObject();
-            CurrentRegionDisplay.GenEmptyObj();
-            RaisePropertyChanged(nameof(CurrentRegionDisplay));
-            StatusMessage = "绘图已清除";
-        }
-        private void StartPolygonDraw()
-        {
-            if (_halconWindow == null || IsMaskEditing) return;
-            EndPolygonDraw(); // 强制结束之前的多边形绘制
-            _currentRoi.DetachDrawingObject();
-            _currentRoi.Style = RoiType.POLYGON;
-            _currentRoi.Color = "cyan";
-            _polygonTempRows.Clear();
-            _polygonTempCols.Clear();
-            _isDrawingPolygon = true;
-            StatusMessage = "多边形绘制：左键添加顶点，右键闭合结束";
-        }
-        public void AddPolygonPoint(double row, double col)
-        {
-            if (!_isDrawingPolygon) return;
-            _polygonTempRows.Add(row);
-            _polygonTempCols.Add(col);
-            DrawTempPolygon();
-        }
-        //鼠标右键调用
-        public void FinishPolygon()
-        {
-            if (!_isDrawingPolygon || _polygonTempRows.Count < 3)
+            OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                StatusMessage = "多边形至少需要3个顶点";
-                _isDrawingPolygon = false;
-                return;
-            }
-            _currentRoi.SetPolygonVertices(new HTuple(_polygonTempRows.ToArray()), new HTuple(_polygonTempCols.ToArray()));
-            _currentRoi.GenerateRegion();
-            _isDrawingPolygon = false;
-            // 更新显示区域
-            UpdateFinalRegionDisplay();
-            StatusMessage = "多边形绘制完成，可创建模板";
-        }
-        // 强制结束绘制（如选择其他形状）
-        private void EndPolygonDraw()
-        {
-            if (IsDrawingPolygon)
-            {
-                IsDrawingPolygon = false;
-                DisplayImagePreserveZoom(); // 重绘原图清除临时线
-            }
-        }
-        // 绘制临时多边形（未闭合时的折线）
-        private void DrawTempPolygon()
-        {
-            if (_halconWindow == null || _polygonTempRows.Count < 2) return;
-            DisplayImagePreserveZoom(); // 重绘原图，保留当前缩放比例
-            _halconWindow.SetColor("magenta");
-            _halconWindow.SetLineWidth(1);
-            double[] rows = _polygonTempRows.ToArray();
-            double[] cols = _polygonTempCols.ToArray();
-            for (int i = 0; i < rows.Length - 1; i++)
-                _halconWindow.DispLine(rows[i], cols[i], rows[i + 1], cols[i + 1]);
-            for (int i = 0; i < rows.Length; i++)
-                _halconWindow.DispCross(rows[i], cols[i], 6, 0);
-        }
-        private void LoadImage()
-        {
-            OpenFileDialog ofd = new OpenFileDialog();
-            if (ofd.ShowDialog() == true)
+                Filter = "Image Files|*.bmp;*.jpg;*.png;*.tiff;*.tif|All Files|*.*",
+                Title = "选择图像文件"
+            };
+            if (openFileDialog.ShowDialog() == true)
             {
                 try
                 {
-                    _matchingService.LoadImage(ofd.FileName);
-                    CurrentImage = _matchingService.GetCurrentImage()?.Clone(); // 克隆一份用于显示
-                    ClearMask();
-                    StatusMessage = $"已加载：{ofd.FileName}";
+                    ImagePath = openFileDialog.FileName;
+                    HOperatorSet.ReadImage(out HObject image, ImagePath);
+                    CurrentImage = image;
+                    RedrawImage();
                 }
-                catch (Exception ex) { StatusMessage = $"加载失败：{ex.Message}"; }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"加载图像失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
-        public void SetHalconWindow(HWindow window)
-        {
-            _halconWindow = window;
-            _matchingService.SetHalconWindow(window);
-        }
-        private void StartDraw(RoiType type, string color)
-        {
-            if (_halconWindow == null || IsMaskEditing) return;
 
-            _currentRoi.DetachDrawingObject();
-            _currentRoi.Style = type;
-            _currentRoi.Color = color;
-
-            // 以鼠标右键点击位置为中心，设置默认大小
-            double size = 100; // 默认初始尺寸
-            double col = _currentMouseCol;
-            double row = _currentMouseRow;
-
-            switch (type)
-            {
-                case RoiType.RECTANGLE1:
-                    // 矩形1 (左上-右下)
-                    _currentRoi.LeftX = col - size / 2;
-                    _currentRoi.LeftY = row - size / 2;
-                    _currentRoi.RightX = col + size / 2;
-                    _currentRoi.RightY = row + size / 2;
-                    _currentRoi.X = col;
-                    _currentRoi.Y = row;
-                    break;
-                case RoiType.RECTANGLE2:
-                    // 旋转矩形 (中心、半宽、半高、角度)
-                    _currentRoi.X = col;
-                    _currentRoi.Y = row;
-                    _currentRoi.Length1 = size / 2;
-                    _currentRoi.Length2 = size / 2;
-                    _currentRoi.Angle = 0;
-                    break;
-                case RoiType.CIRCLE:
-                    // 圆形 (中心、半径)
-                    _currentRoi.X = col;
-                    _currentRoi.Y = row;
-                    _currentRoi.Radius = size / 2;
-                    break;
-                default:
-                    break;
-            }
-
-            if (!_currentRoi.AttachDrawingObject(_halconWindow))
-                StatusMessage = $"无法创建 {type} 绘图对象";
-            else
-                StatusMessage = $"绘制 {type}：拖动调整大小和位置";
-        }
-        private void ExitMaskEdit()
-        {
-            _isMouseDown = false;
-            IsEraseMode = false;
-            ClearErasePreview();
-            StatusMessage = "掩膜编辑已退出，可创建模板";
-            UpdateFinalRegionDisplay();
-            DisplayImagePreserveZoom();
-            RefreshDisplayWithMask();
-        }
-        private void EnterMaskEdit()
-        {
-            if (_halconWindow == null) return;
-            //如果当前有可拖拽的绘图对象（矩形、圆等），同步参数并生成 Region
-            if (_currentRoi.Style != RoiType.POLYGON)
-            {
-                _currentRoi.SyncFromDrawingObject();
-                _currentRoi.GenerateRegion();
-            }
-            _currentRoi.DetachDrawingObject();
-            ClearErasePreview();
-            StatusMessage = IsEraseMode ? "擦除模式：按住鼠标左键拖动擦除已有掩膜" : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
-            RefreshDisplayWithMask();
-        }
-        public void OnMouseDown(double row, double col)
-        {
-            if (!IsMaskEditing) return;
-            _isMouseDown = true;
-            AddEraserAt(row, col);
-        }
-        public void OnMouseMove(double row, double col)
-        {
-            if (!IsMaskEditing || !_isMouseDown) return;
-            AddEraserAt(row, col);
-        }
-        public void OnMouseUp()
-        {
-            if (!IsMaskEditing) return;
-            _isMouseDown = false;
-            if (IsEraseMode && _accumulatedEraseRegion != null && _accumulatedEraseRegion.IsInitialized() && _accumulatedEraseRegion.CountObj() > 0)
-            {
-                ApplyErase();
-            }
-            ClearErasePreview();
-            RefreshDisplayWithMask();
-        }
-
-        /// <summary>
-        /// 将累积的擦除区域从掩膜中减去
-        /// </summary>
-        private void ApplyErase()
-        {
-            if (_accumulatedMaskRegion == null || !_accumulatedMaskRegion.IsInitialized() || _accumulatedMaskRegion.CountObj() == 0)
-                return;
-            HObject result = new HObject();
-            HOperatorSet.Difference(_accumulatedMaskRegion, _accumulatedEraseRegion, out result);
-            _accumulatedMaskRegion.Dispose();
-            _accumulatedMaskRegion = result;
-        }
-
-        /// <summary>
-        /// 清空擦除预览区域
-        /// </summary>
-        private void ClearErasePreview()
-        {
-            _accumulatedEraseRegion?.Dispose();
-            _accumulatedEraseRegion = new HObject();
-            _accumulatedEraseRegion.GenEmptyObj();
-        }
-
-        /// <summary>
-        /// 绘制|擦除掩膜区域
-        /// </summary>
-        /// <param name="row"></param>
-        /// <param name="col"></param>
-        private void AddEraserAt(double row, double col)
-        {
-            HObject eraser;
-            if (EraserType == "rectangle")
-                HOperatorSet.GenRectangle2(out eraser, row, col, 0, EraserSize, EraserSize);
-            else
-                HOperatorSet.GenCircle(out eraser, row, col, EraserSize);
-
-            if (IsEraseMode)
-            {
-                // 擦除模式：累积擦除区域
-                HObject temp = new HObject();
-                HOperatorSet.Union2(_accumulatedEraseRegion, eraser, out temp);
-                _accumulatedEraseRegion.Dispose();
-                _accumulatedEraseRegion = temp;
-            }
-            else
-            {
-                // 绘制模式：累积掩膜区域
-                HObject temp = new HObject();
-                HOperatorSet.Union2(_accumulatedMaskRegion, eraser, out temp);
-                _accumulatedMaskRegion.Dispose();
-                _accumulatedMaskRegion = temp;
-            }
-            eraser.Dispose();
-            RefreshDisplayWithMask();
-        }
-        /// <summary>
-        /// 只刷新图像显示，不重置 SetPart，保留当前的局部放大/平移状态
-        /// </summary>
-        private void DisplayImagePreserveZoom()
-        {
-            _halconWindow.ClearWindow();
-            HObject img = _matchingService.GetCurrentImage();
-            if (img != null && img.IsInitialized())
-                img.DispObj(_halconWindow);
-        }
-
-        private void RefreshDisplayWithMask()
-        {
-            if (_halconWindow == null) return;
-            DisplayImagePreserveZoom();
-
-            // 绘制基本 ROI 轮廓（如果存在）
-            if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
-            {
-                _halconWindow.SetColor("green");
-                _halconWindow.SetDraw("margin");
-                _halconWindow.SetLineWidth(2);
-                _halconWindow.DispObj(_currentRoi.Region);
-            }
-
-            // 绘制掩膜半透明红
-            if (_accumulatedMaskRegion != null && _accumulatedMaskRegion.IsInitialized())
-            {
-                _halconWindow.SetDraw("fill");
-                _halconWindow.SetRgba(255, 0, 0, 150);
-                _halconWindow.SetLineWidth(1);
-                _halconWindow.DispObj(_accumulatedMaskRegion);
-            }
-
-            // 绘制擦除预览（蓝色半透明，表示即将被擦除的区域）
-            if (IsEraseMode && _accumulatedEraseRegion != null && _accumulatedEraseRegion.IsInitialized() && _accumulatedEraseRegion.CountObj() > 0)
-            {
-                _halconWindow.SetDraw("fill");
-                _halconWindow.SetRgba(0, 0, 255, 120);
-                _halconWindow.SetLineWidth(1);
-                _halconWindow.DispObj(_accumulatedEraseRegion);
-            }
-        }
-        public void ClearMask()
-        {
-            _accumulatedMaskRegion?.Dispose();
-            _accumulatedMaskRegion = new HObject();
-            _accumulatedMaskRegion.GenEmptyObj();
-            ClearErasePreview();
-            if (IsMaskEditing)
-                RefreshDisplayWithMask();
-            else
-                UpdateFinalRegionDisplay();
-            StatusMessage = "掩膜已清除";
-        }
-
-        // 更新最终区域显示（ROI - 掩膜）
-        private void UpdateFinalRegionDisplay()
+        private void OnSaveRoi()
         {
             if (_currentRoi.Region == null || !_currentRoi.Region.IsInitialized())
-                return;
-
-            HObject finalRegion = _currentRoi.Region;
-            if (_accumulatedMaskRegion != null && _accumulatedMaskRegion.IsInitialized() &&
-                _accumulatedMaskRegion.CountObj() > 0)
             {
-                HObject diffRegion = new HObject();
-                HOperatorSet.Difference(finalRegion, _accumulatedMaskRegion, out diffRegion);
-                finalRegion = diffRegion;
-            }
-
-            CurrentRegionDisplay?.Dispose();
-            CurrentRegionDisplay = finalRegion;
-            RaisePropertyChanged(nameof(CurrentRegionDisplay));
-        }
-
-        // ==================== 模板操作 ====================
-        private void CreateModel()
-        {
-            // 同步非多边形参数
-            if (_currentRoi.Style != RoiType.POLYGON)
-                _currentRoi.SyncFromDrawingObject();
-            _currentRoi.GenerateRegion();
-
-            UpdateFinalRegionDisplay(); // 确保 CurrentRegionDisplay 是最新的差集
-
-            if (CurrentRegionDisplay == null || !CurrentRegionDisplay.IsInitialized())
-            {
-                StatusMessage = "无有效区域";
+                MessageBox.Show("没有可保存的ROI区域", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-
-            try
+            SaveFileDialog saveFileDialog = new SaveFileDialog
             {
-                _currentModelId = _matchingService.CreateShapeModel(CurrentRegionDisplay);
-                StatusMessage = "模板创建成功";
-            }
-            catch (Exception ex)
+                Filter = "Region Files|*.reg|All Files|*.*",
+                Title = "保存ROI文件"
+            };
+            if (saveFileDialog.ShowDialog() == true)
             {
-                StatusMessage = $"创建模板失败：{ex.Message}";
-            }
-        }
-
-        private void FindModel()
-        {
-            if (_currentModelId == null) return;
-            try
-            {
-                _matchingService.FindShapeModel(_currentModelId, out HTuple row, out HTuple col, out HTuple angle, out HTuple score);
-                if (score > 0)
+                try
                 {
-                    _matchingService.DisplayResult(row, col, angle, score);
-                    StatusMessage = $"找到模板: Row={row:F2}, Col={col:F2}, Angle={angle:F2}, Score={score:F2}";
+                    HOperatorSet.WriteRegion(_currentRoi.Region, saveFileDialog.FileName);
+                    RoiPath = saveFileDialog.FileName;
                 }
-                else
-                    StatusMessage = "未找到模板";
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"查找失败：{ex.Message}";
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"保存ROI失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
-        public void Dispose()
+        private void OnLoadRoi()
         {
-            _currentRoi.Dispose();
-            _accumulatedMaskRegion?.Dispose();
-            _accumulatedEraseRegion?.Dispose();
-            CurrentImage?.Dispose();
-            CurrentRegionDisplay?.Dispose();
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Filter = "Region Files|*.reg|All Files|*.*",
+                Title = "加载ROI文件"
+            };
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    HOperatorSet.ReadRegion(out HObject region, openFileDialog.FileName);
+                    _currentRoi.Region = region;
+                    RoiPath = openFileDialog.FileName;
+                    RedrawImage();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"加载ROI失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
         }
+
+        private void OnClearRoi()
+        {
+            if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+            {
+                _currentRoi.Region.Dispose();
+            }
+            _currentRoi.Region = new HObject();
+            RoiPath = null;
+            RedrawImage();
+        }
+        #endregion
+
+        #region 图像显示辅助
+        private void RedrawImage()
+        {
+            if (_halconWindow == null || CurrentImage == null || !CurrentImage.IsInitialized())
+                return;
+            try
+            {
+                _halconWindow.ClearWindow();
+                _halconWindow.DispObj(CurrentImage);
+                if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+                {
+                    _halconWindow.SetColor("green");
+                    _halconWindow.SetDraw("margin");
+                    _halconWindow.SetLineWidth(2);
+                    _halconWindow.DispObj(_currentRoi.Region);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"RedrawImage error: {ex.Message}");
+            }
+        }
+        #endregion
     }
 }

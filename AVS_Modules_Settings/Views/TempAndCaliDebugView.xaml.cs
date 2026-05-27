@@ -1,5 +1,4 @@
 ﻿using AVS_Modules_Settings.ViewModels;
-using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,13 +6,16 @@ using System.Windows.Input;
 namespace AVS_Modules_Settings.Views
 {
     /// <summary>
-    /// TempAndCaliDebugView.xaml 的交互逻辑
+    /// TempAndCaliDebugView.xaml 容器代码后置
+    /// 将图像区域的鼠标事件路由到 TemplateMatchingViewModel，
+    /// 由 TemplateMatchingVM 统一处理 ROI 绘制、多边形和掩膜编辑。
+    /// 参照 PreviousTempAndCaliDebugViewModel 的设计方案。
     /// </summary>
     public partial class TempAndCaliDebugView : UserControl
     {
-        private double _lastRightClickRow;
-        private double _lastRightClickCol;
         private TempAndCaliDebugViewModel _viewModel;
+        private TemplateMatchingViewModel _tmVM => _viewModel?.TemplateMatchingVM;
+
         public TempAndCaliDebugView()
         {
             InitializeComponent();
@@ -22,32 +24,42 @@ namespace AVS_Modules_Settings.Views
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if (e.NewValue is TempAndCaliDebugViewModel vm)
-            {
-                if (_viewModel != null)
-                    _viewModel.PropertyChanged -= _viewModel_PropertyChanged;
-                _viewModel = vm;
-                _viewModel.PropertyChanged += _viewModel_PropertyChanged;
-                UpdateMoveContentState();
-                CameraDisplay.MouseLeftButtonDown += OnMouseLeftDown;
-                CameraDisplay.MouseLeftButtonUp += OnMouseLeftUp;
-                CameraDisplay.MouseMove += CameraDisplay_MouseMove;
-                CameraDisplay.MouseRightButtonDown += OnMouseRightDown;
-            }
             if (e.OldValue is TempAndCaliDebugViewModel oldVm)
             {
-                oldVm.PropertyChanged -= _viewModel_PropertyChanged;
-                CameraDisplay.MouseLeftButtonDown -= OnMouseLeftDown;
-                CameraDisplay.MouseLeftButtonUp -= OnMouseLeftUp;
-                CameraDisplay.MouseMove -= CameraDisplay_MouseMove;
-                CameraDisplay.MouseRightButtonDown -= OnMouseRightDown;
+                UnsubscribeEvents();
+            }
+            if (e.NewValue is TempAndCaliDebugViewModel vm)
+            {
+                _viewModel = vm;
+                _viewModel.SetHalconWindow(CameraDisplay.HalconWindow);
+                SubscribeEvents();
+                UpdateMoveContentState();
             }
         }
 
-        private void _viewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        private void SubscribeEvents()
         {
-            if (e.PropertyName == nameof(TempAndCaliDebugViewModel.IsMaskEditing) ||
-            e.PropertyName == nameof(TempAndCaliDebugViewModel.IsDrawingPolygon))
+            CameraDisplay.MouseLeftButtonDown += OnMouseLeftDown;
+            CameraDisplay.MouseLeftButtonUp += OnMouseLeftUp;
+            CameraDisplay.MouseMove += OnMouseMove;
+            CameraDisplay.MouseRightButtonDown += OnMouseRightDown;
+            if (_tmVM != null)
+                _tmVM.PropertyChanged += OnTmPropertyChanged;
+        }
+
+        private void UnsubscribeEvents()
+        {
+            CameraDisplay.MouseLeftButtonDown -= OnMouseLeftDown;
+            CameraDisplay.MouseLeftButtonUp -= OnMouseLeftUp;
+            CameraDisplay.MouseMove -= OnMouseMove;
+            CameraDisplay.MouseRightButtonDown -= OnMouseRightDown;
+            if (_tmVM != null)
+                _tmVM.PropertyChanged -= OnTmPropertyChanged;
+        }
+
+        private void OnTmPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(TemplateMatchingViewModel.IsCustomMode))
             {
                 UpdateMoveContentState();
             }
@@ -55,70 +67,84 @@ namespace AVS_Modules_Settings.Views
 
         private void UpdateMoveContentState()
         {
-            if (_viewModel == null) return;
-            bool customMode = _viewModel.IsMaskEditing || _viewModel.IsDrawingPolygon;
-            CameraDisplay.HMoveContent = !customMode;
+            if (_tmVM == null) return;
+            CameraDisplay.HMoveContent = !_tmVM.IsCustomMode;
         }
 
-        private void CameraDisplay_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (_viewModel?.IsMaskEditing == true && e.LeftButton == MouseButtonState.Pressed)
-            {
-                var pos = e.GetPosition(CameraDisplay.HsmartWindowControl);
-                CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out double row, out double col);
-                _viewModel.OnMouseMove(row, col);
-                e.Handled = true;
-            }
-        }
         private void CameraDisplay_Loaded(object sender, RoutedEventArgs e)
         {
             _viewModel?.SetHalconWindow(CameraDisplay.HalconWindow);
+            UpdateMoveContentState();
         }
-        private void OnMouseRightDown(object sender, MouseButtonEventArgs e)
-        {
-            var pos = e.GetPosition(CameraDisplay.HsmartWindowControl);
-            CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out _lastRightClickRow, out _lastRightClickCol);
-            if (_viewModel != null)
-            {
-                _viewModel.CurrentMouseRow = _lastRightClickRow;
-                _viewModel.CurrentMouseCol = _lastRightClickCol;
-            }
-            if (_viewModel?.IsDrawingPolygon == true)
-            {
-                _viewModel.FinishPolygon();
-                e.Handled = true;
-            }          
-        }
-        private void HalconWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is TempAndCaliDebugViewModel vm)
-            {
-                _viewModel?.SetHalconWindow(CameraDisplay.HalconWindow);
-            }
-        }
+
         private void OnMouseLeftDown(object sender, MouseButtonEventArgs e)
         {
-            if (_viewModel == null) return;
-            var pos = e.GetPosition(CameraDisplay.HsmartWindowControl);
-            CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out double row, out double col);
-            if (_viewModel.IsMaskEditing)
+            if (_tmVM == null || !_tmVM.IsCustomMode) return;
+            ConvertToImageCoords(e, out double row, out double col);
+            // 更新坐标
+            _tmVM.CurrentMouseRow = row;
+            _tmVM.CurrentMouseCol = col;
+            _viewModel.CurrentMouseRow = row;
+            _viewModel.CurrentMouseCol = col;
+            if (_tmVM.IsDrawingPolygon)
             {
-                _viewModel.OnMouseDown(row, col);
-                e.Handled = true;
+                _tmVM.AddPolygonPoint(row, col);
             }
-            else if (_viewModel.IsDrawingPolygon)
+            else
             {
-                _viewModel.AddPolygonPoint(row, col);
-                e.Handled = true;
+                _tmVM.OnMouseDown(row, col);
             }
+            e.Handled = true;
         }
+
         private void OnMouseLeftUp(object sender, MouseButtonEventArgs e)
         {
-            if (_viewModel?.IsMaskEditing == true)
+            if (_tmVM == null || !_tmVM.IsCustomMode) return;
+            _tmVM.OnMouseUp();
+            e.Handled = true;
+        }
+
+        private void OnMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_tmVM == null || !_tmVM.IsCustomMode) return;
+            if (e.LeftButton != MouseButtonState.Pressed) return;
+            ConvertToImageCoords(e, out double row, out double col);
+            _tmVM.CurrentMouseRow = row;
+            _tmVM.CurrentMouseCol = col;
+            _viewModel.CurrentMouseRow = row;
+            _viewModel.CurrentMouseCol = col;
+            if (_tmVM.IsDrawingPolygon)
             {
-                _viewModel.OnMouseUp();
+                // 多边形模式下左键拖动不处理，只在按下时加点
+            }
+            else
+            {
+                _tmVM.OnMouseMove(row, col);
+            }
+            e.Handled = true;
+        }
+
+        private void OnMouseRightDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_tmVM == null) return;
+            ConvertToImageCoords(e, out double row, out double col);
+            _tmVM.CurrentMouseRow = row;
+            _tmVM.CurrentMouseCol = col;
+            _viewModel.CurrentMouseRow = row;
+            _viewModel.CurrentMouseCol = col;
+            if (_tmVM.IsDrawingPolygon)
+            {
+                _tmVM.FinishPolygon();
                 e.Handled = true;
             }
-        }     
+            // 右键不再弹出 ContextMenu
+            // ROI 绘制命令通过 TemplateMatchingView 右侧面板的按钮触发
+        }
+
+        private void ConvertToImageCoords(MouseEventArgs e, out double row, out double col)
+        {
+            var pos = e.GetPosition(CameraDisplay.HsmartWindowControl);
+            CameraDisplay.HalconWindow.ConvertCoordinatesWindowToImage(pos.Y, pos.X, out row, out col);
+        }
     }
 }

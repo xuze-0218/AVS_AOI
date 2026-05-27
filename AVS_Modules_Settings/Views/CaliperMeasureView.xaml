@@ -1,0 +1,250 @@
+<UserControl
+    x:Class="AVS_Modules_Settings.Views.CaliperMeasureView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="600"
+    d:DesignWidth="340"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <StackPanel Margin="0" Background="AliceBlue">
+        <!--  边缘参数  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="边缘参数"
+            IsExpanded="True">
+            <StackPanel Margin="4">
+                <CheckBox Content="边缘对模式" IsChecked="{Binding CaliperIsEdge}" />
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="Sigma:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding CaliperSigma, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="阈值:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding CaliperThreshold, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="过渡方向:" />
+                    <ComboBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Margin="2"
+                        SelectedIndex="{Binding CaliperTransition}">
+                        <ComboBoxItem Content="白到黑" />
+                        <ComboBoxItem Content="黑到白" />
+                        <ComboBoxItem Content="全部" />
+                    </ComboBox>
+
+                    <TextBlock
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="边缘选择:" />
+                    <ComboBox
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Margin="2"
+                        SelectedIndex="{Binding CaliperSelect}">
+                        <ComboBoxItem Content="第一个" />
+                        <ComboBoxItem Content="最后一个" />
+                        <ComboBoxItem Content="全部" />
+                    </ComboBox>
+                </Grid>
+            </StackPanel>
+        </Expander>
+
+        <!--  测量设置  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="测量设置"
+            IsExpanded="False">
+            <StackPanel Margin="4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="测量模式:" />
+                    <ComboBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        ItemsSource="{Binding SelectMeasureOptions}"
+                        SelectedIndex="{Binding CaliperSelectMeasure}" />
+
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="缩放:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding CaliperScale, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="插值方式:" />
+                    <ComboBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Margin="2"
+                        ItemsSource="{Binding InterpolationOptions}"
+                        SelectedItem="{Binding CaliperInterpolation}" />
+                </Grid>
+            </StackPanel>
+        </Expander>
+
+        <!--  显示选项  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="显示选项"
+            IsExpanded="False">
+            <StackPanel Margin="4">
+                <CheckBox Content="显示卡尺(尺子)" IsChecked="{Binding CaliperIsRule}" />
+                <CheckBox Content="显示测量线" IsChecked="{Binding CaliperIsLine}" />
+                <CheckBox Content="显示十字" IsChecked="{Binding CaliperIsCross}" />
+            </StackPanel>
+        </Expander>
+
+        <!--  判定条件  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="判定条件"
+            IsExpanded="False">
+            <StackPanel Margin="4">
+                <CheckBox Content="启用测量判定" IsChecked="{Binding CaliperIsMeasure}" />
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="下限:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding CaliperLowMeasure, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="上限:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding CaliperHighMeasure, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Expander>
+
+        <!--  FIXTURE设置  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="FIXTURE"
+            IsExpanded="False">
+            <StackPanel Margin="4">
+                <CheckBox Content="启用FIXTURE" IsChecked="{Binding CaliperIsFixture}" />
+                <TextBlock Text="FIXTURE名称:" />
+                <TextBox Text="{Binding CaliperFixtureName, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+        </Expander>
+
+        <!--  测量结果表格  -->
+        <TextBlock
+            Margin="0,4,0,2"
+            FontWeight="Bold"
+            Text="测量结果:" />
+        <DataGrid
+            MaxHeight="150"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            CanUserDeleteRows="False"
+            IsReadOnly="True"
+            ItemsSource="{Binding CaliperResults}">
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Width="30"
+                    Binding="{Binding Index}"
+                    Header="#" />
+                <DataGridTextColumn
+                    Width="50"
+                    Binding="{Binding Row, StringFormat=F2}"
+                    Header="Row" />
+                <DataGridTextColumn
+                    Width="50"
+                    Binding="{Binding Col, StringFormat=F2}"
+                    Header="Col" />
+                <DataGridTextColumn
+                    Width="50"
+                    Binding="{Binding Amplitude, StringFormat=F2}"
+                    Header="幅值" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding IntraDistance, StringFormat=F2}"
+                    Header="边缘对宽" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding InterDistance, StringFormat=F2}"
+                    Header="对间距" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </StackPanel>
+
+</UserControl>

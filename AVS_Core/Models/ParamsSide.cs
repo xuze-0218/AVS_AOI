@@ -83,7 +83,7 @@ namespace AVS_Core.Models
         public int maxMatchNum;     //最大匹配数目
         public double maxOverlap;   //最大重叠
         public int numLevel;        //最大金子塔层级
-        public double greediness;   //贪心值
+        public double greediness;   //贪婪度
         public string subPixel;     //亚像素
     }
 

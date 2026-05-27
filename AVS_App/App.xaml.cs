@@ -55,6 +55,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
             containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
             containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
+            containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()

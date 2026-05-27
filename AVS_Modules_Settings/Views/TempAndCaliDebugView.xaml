@@ -4,65 +4,154 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:common="clr-namespace:AVS_Common;assembly=AVS_Common"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:halcon="clr-namespace:HalconDotNet;assembly=halcondotnet"
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    d:DesignHeight="600"
-    d:DesignWidth="800"
+    d:DesignHeight="700"
+    d:DesignWidth="1000"
     mc:Ignorable="d">
 
-    <Grid>
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Background="AliceBlue">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ToolBar Grid.Row="0">
+        <!--  工具栏  -->
+        <ToolBar Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
             <Button Command="{Binding LoadImageCommand}" Content="加载图像" />
-            <Separator />
-            <ToggleButton Content="掩膜编辑" IsChecked="{Binding IsMaskEditing}" />
-            <ToggleButton Content="擦除模式" IsChecked="{Binding IsEraseMode}" IsEnabled="{Binding IsMaskEditing}" />
-            <StackPanel Margin="5,0" Orientation="Horizontal">
-                <TextBlock VerticalAlignment="Center" Text="大小:" />
-                <TextBox
-                    Width="40"
-                    Margin="3,0"
-                    Text="{Binding EraserSize, UpdateSourceTrigger=PropertyChanged}" />
-                <ComboBox
-                    Width="80"
-                    ItemsSource="{Binding EraserTypes}"
-                    SelectedItem="{Binding EraserType}" />
-            </StackPanel>
-            <Button Command="{Binding ClearMaskCommand}" Content="清除掩膜" />
             <Separator />
             <Button Command="{Binding CreateModelCommand}" Content="创建模板" />
             <Button Command="{Binding FindModelCommand}" Content="查找模板" />
             <Separator />
-            <Button Command="{Binding ClearDrawingCommand}" Content="清除绘图" />
+            <Button Command="{Binding SaveModelCommand}" Content="保存模板" />
+            <Button Command="{Binding LoadModelCommand}" Content="加载模板" />
+            <Separator />
+            <Button Command="{Binding SaveRoiCommand}" Content="保存ROI" />
+            <Button Command="{Binding LoadRoiCommand}" Content="加载ROI" />
+            <Button Command="{Binding ClearRoiCommand}" Content="清除ROI" />
+            <Separator />
+            <ToggleButton Content="搜索区" IsChecked="{Binding IsSearchRegion}" />
+            <Separator />
+            <Button
+                Command="{Binding RunCommand}"
+                Content="▶ 执行"
+                FontWeight="Bold" />
+            <Separator />
+            <Button Command="{Binding ConfirmCommand}" Content="✓ 确认" />
+            <Button Command="{Binding CancelCommand}" Content="✗ 取消" />
         </ToolBar>
 
-        <common:CameraDisplayUnit
-            x:Name="CameraDisplay"
-            Grid.Row="1"
-            DispImage="{Binding CurrentImage}"
-            DispRegion="{Binding CurrentRegionDisplay}"
-            Loaded="CameraDisplay_Loaded">
-            <common:CameraDisplayUnit.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Command="{Binding DrawRect1Command}" Header="矩形 (Rect1)" />
-                    <MenuItem Command="{Binding DrawRect2Command}" Header="旋转矩形 (Rect2)" />
-                    <MenuItem Command="{Binding DrawCircleCommand}" Header="圆形 (Circle)" />
-                    <MenuItem Command="{Binding DrawPolygonCommand}" Header="多边形 (Polygon)" />
-                    <Separator />
-                    <MenuItem Command="{Binding ClearDrawingCommand}" Header="清除绘图" />
-                </ContextMenu>
-            </common:CameraDisplayUnit.ContextMenu>
-        </common:CameraDisplayUnit>
+        <!--  主内容区  -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
 
-        <StatusBar Grid.Row="2">
+            <!--  图像显示区  -->
+            <common:CameraDisplayUnit
+                x:Name="CameraDisplay"
+                Grid.Column="0"
+                DispImage="{Binding CurrentImage}"
+                DispRegion="{Binding CurrentRegionDisplay}"
+                Loaded="CameraDisplay_Loaded">
+            </common:CameraDisplayUnit>
+
+            <GridSplitter
+                Grid.Column="1"
+                Width="5"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch" />
+
+            <!--  右侧参数面板：嵌入子视图  -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="8">
+                    <!--  模板匹配分组  -->
+                    <Border
+                        Margin="0,0,0,6"
+                        Padding="6,3"
+                        Background="#FFE3F2FD"
+                        BorderBrush="#FF2196F3"
+                        BorderThickness="1"
+                        CornerRadius="3">
+                        <TextBlock
+                            FontSize="13"
+                            FontWeight="Bold"
+                            Foreground="#FF0D47A1"
+                            Text="📐 模板匹配" />
+                    </Border>
+                    <local:TemplateMatchingView DataContext="{Binding TemplateMatchingVM}" />
+                    <Separator Margin="0,12,0,6" />
+                    <!--  卡尺测量分组  -->
+                    <Border
+                        Margin="0,0,0,6"
+                        Padding="6,3"
+                        Background="#FFE8F5E9"
+                        BorderBrush="#FF4CAF50"
+                        BorderThickness="1"
+                        CornerRadius="3">
+                        <TextBlock
+                            FontSize="13"
+                            FontWeight="Bold"
+                            Foreground="#FF1B5E20"
+                            Text="📏 卡尺测量" />
+                    </Border>
+                    <local:CaliperMeasureView DataContext="{Binding CaliperMeasureVM}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!--  状态栏  -->
+        <StatusBar Grid.Row="2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <StatusBarItem Width="120">
+                <TextBlock Text="{Binding RunTime, StringFormat='耗时: {0}'}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem Width="120">
+                <TextBlock>
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPass}" Value="True">
+                                    <Setter Property="Foreground" Value="Green" />
+                                    <Setter Property="Text" Value="PASS" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsPass}" Value="False">
+                                    <Setter Property="Foreground" Value="Red" />
+                                    <Setter Property="Text" Value="FAIL" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem Width="Auto">
+                <TextBlock Text="{Binding RunResult, StringFormat='结果: {0}'}" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock VerticalAlignment="Center" Text="行:" />
+            </StatusBarItem>
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusMessage}" />
+                <TextBlock
+                    Width="60"
+                    VerticalAlignment="Center"
+                    Text="{Binding CurrentMouseRow, StringFormat=F1}" />
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock VerticalAlignment="Center" Text="列:" />
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock
+                    Width="60"
+                    VerticalAlignment="Center"
+                    Text="{Binding CurrentMouseCol, StringFormat=F1}" />
             </StatusBarItem>
         </StatusBar>
     </Grid>
