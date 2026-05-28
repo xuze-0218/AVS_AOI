@@ -5,14 +5,16 @@ using Microsoft.Win32;
 using Prism.Commands;
 using Prism.Mvvm;
 using System;
+using System.Collections.Generic;
 using System.Windows;
 
 namespace AVS_Modules_Settings.ViewModels
 {
     /// <summary>
     /// 温度与标定调试 - 协调器ViewModel
-    /// 统一管理子ViewModel，模板匹配和卡尺测量逻辑委托给子ViewModel，
-    /// 区域绘制和掩膜操作完全由 TemplateMatchingViewModel 负责（参照 PreviousTempAndCaliDebugViewModel 设计）。
+    /// 统一管理子ViewModel和ROI绘制，
+    /// 掩膜编辑仍由 TemplateMatchingViewModel 负责，
+    /// ROI绘制提升至协调器层供模板匹配和卡尺测量共用。
     /// </summary>
     public class TempAndCaliDebugViewModel : BindableBase
     {
@@ -45,13 +47,27 @@ namespace AVS_Modules_Settings.ViewModels
             TemplateMatchingVM = new TemplateMatchingViewModel(matchingService);
             CaliperMeasureVM = new CaliperMeasureViewModel(caliperService);
 
+            // 将当前 ROI 对象引用注入子 ViewModel，使模板匹配/掩膜编辑可独立同步 DrawingObject
+            TemplateMatchingVM.ActiveRoi = _currentRoi;
+
+            // ===== 命令 =====
             RunCommand = new DelegateCommand(OnRun);
-            ConfirmCommand = new DelegateCommand(OnConfirm);
-            CancelCommand = new DelegateCommand(OnCancel);
             LoadImageCommand = new DelegateCommand(OnLoadImage);
             SaveRoiCommand = new DelegateCommand(OnSaveRoi);
             LoadRoiCommand = new DelegateCommand(OnLoadRoi);
             ClearRoiCommand = new DelegateCommand(OnClearRoi);
+
+            // ===== ROI绘制命令（迁入协调器层） =====
+            DrawRect1Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE1, "red"));
+            DrawRect2Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE2, "green"));
+            DrawCircleCommand = new DelegateCommand(() => StartDraw(RoiType.CIRCLE, "yellow"));
+            DrawPolygonCommand = new DelegateCommand(StartPolygonDraw);
+            ClearDrawingCommand = new DelegateCommand(ClearDrawing);
+            ConfirmRoiCommand = new DelegateCommand(OnConfirmRoi);
+
+            // ===== 初始化多边形数据 =====
+            _polygonTempRows = new List<double>();
+            _polygonTempCols = new List<double>();
         }
         #endregion
 
@@ -104,7 +120,6 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         private string _cameraRoleName;
-
         public string CameraRoleName
         {
             get => _cameraRoleName;
@@ -124,8 +139,38 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _isSearchRegion, value);
         }
 
-        /// <summary>当前是否处于自定义交互模式（委托给 TemplateMatchingVM）</summary>
-        public bool IsCustomMode => TemplateMatchingVM?.IsCustomMode ?? false;
+        private bool _isRoiVisible = true;
+        /// <summary>控制绿色 ROI 区域在图像上的显示/隐藏</summary>
+        public bool IsRoiVisible
+        {
+            get => _isRoiVisible;
+            set
+            {
+                if (SetProperty(ref _isRoiVisible, value))
+                    RedrawImage();
+            }
+        }
+
+        // ===== ROI 绘制相关 =====
+        private List<double> _polygonTempRows;
+        private List<double> _polygonTempCols;
+
+        private bool _isDrawingPolygon;
+        public bool IsDrawingPolygon
+        {
+            get => _isDrawingPolygon;
+            set
+            {
+                if (SetProperty(ref _isDrawingPolygon, value))
+                    RaisePropertyChanged(nameof(IsCustomMode));
+            }
+        }
+
+        /// <summary>
+        /// 当前是否处于自定义交互模式（多边形绘制），用于禁用 HMoveContent
+        /// 掩膜编辑的 IsCustomMode 仍由 TemplateMatchingVM 提供
+        /// </summary>
+        public bool IsCustomMode => IsDrawingPolygon || (TemplateMatchingVM?.IsCustomMode ?? false);
         #endregion
 
         #region 公共属性 - 运行结果
@@ -152,20 +197,23 @@ namespace AVS_Modules_Settings.ViewModels
 
         private string _roiPath;
         public string RoiPath { get => _roiPath; set => SetProperty(ref _roiPath, value); }
+
+        private string _statusMessage = "右键图像选择ROI形状，拖动调整";
+        public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         #endregion
 
         #region 命令
         public DelegateCommand RunCommand { get; }
-        public DelegateCommand ConfirmCommand { get; }
-        public DelegateCommand CancelCommand { get; }
         public DelegateCommand LoadImageCommand { get; }
-        public DelegateCommand CreateModelCommand { get; }
-        public DelegateCommand FindModelCommand { get; }
-        public DelegateCommand SaveModelCommand { get; }
-        public DelegateCommand LoadModelCommand { get; }
         public DelegateCommand SaveRoiCommand { get; }
         public DelegateCommand LoadRoiCommand { get; }
         public DelegateCommand ClearRoiCommand { get; }
+        public DelegateCommand DrawRect1Command { get; }
+        public DelegateCommand DrawRect2Command { get; }
+        public DelegateCommand DrawCircleCommand { get; }
+        public DelegateCommand DrawPolygonCommand { get; }
+        public DelegateCommand ClearDrawingCommand { get; }
+        public DelegateCommand ConfirmRoiCommand { get; }
         #endregion
 
         #region Halcon窗口设置
@@ -176,20 +224,44 @@ namespace AVS_Modules_Settings.ViewModels
         #endregion
 
         #region 命令实现
+
         private void OnRun()
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
+                // 同步 DrawingObject 参数并生成 Region
+                if (_currentRoi.Style != RoiType.POLYGON)
+                    _currentRoi.SyncFromDrawingObject();
+                _currentRoi.GenerateRegion();
+
+                // 更新协调器的 RegionDisplay
+                if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+                {
+                    CurrentRegionDisplay?.Dispose();
+                    CurrentRegionDisplay = _currentRoi.Region.Clone();
+                }
+
+                // 模板匹配：使用 ROI Region
                 if (TemplateMatchingVM != null)
                 {
                     TemplateMatchingVM.ModelRegion = _currentRoi.Region;
                     TemplateMatchingVM.FindModelCommand?.Execute();
                 }
+
+                // 卡尺测量：如果当前 ROI 是矩形2，传入矩形参数
                 if (CaliperMeasureVM != null && _currentRoi.Region != null && _currentRoi.Region.IsInitialized())
                 {
-                    CaliperMeasureVM.Measure(_currentRoi.Region);
+                    if (_currentRoi.Style == RoiType.RECTANGLE2)
+                    {
+                        // 卡尺测量：仅支持矩形2 ROI
+                        CaliperMeasureVM.MeasureWithRect2(
+                            _currentRoi.Y, _currentRoi.X,
+                            _currentRoi.Angle,
+                            _currentRoi.Length1, _currentRoi.Length2);
+                    }
                 }
+
                 RunResult = "OK";
                 IsPass = true;
                 RedrawImage();
@@ -202,28 +274,6 @@ namespace AVS_Modules_Settings.ViewModels
             }
             sw.Stop();
             RunTime = $"{sw.ElapsedMilliseconds} ms";
-        }
-
-        private void OnConfirm()
-        {
-            //更新并锁定当前 ROI
-            if (TemplateMatchingVM != null)
-            {
-                // 同步模板匹配VM中的Region到协调器
-                var finalRegion = TemplateMatchingVM.FinalRegion;
-                if (finalRegion != null && finalRegion.IsInitialized())
-                {
-                    _currentRoi.Region?.Dispose();
-                    _currentRoi.Region = finalRegion.Clone();
-                }
-            }
-            RedrawImage();
-        }
-
-        private void OnCancel()
-        {
-            // 取消操作：重绘图像
-            RedrawImage();
         }
 
         private void OnLoadImage()
@@ -252,6 +302,8 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void OnSaveRoi()
         {
+            _currentRoi.SyncFromDrawingObject();
+            _currentRoi.GenerateRegion();
             if (_currentRoi.Region == null || !_currentRoi.Region.IsInitialized())
             {
                 MessageBox.Show("没有可保存的ROI区域", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -301,18 +353,183 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void OnClearRoi()
         {
+            _currentRoi.DetachDrawingObject();
             if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
             {
                 _currentRoi.Region.Dispose();
             }
             _currentRoi.Region = new HObject();
             RoiPath = null;
+            if (_halconWindow != null)
+            {
+                _halconWindow.ClearWindow();
+                DisplayImagePreserveZoom();
+            }
+            StatusMessage = "ROI已清除，右键图像重新绘制";
+        }
+        #endregion
+
+        #region ROI 形状绘制（从 TemplateMatchingVM 迁入）
+
+        private void StartDraw(RoiType type, string color)
+        {
+            if (_halconWindow == null) return;
+            if (TemplateMatchingVM != null && TemplateMatchingVM.IsMaskEditing)
+            {
+                StatusMessage = "请先退出掩膜编辑模式再绘制ROI";
+                return;
+            }
+
+            _currentRoi.DetachDrawingObject();
+            _currentRoi.Style = type;
+            _currentRoi.Color = color;
+
+            // 以鼠标右键点击位置为中心，设置默认大小
+            double size = 100;
+            double col = _currentMouseCol;
+            double row = _currentMouseRow;
+
+            switch (type)
+            {
+                case RoiType.RECTANGLE1:
+                    _currentRoi.LeftX = col - size / 2;
+                    _currentRoi.LeftY = row - size / 2;
+                    _currentRoi.RightX = col + size / 2;
+                    _currentRoi.RightY = row + size / 2;
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    break;
+                case RoiType.RECTANGLE2:
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    _currentRoi.Length1 = size / 2;
+                    _currentRoi.Length2 = size / 2;
+                    _currentRoi.Angle = 0;
+                    break;
+                case RoiType.CIRCLE:
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    _currentRoi.Radius = size / 2;
+                    break;
+            }
+
+            if (!_currentRoi.AttachDrawingObject(_halconWindow))
+                StatusMessage = $"无法创建 {type} 绘图对象";
+            else
+                StatusMessage = $"绘制 {type}：拖动调整大小和位置，右键可重新选择形状";
+        }
+
+        private void StartPolygonDraw()
+        {
+            if (_halconWindow == null) return;
+            EndPolygonDraw();
+            _currentRoi.DetachDrawingObject();
+            _currentRoi.Style = RoiType.POLYGON;
+            _currentRoi.Color = "cyan";
+            _polygonTempRows.Clear();
+            _polygonTempCols.Clear();
+            _isDrawingPolygon = true;
+            StatusMessage = "多边形绘制：左键添加顶点，右键闭合结束";
+        }
+
+        public void AddPolygonPoint(double row, double col)
+        {
+            if (!_isDrawingPolygon) return;
+            _polygonTempRows.Add(row);
+            _polygonTempCols.Add(col);
+            DrawTempPolygon();
+        }
+
+        /// <summary>右键调用：完成多边形闭合</summary>
+        public void FinishPolygon()
+        {
+            if (!_isDrawingPolygon || _polygonTempRows.Count < 3)
+            {
+                StatusMessage = "多边形至少需要3个顶点";
+                _isDrawingPolygon = false;
+                return;
+            }
+            _currentRoi.SetPolygonVertices(new HTuple(_polygonTempRows.ToArray()), new HTuple(_polygonTempCols.ToArray()));
+            _currentRoi.GenerateRegion();
+            _isDrawingPolygon = false;
+            RaisePropertyChanged(nameof(IsCustomMode));
+
+            // 刷新窗口显示闭合后的多边形区域
+            DisplayImagePreserveZoom();
+            if (_halconWindow != null && _currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+            {
+                _halconWindow.SetColor("green");
+                _halconWindow.SetDraw("margin");
+                _halconWindow.SetLineWidth(2);
+                _halconWindow.DispObj(_currentRoi.Region);
+            }
+            StatusMessage = "多边形绘制完成，右键可重新选择形状";
+        }
+
+        private void EndPolygonDraw()
+        {
+            if (IsDrawingPolygon)
+            {
+                IsDrawingPolygon = false;
+                if (_halconWindow != null)
+                {
+                    DisplayImagePreserveZoom();
+                }
+            }
+        }
+
+        private void DrawTempPolygon()
+        {
+            if (_halconWindow == null || _polygonTempRows.Count < 2) return;
+            HOperatorSet.SetSystem("flush_graphic", "false");
+            DisplayImagePreserveZoom();
+            _halconWindow.SetColor("magenta");
+            _halconWindow.SetLineWidth(1);
+            double[] rows = _polygonTempRows.ToArray();
+            double[] cols = _polygonTempCols.ToArray();
+            for (int i = 0; i < rows.Length - 1; i++)
+                _halconWindow.DispLine(rows[i], cols[i], rows[i + 1], cols[i + 1]);
+            for (int i = 0; i < rows.Length; i++)
+                _halconWindow.DispCross(rows[i], cols[i], 6, 0);
+            HOperatorSet.SetSystem("flush_graphic", "true");
+        }
+
+        private void ClearDrawing()
+        {
+            _currentRoi.DetachDrawingObject();
+            if (_halconWindow != null)
+            {
+                _halconWindow.ClearWindow();
+                DisplayImagePreserveZoom();
+            }
+            _currentRoi.Region?.Dispose();
+            _currentRoi.Region = new HObject();
+            StatusMessage = "绘图已清除，右键图像重新绘制";
+        }
+
+        private void OnConfirmRoi()
+        {
+            if (_currentRoi.Style == RoiType.POLYGON)
+            {
+                StatusMessage = "多边形已确认，无需重复操作";
+                return;
+            }
+            if (_currentRoi.Region == null || !_currentRoi.Region.IsInitialized())
+            {
+                StatusMessage = "没有可确认的 ROI，请先右键绘制";
+                return;
+            }
+
+            _currentRoi.SyncFromDrawingObject();
+            _currentRoi.GenerateRegion();
+            _currentRoi.DetachDrawingObject();
             RedrawImage();
+            StatusMessage = "ROI 已确认，绿色区域固定显示";
         }
         #endregion
 
         #region 图像显示辅助
-        private void RedrawImage()
+        public void RedrawImage()
         {
             if (_halconWindow == null || CurrentImage == null || !CurrentImage.IsInitialized())
                 return;
@@ -320,7 +537,7 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 _halconWindow.ClearWindow();
                 _halconWindow.DispObj(CurrentImage);
-                if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+                if (IsRoiVisible && _currentRoi.Region != null && _currentRoi.Region.IsInitialized())
                 {
                     _halconWindow.SetColor("green");
                     _halconWindow.SetDraw("margin");
@@ -332,6 +549,15 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 System.Diagnostics.Debug.WriteLine($"RedrawImage error: {ex.Message}");
             }
+        }
+
+        private void DisplayImagePreserveZoom()
+        {
+            if (_halconWindow == null) return;
+            _halconWindow.ClearWindow();
+            HObject img = _currentImage;
+            if (img != null && img.IsInitialized())
+                img.DispObj(_halconWindow);
         }
         #endregion
     }

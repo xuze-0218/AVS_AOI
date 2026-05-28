@@ -7,9 +7,8 @@ namespace AVS_Modules_Settings.Views
 {
     /// <summary>
     /// TempAndCaliDebugView.xaml 容器代码后置
-    /// 将图像区域的鼠标事件路由到 TemplateMatchingViewModel，
-    /// 由 TemplateMatchingVM 统一处理 ROI 绘制、多边形和掩膜编辑。
-    /// 参照 PreviousTempAndCaliDebugViewModel 的设计方案。
+    /// ROI 绘制升级到协调器（TempAndCaliDebugViewModel），
+    /// 掩膜编辑仍由 TemplateMatchingViewModel 负责。
     /// </summary>
     public partial class TempAndCaliDebugView : UserControl
     {
@@ -25,50 +24,58 @@ namespace AVS_Modules_Settings.Views
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (e.OldValue is TempAndCaliDebugViewModel oldVm)
-            {
-                UnsubscribeEvents();
-            }
+                UnsubscribeEvents(oldVm);
             if (e.NewValue is TempAndCaliDebugViewModel vm)
             {
                 _viewModel = vm;
                 _viewModel.SetHalconWindow(CameraDisplay.HalconWindow);
-                SubscribeEvents();
+                SubscribeEvents(vm);
                 UpdateMoveContentState();
             }
         }
 
-        private void SubscribeEvents()
+        private void SubscribeEvents(TempAndCaliDebugViewModel vm)
         {
             CameraDisplay.MouseLeftButtonDown += OnMouseLeftDown;
             CameraDisplay.MouseLeftButtonUp += OnMouseLeftUp;
             CameraDisplay.MouseMove += OnMouseMove;
             CameraDisplay.MouseRightButtonDown += OnMouseRightDown;
+            // 监听协调器的 IsCustomMode 变化（多边形绘制）
+            vm.PropertyChanged += OnCoordinatorPropertyChanged;
+            // 也监听子 VM 的 IsCustomMode 变化（掩膜编辑）
             if (_tmVM != null)
                 _tmVM.PropertyChanged += OnTmPropertyChanged;
         }
 
-        private void UnsubscribeEvents()
+        private void UnsubscribeEvents(TempAndCaliDebugViewModel vm)
         {
             CameraDisplay.MouseLeftButtonDown -= OnMouseLeftDown;
             CameraDisplay.MouseLeftButtonUp -= OnMouseLeftUp;
             CameraDisplay.MouseMove -= OnMouseMove;
             CameraDisplay.MouseRightButtonDown -= OnMouseRightDown;
+            if (vm != null)
+                vm.PropertyChanged -= OnCoordinatorPropertyChanged;
             if (_tmVM != null)
                 _tmVM.PropertyChanged -= OnTmPropertyChanged;
+        }
+
+        private void OnCoordinatorPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(TempAndCaliDebugViewModel.IsCustomMode))
+                UpdateMoveContentState();
         }
 
         private void OnTmPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(TemplateMatchingViewModel.IsCustomMode))
-            {
                 UpdateMoveContentState();
-            }
         }
 
         private void UpdateMoveContentState()
         {
-            if (_tmVM == null) return;
-            CameraDisplay.HMoveContent = !_tmVM.IsCustomMode;
+            if (_viewModel == null) return;
+            // 多边形绘制 或 掩膜编辑 → 禁用平移
+            CameraDisplay.HMoveContent = !_viewModel.IsCustomMode;
         }
 
         private void CameraDisplay_Loaded(object sender, RoutedEventArgs e)
@@ -79,66 +86,70 @@ namespace AVS_Modules_Settings.Views
 
         private void OnMouseLeftDown(object sender, MouseButtonEventArgs e)
         {
-            if (_tmVM == null || !_tmVM.IsCustomMode) return;
+            if (_viewModel == null) return;
             ConvertToImageCoords(e, out double row, out double col);
-            // 更新坐标
-            _tmVM.CurrentMouseRow = row;
-            _tmVM.CurrentMouseCol = col;
-            _viewModel.CurrentMouseRow = row;
-            _viewModel.CurrentMouseCol = col;
-            if (_tmVM.IsDrawingPolygon)
+            UpdateMouseCoords(row, col);
+
+            if (_viewModel.IsDrawingPolygon)
             {
-                _tmVM.AddPolygonPoint(row, col);
+                // 多边形绘制模式：加点
+                _viewModel.AddPolygonPoint(row, col);
+                e.Handled = true;
             }
-            else
+            else if (_tmVM != null && _tmVM.IsCustomMode)
             {
+                // 掩膜编辑模式：路由到 TemplateMatchingVM
                 _tmVM.OnMouseDown(row, col);
+                e.Handled = true;
             }
-            e.Handled = true;
         }
 
         private void OnMouseLeftUp(object sender, MouseButtonEventArgs e)
         {
-            if (_tmVM == null || !_tmVM.IsCustomMode) return;
-            _tmVM.OnMouseUp();
-            e.Handled = true;
+            if (_tmVM == null) return;
+            if (_tmVM.IsCustomMode)
+            {
+                _tmVM.OnMouseUp();
+                e.Handled = true;
+            }
         }
 
         private void OnMouseMove(object sender, MouseEventArgs e)
         {
-            if (_tmVM == null || !_tmVM.IsCustomMode) return;
-            if (e.LeftButton != MouseButtonState.Pressed) return;
+            if (_viewModel == null) return;
             ConvertToImageCoords(e, out double row, out double col);
-            _tmVM.CurrentMouseRow = row;
-            _tmVM.CurrentMouseCol = col;
-            _viewModel.CurrentMouseRow = row;
-            _viewModel.CurrentMouseCol = col;
-            if (_tmVM.IsDrawingPolygon)
+            UpdateMouseCoords(row, col);
+
+            if (_viewModel.IsDrawingPolygon)
             {
-                // 多边形模式下左键拖动不处理，只在按下时加点
+                // 多边形模式不处理移动
             }
-            else
+            else if (_tmVM != null && _tmVM.IsCustomMode && e.LeftButton == MouseButtonState.Pressed)
             {
                 _tmVM.OnMouseMove(row, col);
+                e.Handled = true;
             }
-            e.Handled = true;
         }
 
         private void OnMouseRightDown(object sender, MouseButtonEventArgs e)
         {
-            if (_tmVM == null) return;
+            if (_viewModel == null) return;
             ConvertToImageCoords(e, out double row, out double col);
-            _tmVM.CurrentMouseRow = row;
-            _tmVM.CurrentMouseCol = col;
-            _viewModel.CurrentMouseRow = row;
-            _viewModel.CurrentMouseCol = col;
-            if (_tmVM.IsDrawingPolygon)
+            UpdateMouseCoords(row, col);
+
+            if (_viewModel.IsDrawingPolygon)
             {
-                _tmVM.FinishPolygon();
+                // 右键闭合多边形
+                _viewModel.FinishPolygon();
                 e.Handled = true;
             }
-            // 右键不再弹出 ContextMenu
-            // ROI 绘制命令通过 TemplateMatchingView 右侧面板的按钮触发
+            // 否则弹出 ContextMenu（右键选择ROI形状），不需要额外处理
+        }
+
+        private void UpdateMouseCoords(double row, double col)
+        {
+            _viewModel.CurrentMouseRow = row;
+            _viewModel.CurrentMouseCol = col;
         }
 
         private void ConvertToImageCoords(MouseEventArgs e, out double row, out double col)

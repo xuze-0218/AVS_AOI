@@ -23,61 +23,6 @@
                 TextWrapping="Wrap" />
         </Border>
 
-        <!--  ROI 绘制工具栏  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#E8F0E8"
-            BorderBrush="#AAA"
-            BorderThickness="1"
-            CornerRadius="3"
-            ToolTip="鼠标右键确定区域中心">
-            <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontSize="12"
-                    FontWeight="Bold"
-                    Text="ROI 绘制（右键图像选择形状）:" />
-                <WrapPanel>
-                    <Button
-                        Width="70"
-                        Margin="2"
-                        Background="LightCoral"
-                        Command="{Binding DrawRect1Command}"
-                        Content="矩形1"
-                        FontSize="11" />
-                    <Button
-                        Width="70"
-                        Margin="2"
-                        Background="LightGreen"
-                        Command="{Binding DrawRect2Command}"
-                        Content="矩形2"
-                        FontSize="11" />
-                    <Button
-                        Width="70"
-                        Margin="2"
-                        Background="LightYellow"
-                        Command="{Binding DrawCircleCommand}"
-                        Content="圆形"
-                        FontSize="11" />
-                    <Button
-                        Width="70"
-                        Margin="2"
-                        Background="Cyan"
-                        Command="{Binding DrawPolygonCommand}"
-                        Content="多边形"
-                        FontSize="11" />
-                    <Button
-                        Width="70"
-                        Margin="2"
-                        Background="#DDD"
-                        Command="{Binding ClearDrawingCommand}"
-                        Content="清除绘图"
-                        FontSize="11" />
-                </WrapPanel>
-            </StackPanel>
-        </Border>
-
         <!--  掩膜编辑  -->
         <Border
             Margin="2,0,2,4"

@@ -21,23 +21,30 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!--  工具栏  -->
+        <!--  工具栏（简化：移除确认/取消）  -->
         <ToolBar Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
             <Button Command="{Binding LoadImageCommand}" Content="加载图像" />
-            <Separator />
-            <Button Command="{Binding SaveRoiCommand}" Content="保存ROI" />
-            <Button Command="{Binding LoadRoiCommand}" Content="加载ROI" />
-            <Button Command="{Binding ClearRoiCommand}" Content="清除ROI" />
-            <Separator />
-            <ToggleButton Content="搜索区" IsChecked="{Binding IsSearchRegion}" />
             <Separator />
             <Button
                 Command="{Binding RunCommand}"
                 Content="▶ 执行"
                 FontWeight="Bold" />
             <Separator />
-            <Button Command="{Binding ConfirmCommand}" Content="✓ 确认" />
-            <Button Command="{Binding CancelCommand}" Content="✗ 取消" />
+            <ToggleButton Content="搜索区" IsChecked="{Binding IsSearchRegion}" />
+            <Separator />
+            <ToggleButton
+                Content="👁 ROI"
+                IsChecked="{Binding IsRoiVisible}"
+                ToolTip="显示/隐藏绿色 ROI 区域" />
+            <Separator />
+            <Button Command="{Binding SaveRoiCommand}" Content="保存ROI" />
+            <Button Command="{Binding LoadRoiCommand}" Content="加载ROI" />
+            <Button Command="{Binding ClearRoiCommand}" Content="清除ROI" />
+            <Separator />
+            <Button
+                Command="{Binding ConfirmRoiCommand}"
+                Content="确认ROI"
+                ToolTip="将可拖动红色框转为绿色固定区域" />
         </ToolBar>
 
         <!--  主内容区  -->
@@ -48,13 +55,36 @@
                 <ColumnDefinition Width="340" />
             </Grid.ColumnDefinitions>
 
-            <!--  图像显示区  -->
+            <!--  图像显示区（含右键菜单）  -->
             <common:CameraDisplayUnit
                 x:Name="CameraDisplay"
                 Grid.Column="0"
                 DispImage="{Binding CurrentImage}"
                 DispRegion="{Binding CurrentRegionDisplay}"
-                Loaded="CameraDisplay_Loaded" />
+                Loaded="CameraDisplay_Loaded">
+                <common:CameraDisplayUnit.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem
+                            Command="{Binding DrawRect1Command}"
+                            Header="矩形1 (Rectangle1)"
+                            ToolTip="轴向对齐矩形" />
+                        <MenuItem
+                            Command="{Binding DrawRect2Command}"
+                            Header="矩形2 (Rectangle2)"
+                            ToolTip="可旋转矩形 → 卡尺测量" />
+                        <MenuItem
+                            Command="{Binding DrawCircleCommand}"
+                            Header="圆形 (Circle)" />
+                        <MenuItem
+                            Command="{Binding DrawPolygonCommand}"
+                            Header="多边形 (Polygon)" />
+                        <Separator />
+                        <MenuItem
+                            Command="{Binding ClearDrawingCommand}"
+                            Header="清除绘制" />
+                    </ContextMenu>
+                </common:CameraDisplayUnit.ContextMenu>
+            </common:CameraDisplayUnit>
 
             <GridSplitter
                 Grid.Column="1"
@@ -102,6 +132,10 @@
 
         <!--  状态栏  -->
         <StatusBar Grid.Row="2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <StatusBarItem Width="Auto">
+                <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+            <Separator />
             <StatusBarItem Width="120">
                 <TextBlock Text="{Binding RunTime, StringFormat='耗时: {0}'}" />
             </StatusBarItem>

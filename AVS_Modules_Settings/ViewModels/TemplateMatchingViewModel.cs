@@ -26,28 +26,13 @@ namespace AVS_Modules_Settings.ViewModels
 
     /// <summary>
     /// 模板匹配子ViewModel
-    /// 集成 ROI 绘制（Halcon DrawingObject）、掩膜编辑（涂抹/擦除）和模板匹配功能
-    /// 参考 PreviousTMViewModel 设计
+    /// ROI 绘制已迁入协调器 TempAndCaliDebugViewModel，本类仅保留
+    /// 掩膜编辑、模板创建/查找/保存/加载 功能。
     /// </summary>
     public class TemplateMatchingViewModel : BindableBase
     {
         private readonly ITemplateMatchingService _templateMatchingService;
         private HWindow _halconWindow;
-
-        // ===== ROI 绘制相关 =====
-        private readonly HObjectRegion _currentRoi = new HObjectRegion();
-        private List<double> _polygonTempRows = new List<double>();
-        private List<double> _polygonTempCols = new List<double>();
-        private bool _isDrawingPolygon = false;
-        public bool IsDrawingPolygon
-        {
-            get => _isDrawingPolygon;
-            set
-            {
-                if (SetProperty(ref _isDrawingPolygon, value))
-                    RaisePropertyChanged(nameof(IsCustomMode));
-            }
-        }
 
         // ===== 掩膜相关 =====
         private bool _isMaskEditing;
@@ -78,27 +63,17 @@ namespace AVS_Modules_Settings.ViewModels
             set
             {
                 if (SetProperty(ref _isEraseMode, value))
-                {
-                    StatusMessage = value ? "擦除模式：按住鼠标左键拖动擦除已有掩膜" : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
-                }
+                    StatusMessage = value
+                        ? "擦除模式：按住鼠标左键拖动擦除已有掩膜"
+                        : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
             }
         }
 
         public double EraserSize { get => _eraserSize; set => SetProperty(ref _eraserSize, value); }
-
-        public string EraserType
-        {
-            get => _eraserType;
-            set => SetProperty(ref _eraserType, value);
-        }
-
+        public string EraserType { get => _eraserType; set => SetProperty(ref _eraserType, value); }
         public List<string> EraserTypes { get; } = new List<string> { "rectangle", "circle" };
 
         // ===== 通用属性 =====
-        private double _currentMouseRow, _currentMouseCol;
-        public double CurrentMouseRow { get => _currentMouseRow; set => SetProperty(ref _currentMouseRow, value); }
-        public double CurrentMouseCol { get => _currentMouseCol; set => SetProperty(ref _currentMouseCol, value); }
-
         private string _statusMessage = "右键绘制形状，掩膜编辑剔除干扰";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
@@ -109,45 +84,34 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _currentImage, value);
         }
 
-        private HObject _currentRegionDisplay = new HObject();
-        public HObject CurrentRegionDisplay
+        // ===== ROI 区域（由协调器传入） =====
+        private HObject _modelRegion = new HObject();
+        /// <summary>带掩膜处理的最终区域，供模板匹配使用</summary>
+        public HObject ModelRegion
         {
-            get => _currentRegionDisplay;
-            set => SetProperty(ref _currentRegionDisplay, value);
+            get => _modelRegion;
+            set
+            {
+                _modelRegion?.Dispose();
+                _modelRegion = value ?? new HObject();
+                if (!_modelRegion.IsInitialized())
+                    _modelRegion.GenEmptyObj();
+                RaisePropertyChanged();
+            }
         }
 
-        // ===== 对外暴露的属性（供父级 TempAndCaliDebugViewModel 使用） =====
+        /// <summary>当前活跃的 ROI 对象引用（由协调器注入），供独立操作时同步 DrawingObject 和绘制 Region</summary>
+        public HObjectRegion ActiveRoi { get; set; }
 
-        /// <summary>Halcon 窗口属性（供父级协调器直接设置）</summary>
+        /// <summary>当前是否处于自定义交互模式（掩膜编辑），用于禁用 HMoveContent</summary>
+        public bool IsCustomMode => IsMaskEditing;
+
+        // ===== Halcon 窗口 =====
         public HWindow HalconWindow
         {
             get => _halconWindow;
             set => SetHalconWindow(value);
         }
-
-        /// <summary>当前 ROI 区域（含掩膜处理后的最终区域），供模板匹配使用</summary>
-        public HObject FinalRegion => _currentRegionDisplay;
-
-        /// <summary>模型区域（供父级协调器 OnRun 时设置 ROI）</summary>
-        public HObject ModelRegion
-        {
-            get => _currentRegionDisplay;
-            set
-            {
-                _currentRegionDisplay?.Dispose();
-                _currentRegionDisplay = value ?? new HObject();
-                if (!_currentRegionDisplay.IsInitialized())
-                    _currentRegionDisplay.GenEmptyObj();
-                RaisePropertyChanged(nameof(CurrentRegionDisplay));
-                RaisePropertyChanged(nameof(FinalRegion));
-            }
-        }
-
-        /// <summary>当前是否处于自定义交互模式（掩膜编辑或多边形绘制），用于禁用 HMoveContent</summary>
-        public bool IsCustomMode => IsMaskEditing || IsDrawingPolygon;
-
-        /// <summary>当前鼠标是否在图像区域内（用于右键菜单坐标定位）</summary>
-        public bool IsMouseInImage { get; set; }
 
         // ===== 模板参数 =====
         private string _cmAngleStart = "0";
@@ -264,11 +228,6 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand FindModelCommand { get; }
         public DelegateCommand SaveModelCommand { get; }
         public DelegateCommand LoadModelCommand { get; }
-        public DelegateCommand DrawRect1Command { get; }
-        public DelegateCommand DrawRect2Command { get; }
-        public DelegateCommand DrawCircleCommand { get; }
-        public DelegateCommand DrawPolygonCommand { get; }
-        public DelegateCommand ClearDrawingCommand { get; }
         public DelegateCommand ClearMaskCommand { get; }
 
         public TemplateMatchingViewModel(ITemplateMatchingService templateMatchingService)
@@ -278,7 +237,7 @@ namespace AVS_Modules_Settings.ViewModels
             _accumulatedMaskRegion.GenEmptyObj();
             _accumulatedEraseRegion.GenEmptyObj();
             CurrentImage.GenEmptyObj();
-            CurrentRegionDisplay.GenEmptyObj();
+            ModelRegion.GenEmptyObj();
 
             MetricOptions = new List<string> { "use_polarity", "ignore_global_polarity", "ignore_local_polarity", "ignore_color_polarity" };
             OptimizationOptions = new List<string> { "none", "point_reduction_low", "point_reduction_medium", "point_reduction_high", "pregeneration", "no_pregeneration" };
@@ -288,12 +247,6 @@ namespace AVS_Modules_Settings.ViewModels
             CmOptimization = OptimizationOptions[0];
             FmSubPixel = SubPixelOptions[0];
 
-            // 命令绑定
-            DrawRect1Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE1, "red"));
-            DrawRect2Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE2, "green"));
-            DrawCircleCommand = new DelegateCommand(() => StartDraw(RoiType.CIRCLE, "yellow"));
-            DrawPolygonCommand = new DelegateCommand(StartPolygonDraw);
-            ClearDrawingCommand = new DelegateCommand(ClearDrawing);
             ClearMaskCommand = new DelegateCommand(ClearMask);
             CreateModelCommand = new DelegateCommand(CreateModel);
             FindModelCommand = new DelegateCommand(FindModel, () => _currentModelId != null);
@@ -309,154 +262,14 @@ namespace AVS_Modules_Settings.ViewModels
         }
         #endregion
 
-        #region 形状绘制（基于 Halcon DrawingObject，参考 PreviousTMViewModel）
-        private void StartDraw(RoiType type, string color)
-        {
-            if (_halconWindow == null || IsMaskEditing) return;
-
-            _currentRoi.DetachDrawingObject();
-            _currentRoi.Style = type;
-            _currentRoi.Color = color;
-
-            // 以鼠标右键点击位置为中心，设置默认大小
-            double size = 100;
-            double col = _currentMouseCol;
-            double row = _currentMouseRow;
-
-            switch (type)
-            {
-                case RoiType.RECTANGLE1:
-                    _currentRoi.LeftX = col - size / 2;
-                    _currentRoi.LeftY = row - size / 2;
-                    _currentRoi.RightX = col + size / 2;
-                    _currentRoi.RightY = row + size / 2;
-                    _currentRoi.X = col;
-                    _currentRoi.Y = row;
-                    break;
-                case RoiType.RECTANGLE2:
-                    _currentRoi.X = col;
-                    _currentRoi.Y = row;
-                    _currentRoi.Length1 = size / 2;
-                    _currentRoi.Length2 = size / 2;
-                    _currentRoi.Angle = 0;
-                    break;
-                case RoiType.CIRCLE:
-                    _currentRoi.X = col;
-                    _currentRoi.Y = row;
-                    _currentRoi.Radius = size / 2;
-                    break;
-            }
-
-            if (!_currentRoi.AttachDrawingObject(_halconWindow))
-                StatusMessage = $"无法创建 {type} 绘图对象";
-            else
-                StatusMessage = $"绘制 {type}：拖动调整大小和位置";
-        }
-
-        private void StartPolygonDraw()
-        {
-            if (_halconWindow == null || IsMaskEditing) return;
-            EndPolygonDraw();
-            _currentRoi.DetachDrawingObject();
-            _currentRoi.Style = RoiType.POLYGON;
-            _currentRoi.Color = "cyan";
-            _polygonTempRows.Clear();
-            _polygonTempCols.Clear();
-            _isDrawingPolygon = true;
-            StatusMessage = "多边形绘制：左键添加顶点，右键闭合结束";
-        }
-
-        public void AddPolygonPoint(double row, double col)
-        {
-            if (!_isDrawingPolygon) return;
-            _polygonTempRows.Add(row);
-            _polygonTempCols.Add(col);
-            DrawTempPolygon();
-        }
-
-        /// <summary>右键调用：完成多边形闭合</summary>
-        public void FinishPolygon()
-        {
-            if (!_isDrawingPolygon || _polygonTempRows.Count < 3)
-            {
-                StatusMessage = "多边形至少需要3个顶点";
-                _isDrawingPolygon = false;
-                return;
-            }
-            _currentRoi.SetPolygonVertices(new HTuple(_polygonTempRows.ToArray()), new HTuple(_polygonTempCols.ToArray()));
-            _currentRoi.GenerateRegion();
-            _isDrawingPolygon = false;
-            UpdateFinalRegionDisplay();
-
-            // 刷新窗口显示闭合后的多边形区域
-            DisplayImagePreserveZoom();
-            if (_halconWindow != null && CurrentRegionDisplay != null && CurrentRegionDisplay.IsInitialized())
-            {
-                _halconWindow.SetColor("green");
-                _halconWindow.SetDraw("margin");
-                _halconWindow.SetLineWidth(2);
-                _halconWindow.DispObj(CurrentRegionDisplay);
-            }
-            StatusMessage = "多边形绘制完成，可创建模板";
-        }
-
-        private void EndPolygonDraw()
-        {
-            if (IsDrawingPolygon)
-            {
-                IsDrawingPolygon = false;
-                if (_halconWindow != null)
-                {
-                    DisplayImagePreserveZoom();
-                }
-            }
-        }
-
-        private void DrawTempPolygon()
-        {
-            if (_halconWindow == null || _polygonTempRows.Count < 2) return;
-            HOperatorSet.SetSystem("flush_graphic", "false");
-            DisplayImagePreserveZoom();
-            _halconWindow.SetColor("magenta");
-            _halconWindow.SetLineWidth(1);
-            double[] rows = _polygonTempRows.ToArray();
-            double[] cols = _polygonTempCols.ToArray();
-            for (int i = 0; i < rows.Length - 1; i++)
-                _halconWindow.DispLine(rows[i], cols[i], rows[i + 1], cols[i + 1]);
-            for (int i = 0; i < rows.Length; i++)
-                _halconWindow.DispCross(rows[i], cols[i], 6, 0);
-            HOperatorSet.SetSystem("flush_graphic", "true");
-        }
-
-        private void ClearDrawing()
-        {
-            _currentRoi.DetachDrawingObject();
-            if (_halconWindow != null)
-            {
-                _halconWindow.ClearWindow();
-                DisplayImagePreserveZoom();
-            }
-            CurrentRegionDisplay?.Dispose();
-            CurrentRegionDisplay = new HObject();
-            CurrentRegionDisplay.GenEmptyObj();
-            RaisePropertyChanged(nameof(CurrentRegionDisplay));
-            StatusMessage = "绘图已清除";
-        }
-        #endregion
-
-        #region 掩膜编辑（参考 PreviousTMViewModel 的涂抹/擦除设计）
+        #region 掩膜编辑
         private void EnterMaskEdit()
         {
             if (_halconWindow == null) return;
-            // 如果当前有可拖拽的绘图对象，同步参数并生成 Region
-            if (_currentRoi.Style != RoiType.POLYGON)
-            {
-                _currentRoi.SyncFromDrawingObject();
-                _currentRoi.GenerateRegion();
-            }
-            _currentRoi.DetachDrawingObject();
             ClearErasePreview();
-            StatusMessage = IsEraseMode ? "擦除模式：按住鼠标左键拖动擦除已有掩膜" : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
+            StatusMessage = IsEraseMode
+                ? "擦除模式：按住鼠标左键拖动擦除已有掩膜"
+                : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
             RefreshDisplayWithMask();
         }
 
@@ -465,8 +278,7 @@ namespace AVS_Modules_Settings.ViewModels
             _isMouseDown = false;
             IsEraseMode = false;
             ClearErasePreview();
-            StatusMessage = "掩膜编辑已退出，可创建模板";
-            UpdateFinalRegionDisplay();
+            StatusMessage = "掩膜编辑已退出";
             if (_halconWindow != null)
             {
                 DisplayImagePreserveZoom();
@@ -492,9 +304,7 @@ namespace AVS_Modules_Settings.ViewModels
             if (!IsMaskEditing) return;
             _isMouseDown = false;
             if (IsEraseMode && _accumulatedEraseRegion != null && _accumulatedEraseRegion.IsInitialized() && _accumulatedEraseRegion.CountObj() > 0)
-            {
                 ApplyErase();
-            }
             ClearErasePreview();
             RefreshDisplayWithMask();
         }
@@ -550,8 +360,6 @@ namespace AVS_Modules_Settings.ViewModels
             ClearErasePreview();
             if (IsMaskEditing)
                 RefreshDisplayWithMask();
-            else
-                UpdateFinalRegionDisplay();
             StatusMessage = "掩膜已清除";
         }
 
@@ -560,17 +368,17 @@ namespace AVS_Modules_Settings.ViewModels
             if (_halconWindow == null) return;
             DisplayImagePreserveZoom();
 
-            // 绘制基本 ROI 轮廓（如果存在）
-            if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+            // 绘制当前 ROI 轮廓（绿色边框），让用户看清掩膜与ROI的关系
+            if (ActiveRoi?.Region != null && ActiveRoi.Region.IsInitialized() && ActiveRoi.Region.CountObj() > 0)
             {
-                _halconWindow.SetColor("green");
                 _halconWindow.SetDraw("margin");
+                _halconWindow.SetColor("green");
                 _halconWindow.SetLineWidth(2);
-                _halconWindow.DispObj(_currentRoi.Region);
+                _halconWindow.DispObj(ActiveRoi.Region);
             }
 
             // 绘制掩膜半透明红
-            if (_accumulatedMaskRegion != null && _accumulatedMaskRegion.IsInitialized())
+            if (_accumulatedMaskRegion != null && _accumulatedMaskRegion.IsInitialized() && _accumulatedMaskRegion.CountObj() > 0)
             {
                 _halconWindow.SetDraw("fill");
                 _halconWindow.SetRgba(255, 0, 0, 150);
@@ -588,25 +396,6 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        private void UpdateFinalRegionDisplay()
-        {
-            if (_currentRoi.Region == null || !_currentRoi.Region.IsInitialized())
-                return;
-
-            HObject finalRegion = _currentRoi.Region;
-            if (_accumulatedMaskRegion != null && _accumulatedMaskRegion.IsInitialized() &&
-                _accumulatedMaskRegion.CountObj() > 0)
-            {
-                HObject diffRegion = new HObject();
-                HOperatorSet.Difference(finalRegion, _accumulatedMaskRegion, out diffRegion);
-                finalRegion = diffRegion;
-            }
-
-            CurrentRegionDisplay?.Dispose();
-            CurrentRegionDisplay = finalRegion;
-            RaisePropertyChanged(nameof(CurrentRegionDisplay));
-        }
-
         private void DisplayImagePreserveZoom()
         {
             if (_halconWindow == null) return;
@@ -620,27 +409,29 @@ namespace AVS_Modules_Settings.ViewModels
         #region 模板操作
         private void CreateModel()
         {
-            // 同步非多边形参数
-            if (_currentRoi.Style != RoiType.POLYGON)
-                _currentRoi.SyncFromDrawingObject();
-            _currentRoi.GenerateRegion();
+            // 从 DrawingObject 同步最新 ROI 并生成 Region
+            ActiveRoi?.SyncFromDrawingObject();
+            ActiveRoi?.GenerateRegion();
 
-            UpdateFinalRegionDisplay();
+            // 优先用 ActiveRoi 的 Region，回退到旧的 _modelRegion
+            HObject roiRegion = (ActiveRoi?.Region != null && ActiveRoi.Region.IsInitialized() && ActiveRoi.Region.CountObj() > 0)
+                ? ActiveRoi.Region
+                : _modelRegion;
+            HObject finalRegion = ApplyMaskToRegion(roiRegion);
 
-            if (CurrentRegionDisplay == null || !CurrentRegionDisplay.IsInitialized())
+            if (finalRegion == null || !finalRegion.IsInitialized() || finalRegion.CountObj() == 0)
             {
-                StatusMessage = "无有效区域";
+                StatusMessage = "无有效区域，请先绘制 ROI";
                 return;
             }
 
             try
             {
-                HOperatorSet.ReduceDomain(CurrentImage, CurrentRegionDisplay, out HObject templateImage);
+                HOperatorSet.ReduceDomain(CurrentImage, finalRegion, out HObject templateImage);
 
                 double.TryParse(CmAngleStart, out double angleStart);
                 double.TryParse(CmAngleExtent, out double angleExtent);
 
-                // 构建字符串参数
                 string numLevels = CmIsNumLevels ? "auto" : CmNumLevels;
                 string contrast = CmIsContrast ? "auto" : $"{CmContrastLow},{CmContrastHigh}";
                 string minContrast = CmIsMinContrast ? "auto" : CmMinContrast;
@@ -663,18 +454,23 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
+        private HObject ApplyMaskToRegion(HObject roiRegion)
+        {
+            if (roiRegion == null || !roiRegion.IsInitialized() || roiRegion.CountObj() == 0)
+                return new HObject();
+
+            if (_accumulatedMaskRegion == null || !_accumulatedMaskRegion.IsInitialized() || _accumulatedMaskRegion.CountObj() == 0)
+                return roiRegion.Clone();
+
+            HObject result;
+            HOperatorSet.Difference(roiRegion, _accumulatedMaskRegion, out result);
+            return result;
+        }
+
         private void FindModel()
         {
-            if (_currentModelId == null)
-            {
-                StatusMessage = "请先创建模板";
-                return;
-            }
-            if (CurrentImage == null || !CurrentImage.IsInitialized())
-            {
-                StatusMessage = "无图像";
-                return;
-            }
+            if (_currentModelId == null) { StatusMessage = "请先创建模板"; return; }
+            if (CurrentImage == null || !CurrentImage.IsInitialized()) { StatusMessage = "无图像"; return; }
 
             try
             {
@@ -723,12 +519,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void SaveModel()
         {
-            if (_currentModelId == null)
-            {
-                StatusMessage = "请先创建模板";
-                return;
-            }
-
+            if (_currentModelId == null) { StatusMessage = "请先创建模板"; return; }
             SaveFileDialog sfd = new SaveFileDialog
             {
                 Filter = "Shape Model|*.shm|All files|*.*",
@@ -742,10 +533,7 @@ namespace AVS_Modules_Settings.ViewModels
                     ModelPath = sfd.FileName;
                     StatusMessage = "模板保存成功";
                 }
-                catch (Exception ex)
-                {
-                    StatusMessage = $"保存失败：{ex.Message}";
-                }
+                catch (Exception ex) { StatusMessage = $"保存失败：{ex.Message}"; }
             }
         }
 
@@ -766,26 +554,8 @@ namespace AVS_Modules_Settings.ViewModels
                     FindModelCommand.RaiseCanExecuteChanged();
                     StatusMessage = "模板加载成功";
                 }
-                catch (Exception ex)
-                {
-                    StatusMessage = $"加载失败：{ex.Message}";
-                }
+                catch (Exception ex) { StatusMessage = $"加载失败：{ex.Message}"; }
             }
-        }
-
-        private void Cleanup()
-        {
-            _currentModelId = null;
-            _currentRoi?.DetachDrawingObject();
-            _accumulatedMaskRegion?.Dispose();
-            _accumulatedEraseRegion?.Dispose();
-            CurrentRegionDisplay?.Dispose();
-            CurrentImage?.Dispose();
-        }
-
-        ~TemplateMatchingViewModel()
-        {
-            Cleanup();
         }
         #endregion
     }

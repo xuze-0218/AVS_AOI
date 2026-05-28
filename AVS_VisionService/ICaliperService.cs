@@ -44,10 +44,16 @@ namespace AVS_Service
         void SetImage(HObject image);
 
         /// <summary>
+        /// 从 Rectangle2 参数生成测量句柄，返回生成的 MeasureHandle 区域（非 dispose）
+        /// </summary>
+        HTuple GenMeasureRectangle2(double row, double col, double phi, double length1, double length2,
+            double width, double height, double interp, out HObject measureRegion);
+
+        /// <summary>
         /// 执行卡尺测量（单边缘模式）
         /// </summary>
         void MeasureCaliper(
-            HObject region,
+            HTuple measureHandle,
             int sigma,
             int threshold,
             CaliperTransition transition,
@@ -61,7 +67,7 @@ namespace AVS_Service
         /// 执行卡尺测量（边缘对模式）
         /// </summary>
         void MeasureCaliperEdgePairs(
-            HObject region,
+            HTuple measureHandle,
             int sigma,
             int threshold,
             CaliperTransition transition,
@@ -74,6 +80,11 @@ namespace AVS_Service
             out HTuple amplitudes2,
             out HTuple interDistances,
             out HTuple intraDistances);
+
+        /// <summary>
+        /// 测量后关闭测量句柄
+        /// </summary>
+        void CloseMeasure(HTuple measureHandle);
 
         /// <summary>
         /// 显示卡尺测量结果（单边缘）
@@ -127,13 +138,49 @@ namespace AVS_Service
     {
         private HWindow _halconWindow;
         private HObject _currentImage;
-        private HTuple _tempMetrologyHandle = null;
 
         public void SetHalconWindow(HWindow window) => _halconWindow = window;
         public void SetImage(HObject image) => _currentImage = image;
 
+        public HTuple GenMeasureRectangle2(
+            double row, double col, double phi, double length1, double length2,
+            double width, double height, double interp,
+            out HObject measureRegion)
+        {
+            measureRegion = new HObject();
+            HTuple measureHandle = new HTuple();
+
+            try
+            {
+                HOperatorSet.GenMeasureRectangle2(
+                    row, col, phi, length1, length2,
+                    width, height, interp,
+                    out measureHandle);
+
+                // 生成 ROI 显示区域
+                HOperatorSet.GenRectangle2ContourXld(
+                    out HObject contour, row, col, phi, length1, length2);
+                measureRegion = contour;
+            }
+            catch (HalconException)
+            {
+                measureRegion.GenEmptyObj();
+            }
+
+            return measureHandle;
+        }
+
+        public void CloseMeasure(HTuple measureHandle)
+        {
+            if (measureHandle != null && measureHandle.Length > 0)
+            {
+                try { HOperatorSet.CloseMeasure(measureHandle); }
+                catch { }
+            }
+        }
+
         public void MeasureCaliper(
-            HObject region,
+            HTuple measureHandle,
             int sigma,
             int threshold,
             CaliperTransition transition,
@@ -146,17 +193,11 @@ namespace AVS_Service
             rows = new HTuple(); cols = new HTuple();
             amplitudes = new HTuple(); distances = new HTuple();
 
-            if (_currentImage == null || region == null) return;
+            if (_currentImage == null || measureHandle == null || measureHandle.Length == 0)
+                return;
 
             try
             {
-                // 从区域获取参数行
-                HTuple paramValues = new HTuple();
-                HOperatorSet.GetRegionPolygon(region, 1.0, out HTuple regRows, out HTuple regCols);
-
-                if (regRows.Length < 2) return;
-
-                // 使用 measure_pos 算子进行单边缘卡尺测量
                 string trans = "all";
                 if (transition == CaliperTransition.Positive) trans = "positive";
                 else if (transition == CaliperTransition.Negative) trans = "negative";
@@ -167,25 +208,24 @@ namespace AVS_Service
 
                 HOperatorSet.MeasurePos(
                     _currentImage,
-                    _tempMetrologyHandle,
+                    measureHandle,
                     new HTuple(sigma),
                     new HTuple(threshold),
                     trans,
                     sel,
-
                     out rows,
                     out cols,
                     out amplitudes,
                     out distances);
             }
-            catch (HalconException)
+            catch (HalconException ex)
             {
-                // 测量失败返回空
+                System.Diagnostics.Debug.WriteLine($"MeasureCaliper error: {ex.Message}");
             }
         }
 
         public void MeasureCaliperEdgePairs(
-            HObject region,
+            HTuple measureHandle,
             int sigma,
             int threshold,
             CaliperTransition transition,
@@ -203,13 +243,11 @@ namespace AVS_Service
             rows2 = new HTuple(); cols2 = new HTuple(); amplitudes2 = new HTuple();
             interDistances = new HTuple(); intraDistances = new HTuple();
 
-            if (_currentImage == null || region == null) return;
+            if (_currentImage == null || measureHandle == null || measureHandle.Length == 0)
+                return;
 
             try
             {
-                HOperatorSet.GetRegionPolygon(region, 1.0, out HTuple regRows, out HTuple regCols);//MeasurePairs方法去掉了这个
-                if (regRows.Length < 2) return;
-
                 string trans = "all";
                 if (transition == CaliperTransition.Positive) trans = "positive";
                 else if (transition == CaliperTransition.Negative) trans = "negative";
@@ -220,12 +258,11 @@ namespace AVS_Service
 
                 HOperatorSet.MeasurePairs(
                     _currentImage,
-                    _tempMetrologyHandle,
+                    measureHandle,
                     new HTuple(sigma),
                     new HTuple(threshold),
                     trans,
                     sel,
-
                     out rows1,
                     out cols1,
                     out amplitudes1,
@@ -235,9 +272,9 @@ namespace AVS_Service
                     out intraDistances,
                     out interDistances);
             }
-            catch (HalconException)
+            catch (HalconException ex)
             {
-                // 测量失败返回空
+                System.Diagnostics.Debug.WriteLine($"MeasureCaliperEdgePairs error: {ex.Message}");
             }
         }
 
@@ -257,7 +294,7 @@ namespace AVS_Service
             {
                 _halconWindow.SetColor("lime green");
                 for (int i = 0; i < rows.Length; i++)
-                    _halconWindow.DispCross((HTuple)rows[i], cols[i], 12, 0);
+                    _halconWindow.DispCross(rows[i].D, cols[i].D, 12.0, 0.0);
             }
         }
 
@@ -282,13 +319,13 @@ namespace AVS_Service
                 {
                     _halconWindow.SetColor("lime green");
                     for (int i = 0; i < rows1.Length; i++)
-                        _halconWindow.DispCross((HTuple)rows1[i], cols1[i], 12, 0);
+                        _halconWindow.DispCross(rows1[i].D, cols1[i].D, 12.0, 0.0);
 
                     if (rows2 != null && rows2.Length > 0)
                     {
                         _halconWindow.SetColor("red");
                         for (int i = 0; i < rows2.Length; i++)
-                            _halconWindow.DispCross((HTuple)rows2[i], cols2[i], 12, 0);
+                            _halconWindow.DispCross(rows2[i].D, cols2[i].D, 12.0, 0.0);
 
                         // 绘制连接线
                         if (rows1.Length == rows2.Length)
@@ -296,7 +333,7 @@ namespace AVS_Service
                             _halconWindow.SetColor("yellow");
                             for (int i = 0; i < rows1.Length; i++)
                             {
-                                _halconWindow.DispLine((HTuple)rows1[i], cols1[i], rows2[i], cols2[i]);
+                                _halconWindow.DispLine(rows1[i].D, cols1[i].D, rows2[i].D, cols2[i].D);
                             }
                         }
                     }
@@ -377,8 +414,7 @@ namespace AVS_Service
 
         public void Dispose()
         {
-            _currentImage?.Dispose();
-            _tempMetrologyHandle = null;
+            _currentImage = null;
         }
     }
 }
