@@ -25,12 +25,6 @@
         <ToolBar Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
             <Button Command="{Binding LoadImageCommand}" Content="加载图像" />
             <Separator />
-            <Button Command="{Binding CreateModelCommand}" Content="创建模板" />
-            <Button Command="{Binding FindModelCommand}" Content="查找模板" />
-            <Separator />
-            <Button Command="{Binding SaveModelCommand}" Content="保存模板" />
-            <Button Command="{Binding LoadModelCommand}" Content="加载模板" />
-            <Separator />
             <Button Command="{Binding SaveRoiCommand}" Content="保存ROI" />
             <Button Command="{Binding LoadRoiCommand}" Content="加载ROI" />
             <Button Command="{Binding ClearRoiCommand}" Content="清除ROI" />
@@ -60,8 +54,7 @@
                 Grid.Column="0"
                 DispImage="{Binding CurrentImage}"
                 DispRegion="{Binding CurrentRegionDisplay}"
-                Loaded="CameraDisplay_Loaded">
-            </common:CameraDisplayUnit>
+                Loaded="CameraDisplay_Loaded" />
 
             <GridSplitter
                 Grid.Column="1"

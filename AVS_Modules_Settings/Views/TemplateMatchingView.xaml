@@ -561,11 +561,11 @@
                     Binding="{Binding Index}"
                     Header="#" />
                 <DataGridTextColumn
-                    Width="50"
+                    Width="70"
                     Binding="{Binding Row, StringFormat=F2}"
                     Header="Row" />
                 <DataGridTextColumn
-                    Width="50"
+                    Width="70"
                     Binding="{Binding Col, StringFormat=F2}"
                     Header="Col" />
                 <DataGridTextColumn
@@ -573,7 +573,7 @@
                     Binding="{Binding Angle, StringFormat=F2}"
                     Header="Angle" />
                 <DataGridTextColumn
-                    Width="55"
+                    Width="*"
                     Binding="{Binding Score, StringFormat=F3}"
                     Header="Score" />
             </DataGrid.Columns>

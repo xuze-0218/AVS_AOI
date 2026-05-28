@@ -49,10 +49,6 @@ namespace AVS_Modules_Settings.ViewModels
             ConfirmCommand = new DelegateCommand(OnConfirm);
             CancelCommand = new DelegateCommand(OnCancel);
             LoadImageCommand = new DelegateCommand(OnLoadImage);
-            CreateModelCommand = new DelegateCommand(() => TemplateMatchingVM?.CreateModelCommand?.Execute());
-            FindModelCommand = new DelegateCommand(() => TemplateMatchingVM?.FindModelCommand?.Execute());
-            SaveModelCommand = new DelegateCommand(() => TemplateMatchingVM?.SaveModelCommand?.Execute());
-            LoadModelCommand = new DelegateCommand(() => TemplateMatchingVM?.LoadModelCommand?.Execute());
             SaveRoiCommand = new DelegateCommand(OnSaveRoi);
             LoadRoiCommand = new DelegateCommand(OnLoadRoi);
             ClearRoiCommand = new DelegateCommand(OnClearRoi);
@@ -105,6 +101,14 @@ namespace AVS_Modules_Settings.ViewModels
         {
             get => _imagePath;
             set => SetProperty(ref _imagePath, value);
+        }
+
+        private string _cameraRoleName;
+
+        public string CameraRoleName
+        {
+            get => _cameraRoleName;
+            set => SetProperty(ref _cameraRoleName, value);
         }
 
         private double _currentMouseRow;
@@ -188,7 +192,6 @@ namespace AVS_Modules_Settings.ViewModels
                 }
                 RunResult = "OK";
                 IsPass = true;
-                // 执行完成后重绘图像
                 RedrawImage();
             }
             catch (Exception ex)
@@ -203,7 +206,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void OnConfirm()
         {
-            // 确认操作：更新并锁定当前 ROI
+            //更新并锁定当前 ROI
             if (TemplateMatchingVM != null)
             {
                 // 同步模板匹配VM中的Region到协调器
@@ -235,8 +238,9 @@ namespace AVS_Modules_Settings.ViewModels
                 try
                 {
                     ImagePath = openFileDialog.FileName;
-                    HOperatorSet.ReadImage(out HObject image, ImagePath);
-                    CurrentImage = image;
+                    var image = _matchingService.LoadImage(ImagePath);
+                    if (image != null)
+                        CurrentImage = image.Clone();
                     RedrawImage();
                 }
                 catch (Exception ex)

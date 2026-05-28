@@ -10,7 +10,7 @@ namespace AVS_Service
     public interface ITemplateMatchingService
     {
         void SetHalconWindow(HWindow window);
-        void LoadImage(string filePath);
+        HObject LoadImage(string filePath);
         HObject GetCurrentImage();
 
         /// <summary>
@@ -90,10 +90,11 @@ namespace AVS_Service
 
         public void SetHalconWindow(HWindow window) => _halconWindow = window;
 
-        public void LoadImage(string filePath)
+        public HObject LoadImage(string filePath)
         {
             _currentImage?.Dispose();
             HOperatorSet.ReadImage(out _currentImage, filePath);
+            return _currentImage;
         }
 
         public HObject GetCurrentImage() => _currentImage;
@@ -108,7 +109,7 @@ namespace AVS_Service
             string metric,
             string optimization)
         {
-            if (_modelId != null) HOperatorSet.ClearShapeModel(_modelId);
+            if (_modelId != null && _modelId.Length != 0) HOperatorSet.ClearShapeModel(_modelId);
 
             // 解析 numLevels
             HTuple hvNumLevels;
@@ -148,8 +149,8 @@ namespace AVS_Service
             HOperatorSet.CreateShapeModel(
                 templateImage,
                 hvNumLevels,
-                new HTuple(angleStart),
-                new HTuple(angleExtent),
+                new HTuple(angleStart).TupleRad(),
+                new HTuple(angleExtent).TupleRad(),
                 "auto",
                 optimization,
                 metric,
@@ -207,8 +208,11 @@ namespace AVS_Service
         {
             if (_modelId != null)
             {
-                HOperatorSet.ClearShapeModel(_modelId);
-                _modelId = null;
+                if (_modelId.Length != 0)
+                {
+                    HOperatorSet.ClearShapeModel(_modelId);
+                    _modelId = null;
+                }
             }
             HOperatorSet.ReadShapeModel(filePath, out _modelId);
             return _modelId;

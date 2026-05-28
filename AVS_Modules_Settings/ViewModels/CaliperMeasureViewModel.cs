@@ -21,9 +21,7 @@ namespace AVS_Modules_Settings.ViewModels
         public double InterDistance { get; set; }
     }
 
-    /// <summary>
-    /// 卡尺测量子ViewModel
-    /// </summary>
+  
     public class CaliperMeasureViewModel : BindableBase
     {
         private readonly ICaliperService _caliperService;
@@ -107,7 +105,6 @@ namespace AVS_Modules_Settings.ViewModels
         public List<string> SelectMeasureOptions { get; }
         public List<string> InterpolationOptions { get; }
 
-        // ===== Halcon 引用（由父VM注入） =====
         public HWindow HalconWindow { get; set; }
         public HObject CurrentImage { get; set; }
         public HRegion MeasureRegion { get; set; }

@@ -92,7 +92,7 @@ namespace AVS_Modules_Settings.ViewModels
         private short _gain;
         public short Gain { get => _gain; set => SetProperty(ref _gain, value); }
 
-        private string _cameraRoleName;
+        private string _cameraRoleName="cam1";
 
         public string CameraRoleName
         {
