@@ -20,6 +20,7 @@ namespace AVS_Modules_Settings.ViewModels
     {
         private readonly ITemplateMatchingService _matchingService;
         private readonly ICaliperService _caliperService;
+        private readonly IMetrologyService _metrologyService;
         private HWindow _halconWindow;
 
         #region 子ViewModel
@@ -31,25 +32,34 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         private CaliperMeasureViewModel _caliperMeasureVM;
+
         public CaliperMeasureViewModel CaliperMeasureVM
         {
             get => _caliperMeasureVM;
             set => SetProperty(ref _caliperMeasureVM, value);
         }
+        private MetrologyViewModel _metrologyVM;
+        public MetrologyViewModel MetrologyVM
+        {
+            get => _metrologyVM;
+            set => SetProperty(ref _metrologyVM, value);
+        }
         #endregion
 
         #region 构造函数
-        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService, ICaliperService caliperService)
+        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService, IMetrologyService metrologyService, ICaliperService caliperService)
         {
             _matchingService = matchingService;
             _caliperService = caliperService;
 
             TemplateMatchingVM = new TemplateMatchingViewModel(matchingService);
             CaliperMeasureVM = new CaliperMeasureViewModel(caliperService);
+            MetrologyVM = new MetrologyViewModel(metrologyService);
 
             // 将当前 ROI 对象引用注入子 ViewModel，使模板匹配/掩膜编辑可独立同步 DrawingObject
             TemplateMatchingVM.ActiveRoi = _currentRoi;
             CaliperMeasureVM.CurrentRoi = _currentRoi;
+            MetrologyVM.CurrentRoi = _currentRoi;
 
             // ===== 命令 =====
             RunCommand = new DelegateCommand(OnRun);
@@ -62,6 +72,8 @@ namespace AVS_Modules_Settings.ViewModels
             DrawRect1Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE1, "red"));
             DrawRect2Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE2, "green"));
             DrawCircleCommand = new DelegateCommand(() => StartDraw(RoiType.CIRCLE, "yellow"));
+            DrawLineCommand = new DelegateCommand(() => StartDraw(RoiType.LINE, "orange"));
+            DrawEllipseCommand = new DelegateCommand(() => StartDraw(RoiType.ELLIPSE, "magenta"));
             DrawPolygonCommand = new DelegateCommand(StartPolygonDraw);
             ClearDrawingCommand = new DelegateCommand(ClearDrawing);
             ConfirmRoiCommand = new DelegateCommand(OnConfirmRoi);
@@ -82,6 +94,7 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     if (TemplateMatchingVM != null) TemplateMatchingVM.HalconWindow = value;
                     if (CaliperMeasureVM != null) CaliperMeasureVM.HalconWindow = value;
+                    if (MetrologyVM != null) MetrologyVM.HalconWindow = value;
                     _matchingService.SetHalconWindow(value);
                     _caliperService.SetHalconWindow(value);
                 }
@@ -99,6 +112,7 @@ namespace AVS_Modules_Settings.ViewModels
                     _caliperService.SetImage(value);
                     if (TemplateMatchingVM != null) TemplateMatchingVM.CurrentImage = value;
                     if (CaliperMeasureVM != null) CaliperMeasureVM.CurrentImage = value;
+                    if (MetrologyVM != null) MetrologyVM.CurrentImage = value;
                 }
             }
         }
@@ -205,6 +219,8 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand DrawRect1Command { get; }
         public DelegateCommand DrawRect2Command { get; }
         public DelegateCommand DrawCircleCommand { get; }
+        public DelegateCommand DrawLineCommand { get; }
+        public DelegateCommand DrawEllipseCommand { get; }
         public DelegateCommand DrawPolygonCommand { get; }
         public DelegateCommand ClearDrawingCommand { get; }
         public DelegateCommand ConfirmRoiCommand { get; }
@@ -406,6 +422,21 @@ namespace AVS_Modules_Settings.ViewModels
                     _currentRoi.X = col;
                     _currentRoi.Y = row;
                     _currentRoi.Radius = size / 2;
+                    break;
+                case RoiType.LINE:
+                    _currentRoi.LeftX = col + size / 2;
+                    _currentRoi.LeftY = row + size / 2;
+                    _currentRoi.RightX = col - size / 2;
+                    _currentRoi.RightY = row - size / 2;
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    break;
+                case RoiType.ELLIPSE:
+                    _currentRoi.X = col;
+                    _currentRoi.Y = row;
+                    _currentRoi.Angle = 0;
+                    _currentRoi.Length1 = size;
+                    _currentRoi.Length2 = size * 0.6;
                     break;
             }
 

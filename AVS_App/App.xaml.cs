@@ -39,6 +39,7 @@ namespace AVS_App
             containerRegistry.RegisterForNavigation<ProtocolConfigView>();
             containerRegistry.RegisterForNavigation<CameraDebugView>();
             containerRegistry.RegisterForNavigation<PlcDebugView>();
+            containerRegistry.RegisterForNavigation<MetrologyView>();
 
 
 
@@ -56,6 +57,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
             containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
             containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
+            containerRegistry.RegisterSingleton<IMetrologyService, MetrologyService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
             Log.Logger = new LoggerConfiguration().MinimumLevel.Information().Enrich.FromLogContext()

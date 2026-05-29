@@ -15,6 +15,8 @@ namespace AVS_Common.Model
         RECTANGLE1,
         RECTANGLE2,
         CIRCLE,
+        LINE,
+        ELLIPSE,
         POLYGON
     }
 
@@ -80,6 +82,12 @@ namespace AVS_Common.Model
                     case RoiType.CIRCLE:
                         HOperatorSet.GenCircle(out tempRegion, Y, X, Radius);
                         break;
+                    case RoiType.LINE:
+                        HOperatorSet.GenRegionLine(out tempRegion, LeftY, LeftX, RightY, RightX);
+                        break;
+                    case RoiType.ELLIPSE:
+                        HOperatorSet.GenEllipse(out tempRegion, Y, X, Angle, Length1, Length2);
+                        break;
                     case RoiType.POLYGON:
                         if (PolyRows.Length > 0)
                             HOperatorSet.GenRegionPolygonFilled(out tempRegion, PolyRows, PolyCols);
@@ -127,6 +135,12 @@ namespace AVS_Common.Model
                         break;
                     case RoiType.CIRCLE:
                         HOperatorSet.CreateDrawingObjectCircle(Y, X, Radius, out _drawingObject);
+                        break;
+                    case RoiType.LINE:
+                        HOperatorSet.CreateDrawingObjectLine(LeftY, LeftX, RightY, RightX, out _drawingObject);
+                        break;
+                    case RoiType.ELLIPSE:
+                        HOperatorSet.CreateDrawingObjectEllipse(Y, X, Angle, Length1, Length2, out _drawingObject);
                         break;
                     default:
                         HOperatorSet.SetSystem("flush_graphic", "true");
@@ -191,6 +205,37 @@ namespace AVS_Common.Model
                         Length1 = Length2 = Radius;
                         LeftX = X - Radius; LeftY = Y - Radius;
                         RightX = X + Radius; RightY = Y + Radius;
+                        break;
+                    case RoiType.LINE:
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "row1", out HTuple lr1);
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "column1", out HTuple lc1);
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "row2", out HTuple lr2);
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "column2", out HTuple lc2);
+                        LeftY = lr1.D; LeftX = lc1.D;
+                        RightY = lr2.D; RightX = lc2.D;
+                        // 计算中心点
+                        Y = (LeftY + RightY) / 2;
+                        X = (LeftX + RightX) / 2;
+                        // 角度和长度可选
+                        Angle = Math.Atan2(RightX - LeftX, RightY - LeftY);
+                        Length1 = Math.Sqrt((RightY - LeftY) * (RightY - LeftY) + (RightX - LeftX) * (RightX - LeftX)) / 2;
+                        Length2 = 5; // 默认线宽
+                        Radius = Length1;
+                        break;
+                    case RoiType.ELLIPSE:
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "row", out HTuple er);
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "column", out HTuple ec);
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "phi", out HTuple ephi);
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "radius1", out HTuple er1);
+                        HOperatorSet.GetDrawingObjectParams(_drawingObject, "radius2", out HTuple er2);
+                        Y = er.D; X = ec.D;
+                        Angle = ephi.D;
+                        Length1 = er1.D;   // 主轴半长
+                        Length2 = er2.D;   // 次轴半长
+                        Radius = Math.Min(Length1, Length2);
+                        // 计算边界（可选）
+                        LeftX = X - Length2; LeftY = Y - Length1;
+                        RightX = X + Length2; RightY = Y + Length1;
                         break;
                 }
                 return true;

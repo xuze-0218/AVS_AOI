@@ -6,8 +6,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    d:DesignHeight="700"
-    d:DesignWidth="1000"
+    d:Height="1000"
+    d:Width="1600"
     mc:Ignorable="d">
 
     <UserControl.Resources>
@@ -28,7 +28,7 @@
                 Command="{Binding RunCommand}"
                 Content="▶ 执行"
                 FontWeight="Bold" />
-         
+
             <Separator />
             <ToggleButton
                 Content="👁 ROI"
@@ -71,6 +71,8 @@
                             Header="矩形2 (Rectangle2)"
                             ToolTip="可旋转矩形 → 卡尺测量" />
                         <MenuItem Command="{Binding DrawCircleCommand}" Header="圆形 (Circle)" />
+                        <MenuItem Command="{Binding DrawEllipseCommand}" Header="椭圆 (Ellipse)" />
+                        <MenuItem Command="{Binding DrawLineCommand}" Header="直线 (Line)" />
                         <MenuItem Command="{Binding DrawPolygonCommand}" Header="多边形 (Polygon)" />
                         <Separator />
                         <MenuItem Command="{Binding ClearDrawingCommand}" Header="清除绘制" />
@@ -117,12 +119,11 @@
                             Foreground="#FF1B5E20"
                             Text="📏 卡尺测量" />
                     </Border>
-                    <local:CaliperMeasureView DataContext="{Binding CaliperMeasureVM}" />
+                    <local:MetrologyView DataContext="{Binding MetrologyVM}" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>
 
-        <!--  状态栏  -->
         <StatusBar Grid.Row="2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
             <StatusBarItem Width="Auto">
                 <TextBlock Text="{Binding StatusMessage}" />

@@ -1,0 +1,523 @@
+﻿<UserControl
+    x:Class="AVS_Modules_Settings.Views.MetrologyView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:prism="http://prismlibrary.com/"
+    prism:ViewModelLocator.AutoWireViewModel="True"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <!--  形状类型到可见性的转换器（后续 ViewModel 提供 SelectedObjectType 字符串）  -->
+        <Style x:Key="ShapePanelStyle" TargetType="StackPanel">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Rectangle2">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Circle">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Ellipse">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Line">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!--  实际使用中建议为每种形状定义独立样式，此处简化示例  -->
+    </UserControl.Resources>
+
+    <StackPanel Background="AliceBlue">
+        <!--  测量按钮和状态  -->
+        <Border
+            Margin="2,4"
+            Padding="4"
+            Background="#E0F0FF"
+            BorderBrush="#88B"
+            BorderThickness="1"
+            CornerRadius="3">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    Grid.Column="0"
+                    Width="60"
+                    Margin="0,0,6,0"
+                    Background="DodgerBlue"
+                    Command="{Binding MeasureCommand}"
+                    Content="测量"
+                    FontSize="12"
+                    Foreground="White" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Text="{Binding StatusMessage}"
+                    TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
+        <!--  测量对象类型选择  -->
+        <Border
+            Margin="2,0,2,4"
+            Padding="4"
+            Background="#F5F5F5"
+            BorderBrush="#CCC"
+            BorderThickness="1"
+            CornerRadius="3">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,4"
+                    FontWeight="Bold"
+                    Text="对象类型:" />
+                <ComboBox
+                    IsReadOnly="True"
+                    ItemsSource="{Binding ObjectTypes}"
+                    SelectedItem="{Binding SelectedObjectType}" />
+            </StackPanel>
+        </Border>
+
+        <!--  几何参数区域（按类型切换，需 ViewModel 提供绑定属性）  -->
+        <!--  矩形2参数  -->
+        <Border
+            Margin="2,0,2,4"
+            Padding="4"
+            Background="#FFF8E1"
+            BorderBrush="#FFB300"
+            BorderThickness="1"
+            CornerRadius="3"
+            Visibility="{Binding IsRectangle2Selected, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,4"
+                    FontWeight="Bold"
+                    Text="矩形2几何参数" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="长度1:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding RectLength1, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="长度2:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding RectLength2, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="角度(度):" />
+                    <TextBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding RectPhi, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!--  圆参数  -->
+        <Border
+            Margin="2,0,2,4"
+            Padding="4"
+            Background="#E8F5E9"
+            BorderBrush="#4CAF50"
+            BorderThickness="1"
+            CornerRadius="3"
+            Visibility="{Binding IsCircleSelected, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,4"
+                    FontWeight="Bold"
+                    Text="圆几何参数" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="半径:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding CircleRadius, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!--  椭圆参数  -->
+        <Border
+            Margin="2,0,2,4"
+            Padding="4"
+            Background="#E3F2FD"
+            BorderBrush="#2196F3"
+            BorderThickness="1"
+            CornerRadius="3"
+            Visibility="{Binding IsEllipseSelected, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,4"
+                    FontWeight="Bold"
+                    Text="椭圆几何参数" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="半径1:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding EllipseRadius1, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="半径2:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding EllipseRadius2, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="角度(度):" />
+                    <TextBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding EllipsePhi, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!--  直线参数  -->
+        <Border
+            Margin="2,0,2,4"
+            Padding="4"
+            Background="#F3E5F5"
+            BorderBrush="#9C27B0"
+            BorderThickness="1"
+            CornerRadius="3"
+            Visibility="{Binding IsLineSelected, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,4"
+                    FontWeight="Bold"
+                    Text="直线几何参数" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="起点Row:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding LineRow1, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="起点Col:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding LineCol1, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="终点Row:" />
+                    <TextBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding LineRow2, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="终点Col:" />
+                    <TextBox
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding LineCol2, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!--  测量对象公共参数  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="测量参数"
+            IsExpanded="True">
+            <StackPanel Margin="4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="测框长1:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding MeasureLength1, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="测框长2:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding MeasureLength2, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Expander>
+
+        <!--  边缘检测参数  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="边缘参数"
+            IsExpanded="True">
+            <StackPanel Margin="4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="Sigma:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding Sigma, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="阈值:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding Threshold, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="最小分数:" />
+                    <TextBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding MinScore, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="实例个数:" />
+                    <TextBox
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding NumInstances, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="4"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="测量间距:" />
+                    <TextBox
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        Margin="2"
+                        Text="{Binding MeasureDistance, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Grid.Row="5"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="插值方式:" />
+                    <ComboBox
+                        Grid.Row="5"
+                        Grid.Column="1"
+                        Margin="2"
+                        ItemsSource="{Binding InterpolationOptions}"
+                        SelectedItem="{Binding SelectedInterpolation}" />
+                </Grid>
+            </StackPanel>
+        </Expander>
+
+        <!--  极性与选择  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="边缘过滤"
+            IsExpanded="False">
+            <StackPanel Margin="4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="过渡极性:" />
+                    <ComboBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Margin="2"
+                        ItemsSource="{Binding TransitionOptions}"
+                        SelectedItem="{Binding SelectedTransition}" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        Text="边缘选择:" />
+                    <ComboBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="2"
+                        ItemsSource="{Binding SelectOptions}"
+                        SelectedItem="{Binding SelectedSelect}" />
+                </Grid>
+            </StackPanel>
+        </Expander>
+
+        <!--  显示选项  -->
+        <Expander
+            Margin="0,0,0,4"
+            Header="显示选项"
+            IsExpanded="False">
+            <StackPanel Margin="4">
+                <CheckBox Content="显示测量线" IsChecked="{Binding ShowMeasures}" />
+                <CheckBox Content="显示结果轮廓" IsChecked="{Binding ShowResultContour}" />
+            </StackPanel>
+        </Expander>
+
+        <!--  测量结果表格  -->
+        <TextBlock
+            Margin="0,4,0,2"
+            FontWeight="Bold"
+            Text="测量结果:" />
+        <DataGrid
+            MaxHeight="150"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            CanUserDeleteRows="False"
+            IsReadOnly="True"
+            ItemsSource="{Binding CaliperResults}">
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Width="30"
+                    Binding="{Binding Index}"
+                    Header="#" />
+                <DataGridTextColumn
+                    Width="50"
+                    Binding="{Binding Row, StringFormat=F2}"
+                    Header="Row" />
+                <DataGridTextColumn
+                    Width="50"
+                    Binding="{Binding Col, StringFormat=F2}"
+                    Header="Col" />
+                <DataGridTextColumn
+                    Width="50"
+                    Binding="{Binding Amplitude, StringFormat=F2}"
+                    Header="幅值" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding Distance, StringFormat=F2}"
+                    Header="边缘对宽" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding InterDistance, StringFormat=F2}"
+                    Header="对间距" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </StackPanel>
+</UserControl>
