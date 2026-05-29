@@ -21,7 +21,6 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!--  工具栏（简化：移除确认/取消）  -->
         <ToolBar Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
             <Button Command="{Binding LoadImageCommand}" Content="加载图像" />
             <Separator />
@@ -29,8 +28,7 @@
                 Command="{Binding RunCommand}"
                 Content="▶ 执行"
                 FontWeight="Bold" />
-            <Separator />
-            <ToggleButton Content="搜索区" IsChecked="{Binding IsSearchRegion}" />
+         
             <Separator />
             <ToggleButton
                 Content="👁 ROI"
@@ -72,16 +70,10 @@
                             Command="{Binding DrawRect2Command}"
                             Header="矩形2 (Rectangle2)"
                             ToolTip="可旋转矩形 → 卡尺测量" />
-                        <MenuItem
-                            Command="{Binding DrawCircleCommand}"
-                            Header="圆形 (Circle)" />
-                        <MenuItem
-                            Command="{Binding DrawPolygonCommand}"
-                            Header="多边形 (Polygon)" />
+                        <MenuItem Command="{Binding DrawCircleCommand}" Header="圆形 (Circle)" />
+                        <MenuItem Command="{Binding DrawPolygonCommand}" Header="多边形 (Polygon)" />
                         <Separator />
-                        <MenuItem
-                            Command="{Binding ClearDrawingCommand}"
-                            Header="清除绘制" />
+                        <MenuItem Command="{Binding ClearDrawingCommand}" Header="清除绘制" />
                     </ContextMenu>
                 </common:CameraDisplayUnit.ContextMenu>
             </common:CameraDisplayUnit>

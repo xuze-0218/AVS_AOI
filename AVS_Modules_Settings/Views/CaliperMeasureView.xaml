@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     d:DesignHeight="600"
-    d:DesignWidth="340"
+    d:DesignWidth="400"
     mc:Ignorable="d">
 
     <UserControl.Resources>
@@ -13,6 +13,36 @@
     </UserControl.Resources>
 
     <StackPanel Margin="0" Background="AliceBlue">
+        <Border
+            Margin="2,4"
+            Padding="4"
+            Background="#E0F0FF"
+            BorderBrush="#88B"
+            BorderThickness="1"
+            CornerRadius="3">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    Grid.Column="0"
+                    Width="60"
+                    Margin="0,0,6,0"
+                    Background="DodgerBlue"
+                    Command="{Binding MeasureCommand}"
+                    Content="测量"
+                    FontSize="12"
+                    Foreground="White" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Text="{Binding StatusMessage}"
+                    TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
         <!--  边缘参数  -->
         <Expander
             Margin="0,0,0,4"
@@ -240,7 +270,7 @@
                     Binding="{Binding IntraDistance, StringFormat=F2}"
                     Header="边缘对宽" />
                 <DataGridTextColumn
-                    Width="60"
+                    Width="*"
                     Binding="{Binding InterDistance, StringFormat=F2}"
                     Header="对间距" />
             </DataGrid.Columns>

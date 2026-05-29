@@ -44,17 +44,22 @@ namespace AVS_Service
         void SetImage(HObject image);
 
         /// <summary>
-        /// 从 Rectangle2 参数生成测量句柄，返回生成的 MeasureHandle 区域（非 dispose）
+        /// 从 Rectangle2 参数生成测量句柄
         /// </summary>
+        /// <param name="width">图像宽</param>
+        /// <param name="height">图像高</param>
+        /// <param name="interp"></param>
+        /// <param name="measureRegion"></param>
+        /// <returns></returns>
         HTuple GenMeasureRectangle2(double row, double col, double phi, double length1, double length2,
-            double width, double height, double interp, out HObject measureRegion);
+            double width, double height, string interp, out HObject measureRegion);
 
         /// <summary>
         /// 执行卡尺测量（单边缘模式）
         /// </summary>
         void MeasureCaliper(
             HTuple measureHandle,
-            int sigma,
+            double sigma,
             int threshold,
             CaliperTransition transition,
             CaliperSelect select,
@@ -68,7 +73,7 @@ namespace AVS_Service
         /// </summary>
         void MeasureCaliperEdgePairs(
             HTuple measureHandle,
-            int sigma,
+            double sigma,
             int threshold,
             CaliperTransition transition,
             CaliperSelect select,
@@ -144,7 +149,7 @@ namespace AVS_Service
 
         public HTuple GenMeasureRectangle2(
             double row, double col, double phi, double length1, double length2,
-            double width, double height, double interp,
+            double width, double height, string interp,
             out HObject measureRegion)
         {
             measureRegion = new HObject();
@@ -181,7 +186,7 @@ namespace AVS_Service
 
         public void MeasureCaliper(
             HTuple measureHandle,
-            int sigma,
+            double sigma,
             int threshold,
             CaliperTransition transition,
             CaliperSelect select,
@@ -226,7 +231,7 @@ namespace AVS_Service
 
         public void MeasureCaliperEdgePairs(
             HTuple measureHandle,
-            int sigma,
+            double sigma,
             int threshold,
             CaliperTransition transition,
             CaliperSelect select,

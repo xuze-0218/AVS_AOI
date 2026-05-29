@@ -49,6 +49,7 @@ namespace AVS_Modules_Settings.ViewModels
 
             // 将当前 ROI 对象引用注入子 ViewModel，使模板匹配/掩膜编辑可独立同步 DrawingObject
             TemplateMatchingVM.ActiveRoi = _currentRoi;
+            CaliperMeasureVM.CurrentRoi = _currentRoi;
 
             // ===== 命令 =====
             RunCommand = new DelegateCommand(OnRun);
@@ -131,13 +132,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         private double _currentMouseCol;
         public double CurrentMouseCol { get => _currentMouseCol; set => SetProperty(ref _currentMouseCol, value); }
-
-        private bool _isSearchRegion;
-        public bool IsSearchRegion
-        {
-            get => _isSearchRegion;
-            set => SetProperty(ref _isSearchRegion, value);
-        }
 
         private bool _isRoiVisible = true;
         /// <summary>控制绿色 ROI 区域在图像上的显示/隐藏</summary>
@@ -358,7 +352,9 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 _currentRoi.Region.Dispose();
             }
+            _currentRoi.Region?.Dispose();
             _currentRoi.Region = new HObject();
+            _currentRoi.Region.GenEmptyObj();
             RoiPath = null;
             if (_halconWindow != null)
             {

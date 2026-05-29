@@ -1,10 +1,11 @@
+using AVS_Common.Model;
 using AVS_Service;
 using HalconDotNet;
 using Prism.Commands;
 using Prism.Mvvm;
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace AVS_Modules_Settings.ViewModels
 {
@@ -25,7 +26,7 @@ namespace AVS_Modules_Settings.ViewModels
     {
         private readonly ICaliperService _caliperService;
         private HTuple _currentMeasureHandle;
-
+        public DelegateCommand MeasureCommand { get; }
         public CaliperMeasureViewModel(ICaliperService caliperService)
         {
             _caliperService = caliperService;
@@ -38,9 +39,19 @@ namespace AVS_Modules_Settings.ViewModels
             CaliperSigma = "1";
             CaliperThreshold = "30";
             CaliperScale = "1";
-            CaliperWidth = "10";
-            CaliperHeight = "20";
+            //CaliperWidth = "10";
+            //CaliperHeight = "20";
             CaliperInterpolation = "双线性";
+            MeasureCommand = new DelegateCommand(OnMeasure);
+        }
+
+
+
+        private HObjectRegion _currentRoi;
+        public HObjectRegion CurrentRoi
+        {
+            get => _currentRoi;
+            set => _currentRoi = value;
         }
 
         // ===== 边缘参数 =====
@@ -59,12 +70,12 @@ namespace AVS_Modules_Settings.ViewModels
         private int _caliperSelect; // 0=第一个 1=最后一个 2=全部
         public int CaliperSelect { get => _caliperSelect; set => SetProperty(ref _caliperSelect, value); }
 
-        // ===== 卡尺ROI尺寸 =====
-        private string _caliperWidth;
-        public string CaliperWidth { get => _caliperWidth; set => SetProperty(ref _caliperWidth, value); }
+        //// ===== 卡尺ROI尺寸 =====
+        //private string _caliperWidth;
+        //public string CaliperWidth { get => _caliperWidth; set => SetProperty(ref _caliperWidth, value); }
 
-        private string _caliperHeight;
-        public string CaliperHeight { get => _caliperHeight; set => SetProperty(ref _caliperHeight, value); }
+        //private string _caliperHeight;
+        //public string CaliperHeight { get => _caliperHeight; set => SetProperty(ref _caliperHeight, value); }
 
         // ===== 测量设置 =====
         private int _caliperSelectMeasure;
@@ -111,6 +122,12 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _caliperResults, value);
         }
 
+        private string _statusMessage;
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set => SetProperty(ref _statusMessage, value);
+        }
         // ===== 选项列表 =====
         public List<string> SelectMeasureOptions { get; }
         public List<string> InterpolationOptions { get; }
@@ -125,17 +142,18 @@ namespace AVS_Modules_Settings.ViewModels
         /// </summary>
         public HObject GenAndGetMeasureRegion(double row, double col, double phi, double length1, double length2)
         {
-            double width = ParseDouble(CaliperWidth, 10);
-            double height = ParseDouble(CaliperHeight, 20);
-            double interp = GetInterpolationValue();
+            //double width = ParseDouble(CaliperWidth, 10);
+            //double height = ParseDouble(CaliperHeight, 20);
+            //string interp = GetInterpolationValue();
 
-            // 关闭旧句柄
-            CloseCurrentMeasure();
+            //// 关闭旧句柄
+            //CloseCurrentMeasure();
 
-            _currentMeasureHandle = _caliperService.GenMeasureRectangle2(
-                row, col, phi, length1, length2, width, height, interp, out HObject region);
+            //_currentMeasureHandle = _caliperService.GenMeasureRectangle2(
+            //    row, col, phi, length1, length2, width, height, interp, out HObject region);
 
-            return region;
+            //return region;
+            return null; // 目前改为在 MeasureWithRect2 内直接生成并显示 ROI，GenAndGetMeasureRegion 不再使用
         }
 
         /// <summary>
@@ -145,23 +163,19 @@ namespace AVS_Modules_Settings.ViewModels
         {
             if (CurrentImage == null) return;
 
-            double width = ParseDouble(CaliperWidth, 10);
-            double height = ParseDouble(CaliperHeight, 20);
-            double interp = GetInterpolationValue();
-
+            HOperatorSet.GetImageSize(CurrentImage, out HTuple imgWidth, out HTuple imgHeight);
+            string interp = GetInterpolationValue();
             _caliperService.SetImage(CurrentImage);
             _caliperService.SetHalconWindow(HalconWindow);
-
             // 关闭旧句柄
             CloseCurrentMeasure();
 
             // 生成新的测量句柄
-            _currentMeasureHandle = _caliperService.GenMeasureRectangle2(
-                row, col, phi, length1, length2, width, height, interp, out HObject _);
+            _currentMeasureHandle = _caliperService.GenMeasureRectangle2(row, col, phi, length1, length2, imgWidth, imgHeight, interp, out HObject _);
 
             try
             {
-                int sigma = ParseInt(CaliperSigma);
+                double sigma = ParseDouble(CaliperSigma);
                 int threshold = ParseInt(CaliperThreshold);
                 double scale = ParseDouble(CaliperScale, 1.0);
 
@@ -245,7 +259,7 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        private AVS_Service.CaliperTransition GetTransitionEnum()
+        private CaliperTransition GetTransitionEnum()
         {
             switch (CaliperTransition)
             {
@@ -255,7 +269,7 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        private AVS_Service.CaliperSelect GetSelectEnum()
+        private CaliperSelect GetSelectEnum()
         {
             switch (CaliperSelect)
             {
@@ -265,11 +279,11 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        private double GetInterpolationValue()
+        private string GetInterpolationValue()
         {
             // "最近邻" -> "nearest_neighbor", "双线性" -> "bilinear", "双三次" -> "bicubic"
             int idx = InterpolationOptions?.IndexOf(CaliperInterpolation) ?? 1;
-            return idx switch { 0 => -0.5, 2 => 0.5, _ => 0 };
+            return idx switch { 0 => "nearest_neighbor", 2 => "bilinear", _ => "bicubic" };
         }
 
         private double ParseDouble(string s, double defaultVal = 0)
@@ -282,6 +296,36 @@ namespace AVS_Modules_Settings.ViewModels
         {
             if (int.TryParse(s, out int val)) return val;
             return defaultVal;
+        }
+
+        private void OnMeasure()
+        {
+            if (CurrentImage == null || !CurrentImage.IsInitialized())
+            {
+                StatusMessage = "请先加载图像";
+                return;
+            }
+            if (_currentRoi == null || _currentRoi.Style != RoiType.RECTANGLE2)
+            {
+                StatusMessage = "请先绘制并确认旋转矩形 (Rectangle2)";
+                return;
+            }
+
+            try
+            {
+                // 从 DrawingObject 同步最新参数并重新生成 Region
+                _currentRoi.SyncFromDrawingObject();
+                _currentRoi.GenerateRegion();
+
+                // 调用已有的测量逻辑
+                MeasureWithRect2(_currentRoi.Y, _currentRoi.X, _currentRoi.Angle, _currentRoi.Length1, _currentRoi.Length2);
+
+                StatusMessage = "测量完成";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"测量失败：{ex.Message}";
+            }
         }
     }
 }
