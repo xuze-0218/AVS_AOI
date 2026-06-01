@@ -39,8 +39,6 @@ namespace AVS_Modules_Settings.ViewModels
             CaliperSigma = "1";
             CaliperThreshold = "30";
             CaliperScale = "1";
-            //CaliperWidth = "10";
-            //CaliperHeight = "20";
             CaliperInterpolation = "双线性";
             MeasureCommand = new DelegateCommand(OnMeasure);
         }
@@ -69,13 +67,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         private int _caliperSelect; // 0=第一个 1=最后一个 2=全部
         public int CaliperSelect { get => _caliperSelect; set => SetProperty(ref _caliperSelect, value); }
-
-        //// ===== 卡尺ROI尺寸 =====
-        //private string _caliperWidth;
-        //public string CaliperWidth { get => _caliperWidth; set => SetProperty(ref _caliperWidth, value); }
-
-        //private string _caliperHeight;
-        //public string CaliperHeight { get => _caliperHeight; set => SetProperty(ref _caliperHeight, value); }
 
         // ===== 测量设置 =====
         private int _caliperSelectMeasure;
@@ -135,26 +126,6 @@ namespace AVS_Modules_Settings.ViewModels
         public HWindow HalconWindow { get; set; }
         public HObject CurrentImage { get; set; }
         public HRegion MeasureRegion { get; set; }
-
-        /// <summary>
-        /// 用 Rectangle2 绘制并生成卡尺测量句柄（带 ROI 显示）
-        /// 返回生成的轮廓用于显示 ROI
-        /// </summary>
-        public HObject GenAndGetMeasureRegion(double row, double col, double phi, double length1, double length2)
-        {
-            //double width = ParseDouble(CaliperWidth, 10);
-            //double height = ParseDouble(CaliperHeight, 20);
-            //string interp = GetInterpolationValue();
-
-            //// 关闭旧句柄
-            //CloseCurrentMeasure();
-
-            //_currentMeasureHandle = _caliperService.GenMeasureRectangle2(
-            //    row, col, phi, length1, length2, width, height, interp, out HObject region);
-
-            //return region;
-            return null; // 目前改为在 MeasureWithRect2 内直接生成并显示 ROI，GenAndGetMeasureRegion 不再使用
-        }
 
         /// <summary>
         /// 执行当前卡尺测量（使用已生成的 measureHandle）

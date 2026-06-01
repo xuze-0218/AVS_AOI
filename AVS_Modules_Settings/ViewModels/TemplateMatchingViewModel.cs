@@ -216,6 +216,10 @@ namespace AVS_Modules_Settings.ViewModels
             get => _matchResults;
             set => SetProperty(ref _matchResults, value);
         }
+        /// <summary>
+        /// 最佳匹配
+        /// </summary>
+        public MatchResultItem BestMatch => MatchResults != null && MatchResults.Count > 0 ? MatchResults[0] : null;
 
         public List<string> MetricOptions { get; }
         public List<string> OptimizationOptions { get; }

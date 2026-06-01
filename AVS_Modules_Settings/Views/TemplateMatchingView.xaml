@@ -134,6 +134,22 @@
                     Content="加载模板"
                     FontSize="11"
                     Foreground="White" />
+                <Button
+                    Width="75"
+                    Margin="2"
+                    Background="Gray"
+                    Command="{Binding SaveAllCommand}"
+                    Content="保存全部"
+                    FontSize="11"
+                    Foreground="White" />
+                <Button
+                    Width="75"
+                    Margin="2"
+                    Background="Gray"
+                    Command="{Binding LoadAllCommand}"
+                    Content="加载全部"
+                    FontSize="11"
+                    Foreground="White" />
             </WrapPanel>
         </Border>
 

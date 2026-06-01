@@ -6,6 +6,7 @@ using Prism.Commands;
 using Prism.Mvvm;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Windows;
 
 namespace AVS_Modules_Settings.ViewModels
@@ -67,6 +68,8 @@ namespace AVS_Modules_Settings.ViewModels
             SaveRoiCommand = new DelegateCommand(OnSaveRoi);
             LoadRoiCommand = new DelegateCommand(OnLoadRoi);
             ClearRoiCommand = new DelegateCommand(OnClearRoi);
+            SaveAllCommand = new DelegateCommand(OnSaveAll);
+            LoadAllCommand = new DelegateCommand(OnLoadAll);
 
             // ===== ROI绘制命令（迁入协调器层） =====
             DrawRect1Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE1, "red"));
@@ -127,6 +130,7 @@ namespace AVS_Modules_Settings.ViewModels
         private HObjectRegion _currentRoi = new HObjectRegion();
         public HObjectRegion CurrentRoi => _currentRoi;
 
+        // 在原有类内部添加
         private string _imagePath;
         public string ImagePath
         {
@@ -224,6 +228,8 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand DrawPolygonCommand { get; }
         public DelegateCommand ClearDrawingCommand { get; }
         public DelegateCommand ConfirmRoiCommand { get; }
+        public DelegateCommand SaveAllCommand { get; }
+        public DelegateCommand LoadAllCommand { get; }
         #endregion
 
         #region Halcon窗口设置
@@ -237,7 +243,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void OnRun()
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var sw = Stopwatch.StartNew();
             try
             {
                 // 同步 DrawingObject 参数并生成 Region
@@ -253,25 +259,19 @@ namespace AVS_Modules_Settings.ViewModels
                 }
 
                 // 模板匹配：使用 ROI Region
-                if (TemplateMatchingVM != null)
+                TemplateMatchingVM.FindModelCommand?.Execute();
+                var bestMatch = TemplateMatchingVM.BestMatch;
+                if (bestMatch != null && MetrologyVM.IsFollowModel)
                 {
-                    TemplateMatchingVM.ModelRegion = _currentRoi.Region;
-                    TemplateMatchingVM.FindModelCommand?.Execute();
+                    MetrologyVM.MatchRow = bestMatch.Row;
+                    MetrologyVM.MatchCol = bestMatch.Col;
+                    MetrologyVM.MatchAngle = bestMatch.Angle;
                 }
-
-                // 卡尺测量：如果当前 ROI 是矩形2，传入矩形参数
-                if (CaliperMeasureVM != null && _currentRoi.Region != null && _currentRoi.Region.IsInitialized())
+                else
                 {
-                    if (_currentRoi.Style == RoiType.RECTANGLE2)
-                    {
-                        // 卡尺测量：仅支持矩形2 ROI
-                        CaliperMeasureVM.MeasureWithRect2(
-                            _currentRoi.Y, _currentRoi.X,
-                            _currentRoi.Angle,
-                            _currentRoi.Length1, _currentRoi.Length2);
-                    }
+                    MetrologyVM.MatchRow = 0; // 无效标志
                 }
-
+                MetrologyVM.MeasureCommand.Execute();
                 RunResult = "OK";
                 IsPass = true;
                 RedrawImage();
@@ -280,7 +280,7 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 RunResult = "ERROR";
                 IsPass = false;
-                System.Diagnostics.Debug.WriteLine(ex.Message);
+                Debug.WriteLine(ex.Message);
             }
             sw.Stop();
             RunTime = $"{sw.ElapsedMilliseconds} ms";
@@ -587,5 +587,36 @@ namespace AVS_Modules_Settings.ViewModels
                 img.DispObj(_halconWindow);
         }
         #endregion
+
+        private void OnSaveAll()
+        {
+            // 保存 ROI
+            OnSaveRoi();
+            // 保存模板模型（如果 TemplateMatchingVM 提供了保存接口）
+            if (TemplateMatchingVM.SaveModelCommand.CanExecute())
+                TemplateMatchingVM.SaveModelCommand.Execute();
+            // 保存计量模型
+            if (MetrologyVM.SaveMetroCommand.CanExecute())
+                MetrologyVM.SaveMetroCommand.Execute();
+        }
+
+        private void OnLoadAll()
+        {
+            OnLoadRoi();
+            if (TemplateMatchingVM.LoadModelCommand.CanExecute())
+                TemplateMatchingVM.LoadModelCommand.Execute();
+            MetrologyVM.LoadMetroCommand.Execute();
+        }
+
+        //更新计量模块的参考位姿
+        public void UpdateMetrologyRef(double refRow, double refCol, double refAngle)
+        {
+            if (MetrologyVM != null)
+            {
+                MetrologyVM.ModelRefRow = refRow;
+                MetrologyVM.ModelRefCol = refCol;
+                MetrologyVM.ModelRefAngle = refAngle;
+            }
+        }
     }
 }

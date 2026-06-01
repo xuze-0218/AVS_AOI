@@ -61,250 +61,6 @@
                     TextWrapping="Wrap" />
             </Grid>
         </Border>
-
-        <!--  测量对象类型选择  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#F5F5F5"
-            BorderBrush="#CCC"
-            BorderThickness="1"
-            CornerRadius="3">
-            <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontWeight="Bold"
-                    Text="对象类型:" />
-                <ComboBox
-                    IsReadOnly="True"
-                    ItemsSource="{Binding ObjectTypes}"
-                    SelectedItem="{Binding SelectedObjectType}" />
-            </StackPanel>
-        </Border>
-
-        <!--  几何参数区域（按类型切换，需 ViewModel 提供绑定属性）  -->
-        <!--  矩形2参数  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#FFF8E1"
-            BorderBrush="#FFB300"
-            BorderThickness="1"
-            CornerRadius="3"
-            Visibility="{Binding IsRectangle2Selected, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontWeight="Bold"
-                    Text="矩形2几何参数" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="长度1:" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding RectLength1, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="长度2:" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding RectLength2, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="2"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="角度(度):" />
-                    <TextBox
-                        Grid.Row="2"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding RectPhi, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!--  圆参数  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#E8F5E9"
-            BorderBrush="#4CAF50"
-            BorderThickness="1"
-            CornerRadius="3"
-            Visibility="{Binding IsCircleSelected, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontWeight="Bold"
-                    Text="圆几何参数" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="半径:" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding CircleRadius, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!--  椭圆参数  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#E3F2FD"
-            BorderBrush="#2196F3"
-            BorderThickness="1"
-            CornerRadius="3"
-            Visibility="{Binding IsEllipseSelected, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontWeight="Bold"
-                    Text="椭圆几何参数" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="半径1:" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding EllipseRadius1, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="半径2:" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding EllipseRadius2, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="2"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="角度(度):" />
-                    <TextBox
-                        Grid.Row="2"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding EllipsePhi, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!--  直线参数  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#F3E5F5"
-            BorderBrush="#9C27B0"
-            BorderThickness="1"
-            CornerRadius="3"
-            Visibility="{Binding IsLineSelected, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontWeight="Bold"
-                    Text="直线几何参数" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="起点Row:" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding LineRow1, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="起点Col:" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding LineCol1, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="2"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="终点Row:" />
-                    <TextBox
-                        Grid.Row="2"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding LineRow2, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="3"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="终点Col:" />
-                    <TextBox
-                        Grid.Row="3"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding LineCol2, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
         <!--  测量对象公共参数  -->
         <Expander
             Margin="0,0,0,4"
@@ -317,26 +73,49 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
                         <RowDefinition Height="28" />
                         <RowDefinition Height="28" />
                     </Grid.RowDefinitions>
+                    <StackPanel Grid.ColumnSpan="2" Orientation="Vertical">
+                        <CheckBox
+                            Margin="4"
+                            Content="边缘对模式（测量平行轮廓距离）"
+                            IsChecked="{Binding UseEdgePairs}" />
+                        <!--  在 StackPanel 内某处添加  -->
+                        <CheckBox
+                            Margin="4"
+                            Content="跟随模板"
+                            IsChecked="{Binding IsFollowModel}" />
+                        <Button
+                            Margin="4"
+                            HorizontalAlignment="Left"
+                            Command="{Binding SaveMetroCommand}"
+                            Content="保存计量模型" />
+                        <Button
+                            Margin="4"
+                            HorizontalAlignment="Left"
+                            Command="{Binding LoadMetroCommand}"
+                            Content="加载计量模型" />
+                    </StackPanel>
+
                     <TextBlock
-                        Grid.Row="0"
+                        Grid.Row="1"
                         Grid.Column="0"
                         VerticalAlignment="Center"
                         Text="测框长1:" />
                     <TextBox
-                        Grid.Row="0"
+                        Grid.Row="1"
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding MeasureLength1, UpdateSourceTrigger=PropertyChanged}" />
                     <TextBlock
-                        Grid.Row="1"
+                        Grid.Row="2"
                         Grid.Column="0"
                         VerticalAlignment="Center"
                         Text="测框长2:" />
                     <TextBox
-                        Grid.Row="1"
+                        Grid.Row="2"
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding MeasureLength2, UpdateSourceTrigger=PropertyChanged}" />
