@@ -57,6 +57,17 @@ namespace AVS_Modules_Settings.ViewModels
             CaliperMeasureVM = new CaliperMeasureViewModel(caliperService);
             MetrologyVM = new MetrologyViewModel(metrologyService);
 
+            MetrologyVM.RequestMatch = () =>
+            {
+                TemplateMatchingVM.FindModelCommand?.Execute();
+                var best = TemplateMatchingVM.BestMatch;
+                if (best != null)
+                {
+                    MetrologyVM.SetMatchResult(best.Row, best.Col, best.Angle);
+                    return true;
+                }
+                return false;
+            };
             // 将当前 ROI 对象引用注入子 ViewModel，使模板匹配/掩膜编辑可独立同步 DrawingObject
             TemplateMatchingVM.ActiveRoi = _currentRoi;
             CaliperMeasureVM.CurrentRoi = _currentRoi;
@@ -70,6 +81,7 @@ namespace AVS_Modules_Settings.ViewModels
             ClearRoiCommand = new DelegateCommand(OnClearRoi);
             SaveAllCommand = new DelegateCommand(OnSaveAll);
             LoadAllCommand = new DelegateCommand(OnLoadAll);
+            SetMetroRefCommand = new DelegateCommand(OnSetMetroRef);
 
             // ===== ROI绘制命令（迁入协调器层） =====
             DrawRect1Command = new DelegateCommand(() => StartDraw(RoiType.RECTANGLE1, "red"));
@@ -230,6 +242,7 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand ConfirmRoiCommand { get; }
         public DelegateCommand SaveAllCommand { get; }
         public DelegateCommand LoadAllCommand { get; }
+        public DelegateCommand SetMetroRefCommand { get; }
         #endregion
 
         #region Halcon窗口设置
@@ -246,6 +259,7 @@ namespace AVS_Modules_Settings.ViewModels
             var sw = Stopwatch.StartNew();
             try
             {
+                RedrawImage();
                 // 同步 DrawingObject 参数并生成 Region
                 if (_currentRoi.Style != RoiType.POLYGON)
                     _currentRoi.SyncFromDrawingObject();
@@ -274,7 +288,7 @@ namespace AVS_Modules_Settings.ViewModels
                 MetrologyVM.MeasureCommand.Execute();
                 RunResult = "OK";
                 IsPass = true;
-                RedrawImage();
+                
             }
             catch (Exception ex)
             {
@@ -284,6 +298,28 @@ namespace AVS_Modules_Settings.ViewModels
             }
             sw.Stop();
             RunTime = $"{sw.ElapsedMilliseconds} ms";
+        }
+
+        private void OnSetMetroRef()
+        {
+            // 尝试在当前图像上执行一次模板匹配，获取模板中心
+            TemplateMatchingVM.FindModelCommand?.Execute();
+            var best = TemplateMatchingVM.BestMatch;
+            if (best != null)
+            {
+                MetrologyVM.ModelRefRow = best.Row;
+                MetrologyVM.ModelRefCol = best.Col;
+                MetrologyVM.ModelRefAngle = best.Angle; // 注意角度单位一致性
+                StatusMessage = $"参考位姿已设为 Row={best.Row:F2}, Col={best.Col:F2}, Angle={best.Angle:F3}";
+            }
+            else
+            {
+                // 如果无法匹配，退而求其次：使用 ROI 中心
+                MetrologyVM.ModelRefRow = _currentRoi.Y;
+                MetrologyVM.ModelRefCol = _currentRoi.X;
+                MetrologyVM.ModelRefAngle = _currentRoi.Angle;
+                StatusMessage = "模板匹配失败，参考位姿已设为当前ROI中心";
+            }
         }
 
         private void OnLoadImage()
@@ -617,6 +653,6 @@ namespace AVS_Modules_Settings.ViewModels
                 MetrologyVM.ModelRefCol = refCol;
                 MetrologyVM.ModelRefAngle = refAngle;
             }
-        }
+        }       
     }
 }

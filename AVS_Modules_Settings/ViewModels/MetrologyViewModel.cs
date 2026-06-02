@@ -1,14 +1,15 @@
 ﻿using AVS_Common.Model;
 using AVS_Service;
 using HalconDotNet;
+using Microsoft.Win32;
 using Prism.Commands;
 using Prism.Mvvm;
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.Linq;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
-using Microsoft.Win32;
+using System.Linq;
 
 namespace AVS_Modules_Settings.ViewModels
 {
@@ -26,6 +27,7 @@ namespace AVS_Modules_Settings.ViewModels
     public class MetrologyViewModel : BindableBase
     {
         private readonly IMetrologyService _metrologyService;
+        public Func<bool> RequestMatch { get; set; }
 
         private HObjectRegion _currentRoi;
         public HObjectRegion CurrentRoi
@@ -257,12 +259,16 @@ namespace AVS_Modules_Settings.ViewModels
                 StatusMessage = "请先绘制测量对象";
                 return;
             }
-
             try
             {
                 HTuple modelHandle;
                 if (IsFollowModel && File.Exists(_currentMetroPath))
                 {
+                    if (RequestMatch == null || !RequestMatch.Invoke())
+                    {
+                        StatusMessage = "模板匹配失败，无法定位卡尺";
+                        return;
+                    }
                     // 从文件加载已保存的计量模型（包含参考系统）
                     modelHandle = _metrologyService.ReadMetrologyModel(_currentMetroPath);
                     // 对齐到匹配结果
@@ -274,22 +280,13 @@ namespace AVS_Modules_Settings.ViewModels
                     CurrentRoi.GenerateRegion();
                     modelHandle = _metrologyService.CreateMetrologyModel();
                     AddCurrentObjectToModel(modelHandle);
-                }              
-                _metrologyService.SetImage(CurrentImage);                
+                }
+                _metrologyService.SetImage(CurrentImage);
                 _metrologyService.ApplyMetrologyModel(modelHandle, out HObject measures, out HObject resultContours);
                 DisplayResults(measures, resultContours);
-
-                if (!IsFollowModel) // 动态模式提取边缘点，跟随模式也可提取
-                {
-                    ExtractEdgePoints(modelHandle, out var rows, out var cols, out var amplitudes);
-                    FillResults(rows, cols, amplitudes);
-                }
-                else
-                {
-                    // 从计量模型提取结果
-                    ExtractEdgePoints(modelHandle, out var rows, out var cols, out var amplitudes);
-                    FillResults(rows, cols, amplitudes);
-                }
+                // 从计量模型提取结果
+                ExtractEdgePoints(modelHandle, out var rows, out var cols, out var amplitudes);
+                FillResults(rows, cols, amplitudes);
                 _metrologyService.ClearMetrologyModel(modelHandle);
                 StatusMessage = $"测量完成，找到 {CaliperResults.Count} 个边缘点";
             }
@@ -468,8 +465,10 @@ namespace AVS_Modules_Settings.ViewModels
                 if (IsFollowModel)
                 {
                     _metrologyService.SetReferenceSystem(modelHandle, ModelRefRow, ModelRefCol, ModelRefAngle);
+                    Debug.WriteLine($"Save Ref: {ModelRefRow}, {ModelRefCol}, {ModelRefAngle}");
                 }
                 _metrologyService.SaveMetrologyModel(modelHandle, sfd.FileName);
+
                 _metrologyService.ClearMetrologyModel(modelHandle);
                 _currentMetroPath = sfd.FileName;
                 StatusMessage = $"计量模型已保存到 {sfd.FileName}";
@@ -484,7 +483,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             try
             {
-               OpenFileDialog ofd = new OpenFileDialog
+                OpenFileDialog ofd = new OpenFileDialog
                 {
                     Filter = "Metrology Model (*.mtr)|*.mtr",
                     Title = "加载计量模型"
@@ -602,6 +601,13 @@ namespace AVS_Modules_Settings.ViewModels
                 }
             }
             CaliperResults = list;
+        }
+
+        public void SetMatchResult(double row, double col, double angle)
+        {
+            MatchRow = row;
+            MatchCol = col;
+            MatchAngle = angle;
         }
     }
 }

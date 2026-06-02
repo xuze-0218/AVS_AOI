@@ -43,6 +43,7 @@
                 Command="{Binding ConfirmRoiCommand}"
                 Content="确认ROI"
                 ToolTip="将可拖动红色框转为绿色固定区域" />
+            <Button Command="{Binding SetMetroRefCommand}" Content="设置参考位姿" />
         </ToolBar>
 
         <!--  主内容区  -->
