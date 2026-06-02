@@ -6,56 +6,48 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
     Title="AOI 视觉系统"
-    Width="1000"
-    Height="600"
+    Width="1200"
+    Height="700"
     MinWidth="900"
     MinHeight="500"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
 
     <Window.Resources>
-        <!--  导航按钮统一样式  -->
-        <Style x:Key="NavButtonStyle" TargetType="Button">
+        <!--  顶部导航按钮样式（RadioButton）  -->
+        <Style x:Key="TopNavButtonStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="#CCCCCC" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Height" Value="42" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Padding" Value="24,0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="16,0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="RadioButton">
                         <Border
                             x:Name="border"
+                            Padding="{TemplateBinding Padding}"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter
-                                Margin="{TemplateBinding Padding}"
-                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            BorderThickness="0,0,0,2">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#3A3A3E" />
+                                <Setter TargetName="border" Property="Background" Value="#333337" />
                                 <Setter Property="Foreground" Value="White" />
                             </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#505050" />
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter TargetName="border" Property="Background" Value="#2A2A2E" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-        </Style>
-
-        <!--  分隔线样式  -->
-        <Style TargetType="Separator">
-            <Setter Property="Height" Value="1" />
-            <Setter Property="Background" Value="#444" />
-            <Setter Property="Margin" Value="16,6" />
         </Style>
 
         <!--  日志表格行样式  -->
@@ -114,296 +106,353 @@
     </Window.Resources>
 
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220" />
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="320" />
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <Border Grid.Column="0" Background="#1E1E1E">
+        <!--  顶部导航栏（菜单居中）  -->
+        <Border Grid.Row="0" Background="#1E1E1E">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Row="0" Margin="0,24,0,12">
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        FontSize="20"
-                        FontWeight="Bold"
-                        Foreground="#F5F5F5"
-                        Text="AOI 视觉系统" />
-                    <StackPanel
-                        Margin="0,16,0,0"
-                        HorizontalAlignment="Center"
-                        Orientation="Horizontal">
-                        <Ellipse
-                            Width="12"
-                            Height="12"
-                            Margin="0,0,10,0">
-                            <Ellipse.Style>
-                                <Style TargetType="Ellipse">
-                                    <Setter Property="Fill" Value="#FF4C4C" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsPlcConnected}" Value="True">
-                                            <Setter Property="Fill" Value="#4CAF50" />
-                                            <Setter Property="Effect">
-                                                <Setter.Value>
-                                                    <DropShadowEffect
-                                                        BlurRadius="8"
-                                                        ShadowDepth="0"
-                                                        Color="#4CAF50" />
-                                                </Setter.Value>
-                                            </Setter>
-                                            <DataTrigger.EnterActions>
-                                                <BeginStoryboard>
-                                                    <Storyboard>
-                                                        <ColorAnimationUsingKeyFrames Storyboard.TargetProperty="Fill.Color" Duration="0:0:0.4">
-                                                            <DiscreteColorKeyFrame KeyTime="0:0:0" Value="#4CAF50" />
-                                                        </ColorAnimationUsingKeyFrames>
-                                                    </Storyboard>
-                                                </BeginStoryboard>
-                                            </DataTrigger.EnterActions>
-                                            <DataTrigger.ExitActions>
-                                                <BeginStoryboard>
-                                                    <Storyboard>
-                                                        <ColorAnimationUsingKeyFrames Storyboard.TargetProperty="Fill.Color" Duration="0:0:0.4">
-                                                            <DiscreteColorKeyFrame KeyTime="0:0:0" Value="#FF4C4C" />
-                                                        </ColorAnimationUsingKeyFrames>
-                                                    </Storyboard>
-                                                </BeginStoryboard>
-                                            </DataTrigger.ExitActions>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Ellipse.Style>
-                        </Ellipse>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontSize="12"
-                            Foreground="#AAA"
-                            Text="PLC 通讯" />
-                    </StackPanel>
-                </StackPanel>
+                <!--  居中的导航菜单  -->
+                <ItemsControl
+                    Grid.Column="0"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    VerticalContentAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
 
-                <StackPanel Grid.Row="1" Margin="0,12,0,0">
-                    <Button
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="InspectionView"
                         Content="🔍 实时检测"
-                        Style="{StaticResource NavButtonStyle}" />
-                    <Separator />
-                    <Button
+                        Style="{StaticResource TopNavButtonStyle}" />
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="ParameterConfigView"
                         Content="⚙️ 参数配置"
-                        Style="{StaticResource NavButtonStyle}" />
-                    <Separator />
-                    <Button
+                        Style="{StaticResource TopNavButtonStyle}" />
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="CameraDebugView"
                         Content="📷 相机调试"
-                        Style="{StaticResource NavButtonStyle}" />
-                    <Separator />
-                    <Button
+                        Style="{StaticResource TopNavButtonStyle}" />
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="PlcDebugView"
                         Content="📡 通讯测试"
-                        Style="{StaticResource NavButtonStyle}" />
-                    <Separator />
-                    <Button
+                        Cursor=""
+                        Style="{StaticResource TopNavButtonStyle}" />
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="ProtocolConfigView"
-                        Content="📊 报文测试"
-                        Style="{StaticResource NavButtonStyle}" />
-                    <Separator />
-                    <Button
+                        Content="📋 报文测试"
+                        Style="{StaticResource TopNavButtonStyle}" />
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="StationConfigView"
                         Content="🗂️ 映射配置"
-                        Style="{StaticResource NavButtonStyle}" />
-                    <Separator />
-                    <Button
+                        Style="{StaticResource TopNavButtonStyle}" />
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="HistoryRecordView"
-                        Content="📋 历史记录"
-                        Style="{StaticResource NavButtonStyle}" />
-                    <Button
+                        Content="📊 历史记录"
+                        Style="{StaticResource TopNavButtonStyle}" />
+                    <RadioButton
+                        VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="TempAndCaliDebugView"
-                        Content="📋 模型创建"
-                        Style="{StaticResource NavButtonStyle}" />
-                </StackPanel>
+                        Content="🧪 模型创建"
+                        Style="{StaticResource TopNavButtonStyle}" />
+                </ItemsControl>
 
-                <TextBlock
-                    Grid.Row="2"
-                    Margin="0,12"
-                    HorizontalAlignment="Center"
-                    FontSize="10"
-                    Foreground="#666"
-                    Text="v1.0.0" />
+                <!--  右侧状态指示与折叠按钮  -->
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal">
+                    <Ellipse
+                        Width="12"
+                        Height="12"
+                        Margin="0,0,8,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#FF4C4C" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPlcConnected}" Value="True">
+                                        <Setter Property="Fill" Value="#4CAF50" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="#AAA"
+                        Text="PLC" />
+                    <Separator Width="16" Style="{x:Null}" />
+                    <ToggleButton
+                        x:Name="SidebarToggle"
+                        Width="32"
+                        Height="32"
+                        Background="Transparent"
+                        BorderBrush="#555"
+                        BorderThickness="1"
+                        Content="◀"
+                        Cursor="Hand"
+                        Foreground="#CCC"
+                        IsChecked="True"
+                        ToolTip="显示/隐藏侧边栏">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="4">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Content" Value="◀" />
+                                        <Setter Property="Foreground" Value="#4CAF50" />
+                                    </Trigger>
+                                    <Trigger Property="IsChecked" Value="False">
+                                        <Setter Property="Content" Value="▶" />
+                                        <Setter Property="Foreground" Value="#888" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <ContentControl
-            Grid.Column="1"
-            prism:RegionManager.RegionName="MainContentRegion"
-            Background="#F5F5F5" />
-        <Border
-            Grid.Column="2"
-            Padding="0"
-            Background="#1E1E1E"
-            CornerRadius="8,0,0,8">
-            <Grid Margin="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+        <!--  主内容区 + 可折叠侧边栏  -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-                <Border
-                    Grid.Row="0"
-                    Margin="0,0,0,10"
-                    Padding="12"
-                    Background="#2D2D30"
-                    CornerRadius="6">
-                    <StackPanel>
-                        <TextBlock
-                            Margin="0,0,0,8"
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            Foreground="#F0F0F0"
-                            Text="当前检测结果" />
-                        <!--  占位  -->
-                        <UniformGrid Columns="2" Rows="2">
-                            <!--  检测总数  -->
-                            <StackPanel Margin="4">
-                                <TextBlock
-                                    FontSize="12"
-                                    Foreground="#999"
-                                    Text="检测总数" />
-                                <TextBlock
-                                    FontSize="20"
-                                    FontWeight="Bold"
-                                    Foreground="#4CAF50"
-                                    Text="120" />
-                            </StackPanel>
-                            <!--  良品数  -->
-                            <StackPanel Margin="4">
-                                <TextBlock
-                                    FontSize="12"
-                                    Foreground="#999"
-                                    Text="良品数" />
-                                <TextBlock
-                                    FontSize="20"
-                                    FontWeight="Bold"
-                                    Foreground="#2196F3"
-                                    Text="118" />
-                            </StackPanel>
-                            <!--  不良  -->
-                            <StackPanel Margin="4">
-                                <TextBlock
-                                    FontSize="12"
-                                    Foreground="#999"
-                                    Text="不良品数" />
-                                <TextBlock
-                                    FontSize="20"
-                                    FontWeight="Bold"
-                                    Foreground="#F44336"
-                                    Text="2" />
-                            </StackPanel>
-                            <!--  良率  -->
-                            <StackPanel Margin="4">
-                                <TextBlock
-                                    FontSize="12"
-                                    Foreground="#999"
-                                    Text="良率" />
-                                <TextBlock
-                                    FontSize="20"
-                                    FontWeight="Bold"
-                                    Foreground="#FF9800"
-                                    Text="98.3%" />
-                            </StackPanel>
-                        </UniformGrid>
-                    </StackPanel>
-                </Border>
+            <!--  主内容区域  -->
+            <ContentControl
+                Grid.Column="0"
+                prism:RegionManager.RegionName="MainContentRegion"
+                Background="#F5F5F5" />
 
-                <Border
-                    Grid.Row="1"
-                    Height="1"
-                    Margin="0,0,0,10"
-                    Background="#444" />
-
-                <Grid Grid.Row="2">
+            <!--  可折叠右侧面板  -->
+            <Border
+                x:Name="SidebarPanel"
+                Grid.Column="1"
+                Width="280"
+                Background="#1E1E1E"
+                BorderBrush="#333"
+                BorderThickness="1,0,0,0"
+                Visibility="Visible">
+                <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel
+                    <!--  检测结果摘要卡片  -->
+                    <Border
                         Grid.Row="0"
                         Margin="0,0,0,8"
-                        Orientation="Horizontal">
-                        <Ellipse
-                            Width="10"
-                            Height="10"
-                            Margin="0,0,8,0"
-                            VerticalAlignment="Center"
-                            Fill="#4CAF50" />
-                        <TextBlock
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            Foreground="#F0F0F0"
-                            Text="系统日志" />
-                    </StackPanel>
+                        Padding="10"
+                        Background="#2D2D30"
+                        CornerRadius="6">
+                        <StackPanel>
+                            <TextBlock
+                                Margin="0,0,0,6"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Foreground="#F0F0F0"
+                                Text="当前检测结果" />
+                            <UniformGrid Columns="2" Rows="2">
+                                <StackPanel Margin="4">
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="#999"
+                                        Text="检测总数" />
+                                    <TextBlock
+                                        FontSize="18"
+                                        FontWeight="Bold"
+                                        Foreground="#4CAF50"
+                                        Text="120" />
+                                </StackPanel>
+                                <StackPanel Margin="4">
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="#999"
+                                        Text="良品数" />
+                                    <TextBlock
+                                        FontSize="18"
+                                        FontWeight="Bold"
+                                        Foreground="#2196F3"
+                                        Text="118" />
+                                </StackPanel>
+                                <StackPanel Margin="4">
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="#999"
+                                        Text="不良品数" />
+                                    <TextBlock
+                                        FontSize="18"
+                                        FontWeight="Bold"
+                                        Foreground="#F44336"
+                                        Text="2" />
+                                </StackPanel>
+                                <StackPanel Margin="4">
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="#999"
+                                        Text="良率" />
+                                    <TextBlock
+                                        FontSize="18"
+                                        FontWeight="Bold"
+                                        Foreground="#FF9800"
+                                        Text="98.3%" />
+                                </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
 
-                    <DataGrid
-                        Grid.Row="1"
-                        AutoGenerateColumns="False"
-                        Background="#252526"
-                        BorderThickness="0"
-                        CanUserAddRows="False"
-                        CanUserDeleteRows="False"
-                        GridLinesVisibility="Horizontal"
-                        HeadersVisibility="Column"
-                        HorizontalGridLinesBrush="#333"
-                        IsReadOnly="True"
-                        ItemsSource="{Binding LogSource}"
-                        RowHeaderWidth="0"
-                        SelectionUnit="FullRow">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn
-                                Width="70"
-                                Binding="{Binding Timestamp, StringFormat='HH:mm:ss'}"
-                                Header="时间" />
-                            <DataGridTextColumn
-                                Width="45"
-                                Binding="{Binding Level}"
-                                Header="级别">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{Binding Color}" />
-                                        <Setter Property="FontWeight" Value="Bold" />
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                            <DataGridTextColumn
-                                Width="*"
-                                Binding="{Binding Message}"
-                                Header="内容">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="TextWrapping" Value="Wrap" />
-                                        <Setter Property="Margin" Value="0,4" />
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <!--  系统日志  -->
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel
+                            Grid.Row="0"
+                            Margin="0,0,0,6"
+                            Orientation="Horizontal">
+                            <Ellipse
+                                Width="10"
+                                Height="10"
+                                Margin="0,0,6,0"
+                                VerticalAlignment="Center"
+                                Fill="#4CAF50" />
+                            <TextBlock
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Foreground="#F0F0F0"
+                                Text="系统日志" />
+                        </StackPanel>
+                        <DataGrid
+                            Grid.Row="1"
+                            AutoGenerateColumns="False"
+                            Background="#252526"
+                            BorderThickness="0"
+                            CanUserAddRows="False"
+                            CanUserDeleteRows="False"
+                            GridLinesVisibility="Horizontal"
+                            HeadersVisibility="Column"
+                            HorizontalGridLinesBrush="#333"
+                            IsReadOnly="True"
+                            ItemsSource="{Binding LogSource}"
+                            RowHeaderWidth="0"
+                            SelectionUnit="FullRow">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn
+                                    Width="60"
+                                    Binding="{Binding Timestamp, StringFormat='HH:mm:ss'}"
+                                    Header="时间" />
+                                <DataGridTextColumn
+                                    Width="40"
+                                    Binding="{Binding Level}"
+                                    Header="级别">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{Binding Color}" />
+                                            <Setter Property="FontWeight" Value="Bold" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn
+                                    Width="*"
+                                    Binding="{Binding Message}"
+                                    Header="内容">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                            <Setter Property="Margin" Value="0,4" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
                 </Grid>
-            </Grid>
-        </Border>
+            </Border>
+        </Grid>
+
+        <!--  底部状态栏  -->
+        <StatusBar
+            Grid.Row="2"
+            Padding="4,0"
+            Background="#2D2D30"
+            Foreground="#AAA">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+            <Separator Style="{x:Null}" />
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="© AOI Vision System" />
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
+
+    <!--  折叠按钮行为：控制右侧面板可见性  -->
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="ToggleButton.Checked" SourceName="SidebarToggle">
+            <EventTrigger.Actions>
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SidebarPanel" Storyboard.TargetProperty="Visibility">
+                            <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static Visibility.Visible}" />
+                        </ObjectAnimationUsingKeyFrames>
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger.Actions>
+        </EventTrigger>
+        <EventTrigger RoutedEvent="ToggleButton.Unchecked" SourceName="SidebarToggle">
+            <EventTrigger.Actions>
+                <BeginStoryboard>
+                    <Storyboard>
+                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SidebarPanel" Storyboard.TargetProperty="Visibility">
+                            <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static Visibility.Collapsed}" />
+                        </ObjectAnimationUsingKeyFrames>
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger.Actions>
+        </EventTrigger>
+    </Window.Triggers>
 </Window>

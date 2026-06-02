@@ -14,36 +14,63 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
-    <Grid Background="AliceBlue">
+    <Grid Background="#F8F9FA">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ToolBar Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-            <Button Command="{Binding LoadImageCommand}" Content="加载图像" />
+        <!--  工具栏  -->
+        <ToolBar
+            Grid.Row="0"
+            Padding="2"
+            Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <Button
+                Margin="2"
+                Command="{Binding LoadImageCommand}"
+                Content="📁 加载图像"
+                ToolTip="选择图像文件" />
             <Separator />
             <Button
+                Margin="2"
                 Command="{Binding RunCommand}"
                 Content="▶ 执行"
-                FontWeight="Bold" />
-
+                FontWeight="Bold"
+                ToolTip="运行所有检测流程" />
             <Separator />
             <ToggleButton
+                Margin="2"
                 Content="👁 ROI"
                 IsChecked="{Binding IsRoiVisible}"
                 ToolTip="显示/隐藏绿色 ROI 区域" />
             <Separator />
-            <Button Command="{Binding SaveRoiCommand}" Content="保存ROI" />
-            <Button Command="{Binding LoadRoiCommand}" Content="加载ROI" />
-            <Button Command="{Binding ClearRoiCommand}" Content="清除ROI" />
+            <Button
+                Margin="2"
+                Command="{Binding SaveRoiCommand}"
+                Content="💾 保存ROI"
+                ToolTip="保存ROI区域到文件" />
+            <Button
+                Margin="2"
+                Command="{Binding LoadRoiCommand}"
+                Content="📂 加载ROI"
+                ToolTip="从文件加载ROI" />
+            <Button
+                Margin="2"
+                Command="{Binding ClearRoiCommand}"
+                Content="🗑 清除ROI"
+                ToolTip="删除当前ROI" />
             <Separator />
             <Button
+                Margin="2"
                 Command="{Binding ConfirmRoiCommand}"
-                Content="确认ROI"
+                Content="✔ 确认ROI"
                 ToolTip="将可拖动红色框转为绿色固定区域" />
-            <Button Command="{Binding SetMetroRefCommand}" Content="设置参考位姿" />
+            <!--<Button
+                Margin="2"
+                Command="{Binding SetMetroRefCommand}"
+                Content="📌 设置参考位姿"
+                ToolTip="将当前模板匹配位置设为计量模型参考" />-->
         </ToolBar>
 
         <!--  主内容区  -->
@@ -87,54 +114,43 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch" />
 
-            <!--  右侧参数面板：嵌入子视图  -->
+            <!--  右侧参数面板  -->
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="8">
                     <!--  模板匹配分组  -->
-                    <Border
-                        Margin="0,0,0,6"
-                        Padding="6,3"
-                        Background="#FFE3F2FD"
-                        BorderBrush="#FF2196F3"
-                        BorderThickness="1"
-                        CornerRadius="3">
-                        <TextBlock
-                            FontSize="13"
-                            FontWeight="Bold"
-                            Foreground="#FF0D47A1"
-                            Text="📐 模板匹配" />
-                    </Border>
-                    <local:TemplateMatchingView DataContext="{Binding TemplateMatchingVM}" />
-                    <Separator Margin="0,12,0,6" />
+                    <GroupBox
+                        Margin="0,0,0,8"
+                        Padding="6"
+                        Background="#EBF5FB"
+                        BorderBrush="#2196F3"
+                        Header="📐 模板匹配">
+                        <local:TemplateMatchingView DataContext="{Binding TemplateMatchingVM}" />
+                    </GroupBox>
+
                     <!--  卡尺测量分组  -->
-                    <Border
-                        Margin="0,0,0,6"
-                        Padding="6,3"
-                        Background="#FFE8F5E9"
-                        BorderBrush="#FF4CAF50"
-                        BorderThickness="1"
-                        CornerRadius="3">
-                        <TextBlock
-                            FontSize="13"
-                            FontWeight="Bold"
-                            Foreground="#FF1B5E20"
-                            Text="📏 卡尺测量" />
-                    </Border>
-                    <local:MetrologyView DataContext="{Binding MetrologyVM}" />
+                    <GroupBox
+                        Margin="0,0,0,8"
+                        Padding="6"
+                        Background="#EBF9F1"
+                        BorderBrush="#4CAF50"
+                        Header="📏 卡尺测量">
+                        <local:MetrologyView DataContext="{Binding MetrologyVM}" />
+                    </GroupBox>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
 
+        <!--  状态栏  -->
         <StatusBar Grid.Row="2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
             <StatusBarItem Width="Auto">
                 <TextBlock Text="{Binding StatusMessage}" />
             </StatusBarItem>
             <Separator />
-            <StatusBarItem Width="120">
+            <StatusBarItem Width="100">
                 <TextBlock Text="{Binding RunTime, StringFormat='耗时: {0}'}" />
             </StatusBarItem>
             <Separator />
-            <StatusBarItem Width="120">
+            <StatusBarItem Width="80">
                 <TextBlock>
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -156,7 +172,7 @@
             <StatusBarItem Width="Auto">
                 <TextBlock Text="{Binding RunResult, StringFormat='结果: {0}'}" />
             </StatusBarItem>
-            <StatusBarItem HorizontalAlignment="Right">
+            <StatusBarItem Margin="0,0,5,0" HorizontalAlignment="Right">
                 <TextBlock VerticalAlignment="Center" Text="行:" />
             </StatusBarItem>
             <StatusBarItem>
@@ -165,7 +181,7 @@
                     VerticalAlignment="Center"
                     Text="{Binding CurrentMouseRow, StringFormat=F1}" />
             </StatusBarItem>
-            <StatusBarItem>
+            <StatusBarItem Margin="0,0,5,0">
                 <TextBlock VerticalAlignment="Center" Text="列:" />
             </StatusBarItem>
             <StatusBarItem>
@@ -176,5 +192,4 @@
             </StatusBarItem>
         </StatusBar>
     </Grid>
-
 </UserControl>

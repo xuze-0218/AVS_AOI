@@ -173,6 +173,7 @@ namespace AVS_Core.Services
             bool isAiCheck = _parametersConfig.GetBool("ProductParam", "isAiCheck");
             string sn = _stationConfig.GetStation(_stationId).CameraRole;
             handle = await _windowHandleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
+            //目前的逻辑是深度学习一定勾选
             if (isAiCheck)
             {
                 bool isSquareBarWeldMark = _parametersConfig.GetBool("ProductParam", "isSquareBarWeldMark");

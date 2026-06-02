@@ -78,83 +78,6 @@ namespace AVS_Modules_Settings.ViewModels
         public double MatchCol { get; set; }
         public double MatchAngle { get; set; }
 
-        //// ========== 对象类型显示（只读，反映 CurrentRoi.Style） ==========
-        //public List<string> ObjectTypes { get; } = new List<string> { "Rectangle2", "Circle", "Ellipse", "Line" };
-
-        //private string _selectedObjectType = "Rectangle2";
-        //public string SelectedObjectType
-        //{
-        //    get => _selectedObjectType;
-        //    set
-        //    {
-        //        // 不允许外部改变，仅由 CurrentRoi 同步
-        //        if (SetProperty(ref _selectedObjectType, value))
-        //            RaisePropertyChanged(nameof(IsRectangle2Selected));
-        //    }
-        //}
-
-        //public bool IsRectangle2Selected => SelectedObjectType == "Rectangle2";
-        //public bool IsCircleSelected => SelectedObjectType == "Circle";
-        //public bool IsEllipseSelected => SelectedObjectType == "Ellipse";
-        //public bool IsLineSelected => SelectedObjectType == "Line";
-
-        // ========== 几何参数（包装 CurrentRoi 字段） ==========
-        //public double RectLength1
-        //{
-        //    get => CurrentRoi?.Length1 ?? 100;
-        //    set { if (CurrentRoi != null) { CurrentRoi.Length1 = value; RaisePropertyChanged(); } }
-        //}
-        //public double RectLength2
-        //{
-        //    get => CurrentRoi?.Length2 ?? 100;
-        //    set { if (CurrentRoi != null) { CurrentRoi.Length2 = value; RaisePropertyChanged(); } }
-        //}
-        //public double RectPhi
-        //{
-        //    get => CurrentRoi?.Angle ?? 0;
-        //    set { if (CurrentRoi != null) { CurrentRoi.Angle = value; RaisePropertyChanged(); } }
-        //}
-        //public double CircleRadius
-        //{
-        //    get => CurrentRoi?.Radius ?? 100;
-        //    set { if (CurrentRoi != null) { CurrentRoi.Radius = value; RaisePropertyChanged(); } }
-        //}
-        //public double EllipseRadius1
-        //{
-        //    get => CurrentRoi?.Length1 ?? 200;
-        //    set { if (CurrentRoi != null) { CurrentRoi.Length1 = value; RaisePropertyChanged(); } }
-        //}
-        //public double EllipseRadius2
-        //{
-        //    get => CurrentRoi?.Length2 ?? 100;
-        //    set { if (CurrentRoi != null) { CurrentRoi.Length2 = value; RaisePropertyChanged(); } }
-        //}
-        //public double EllipsePhi
-        //{
-        //    get => CurrentRoi?.Angle ?? 0;
-        //    set { if (CurrentRoi != null) { CurrentRoi.Angle = value; RaisePropertyChanged(); } }
-        //}
-        //public double LineStartRow
-        //{
-        //    get => CurrentRoi?.LeftY ?? 200;
-        //    set { if (CurrentRoi != null) { CurrentRoi.LeftY = value; RaisePropertyChanged(); } }
-        //}
-        //public double LineStartCol
-        //{
-        //    get => CurrentRoi?.LeftX ?? 200;
-        //    set { if (CurrentRoi != null) { CurrentRoi.LeftX = value; RaisePropertyChanged(); } }
-        //}
-        //public double LineEndRow
-        //{
-        //    get => CurrentRoi?.RightY ?? 400;
-        //    set { if (CurrentRoi != null) { CurrentRoi.RightY = value; RaisePropertyChanged(); } }
-        //}
-        //public double LineEndCol
-        //{
-        //    get => CurrentRoi?.RightX ?? 400;
-        //    set { if (CurrentRoi != null) { CurrentRoi.RightX = value; RaisePropertyChanged(); } }
-        //}
-
         // ========== 测量参数 ==========
         private double _measureLength1 = 30;
         public double MeasureLength1 { get => _measureLength1; set => SetProperty(ref _measureLength1, value); }
@@ -220,31 +143,6 @@ namespace AVS_Modules_Settings.ViewModels
             SaveMetroCommand = new DelegateCommand(OnSaveMetro, () => CurrentRoi != null);
             LoadMetroCommand = new DelegateCommand(OnLoadMetro);
         }
-
-        // ========== CurrentRoi 改变时刷新类型与几何属性 ==========
-        //private void RefreshGeomProperties()
-        //{
-        //    if (CurrentRoi == null) return;
-        //    SelectedObjectType = CurrentRoi.Style switch
-        //    {
-        //        RoiType.RECTANGLE2 => "Rectangle2",
-        //        RoiType.CIRCLE => "Circle",
-        //        RoiType.ELLIPSE => "Ellipse",
-        //        RoiType.LINE => "Line",
-        //        _ => "Rectangle2"
-        //    };
-        //    RaisePropertyChanged(nameof(RectLength1));
-        //    RaisePropertyChanged(nameof(RectLength2));
-        //    RaisePropertyChanged(nameof(RectPhi));
-        //    RaisePropertyChanged(nameof(CircleRadius));
-        //    RaisePropertyChanged(nameof(EllipseRadius1));
-        //    RaisePropertyChanged(nameof(EllipseRadius2));
-        //    RaisePropertyChanged(nameof(EllipsePhi));
-        //    RaisePropertyChanged(nameof(LineStartRow));
-        //    RaisePropertyChanged(nameof(LineStartCol));
-        //    RaisePropertyChanged(nameof(LineEndRow));
-        //    RaisePropertyChanged(nameof(LineEndCol));
-        //}
 
         // ========== 测量执行 ==========
         private void OnMeasure()

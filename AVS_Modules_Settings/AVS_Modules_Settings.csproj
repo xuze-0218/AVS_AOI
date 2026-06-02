@@ -20,6 +20,9 @@
       <HintPath>..\AVS_Common\bin\Debug\net8.0-windows\halcondotnet.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Models\" />
+  </ItemGroup>
 	<!--<Target Name="CopyDllToPlugins" AfterTargets="Build">
 		--><!-- 定义主程序的 Modules 目录 --><!--
 		<PropertyGroup>

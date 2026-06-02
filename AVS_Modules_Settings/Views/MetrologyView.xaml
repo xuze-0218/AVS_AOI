@@ -5,40 +5,21 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:prism="http://prismlibrary.com/"
-    prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <!--  形状类型到可见性的转换器（后续 ViewModel 提供 SelectedObjectType 字符串）  -->
-        <Style x:Key="ShapePanelStyle" TargetType="StackPanel">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Rectangle2">
-                    <Setter Property="Visibility" Value="Visible" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Circle">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Ellipse">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding SelectedObjectType}" Value="Line">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-        <!--  实际使用中建议为每种形状定义独立样式，此处简化示例  -->
     </UserControl.Resources>
 
-    <StackPanel Background="AliceBlue">
+    <StackPanel Background="Transparent">
         <!--  测量按钮和状态  -->
         <Border
-            Margin="2,4"
-            Padding="4"
-            Background="#E0F0FF"
-            BorderBrush="#88B"
+            Margin="0,0,0,6"
+            Padding="6"
+            Background="#E3F2FD"
+            BorderBrush="#1976D2"
             BorderThickness="1"
-            CornerRadius="3">
+            CornerRadius="4">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -47,8 +28,8 @@
                 <Button
                     Grid.Column="0"
                     Width="60"
-                    Margin="0,0,6,0"
-                    Background="DodgerBlue"
+                    Margin="0,0,8,0"
+                    Background="#1976D2"
                     Command="{Binding MeasureCommand}"
                     Content="测量"
                     FontSize="12"
@@ -61,7 +42,8 @@
                     TextWrapping="Wrap" />
             </Grid>
         </Border>
-        <!--  测量对象公共参数  -->
+
+        <!--  测量参数  -->
         <Expander
             Margin="0,0,0,4"
             Header="测量参数"
@@ -73,30 +55,33 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="28" />
                         <RowDefinition Height="28" />
                     </Grid.RowDefinitions>
-                    <StackPanel Grid.ColumnSpan="2" Orientation="Vertical">
+
+                    <StackPanel
+                        Grid.ColumnSpan="2"
+                        Margin="0,0,0,4"
+                        Orientation="Horizontal">
                         <CheckBox
-                            Margin="4"
-                            Content="边缘对模式（测量平行轮廓距离）"
-                            IsChecked="{Binding UseEdgePairs}" />
-                        <!--  在 StackPanel 内某处添加  -->
+                            Margin="0,0,10,0"
+                            Content="边缘对模式"
+                            IsChecked="{Binding UseEdgePairs}"
+                            ToolTip="仅对矩形2有效" />
                         <CheckBox
-                            Margin="4"
+                            Margin="0,0,10,0"
                             Content="跟随模板"
                             IsChecked="{Binding IsFollowModel}" />
                         <Button
-                            Margin="4"
-                            HorizontalAlignment="Left"
+                            Margin="0,0,5,0"
                             Command="{Binding SaveMetroCommand}"
-                            Content="保存计量模型" />
+                            Content="保存模型"
+                            FontSize="11" />
                         <Button
-                            Margin="4"
-                            HorizontalAlignment="Left"
                             Command="{Binding LoadMetroCommand}"
-                            Content="加载计量模型" />
+                            Content="加载模型"
+                            FontSize="11" />
                     </StackPanel>
 
                     <TextBlock
@@ -123,7 +108,7 @@
             </StackPanel>
         </Expander>
 
-        <!--  边缘检测参数  -->
+        <!--  边缘参数  -->
         <Expander
             Margin="0,0,0,4"
             Header="边缘参数"
@@ -207,7 +192,7 @@
             </StackPanel>
         </Expander>
 
-        <!--  极性与选择  -->
+        <!--  边缘过滤  -->
         <Expander
             Margin="0,0,0,4"
             Header="边缘过滤"
@@ -261,7 +246,7 @@
 
         <!--  测量结果表格  -->
         <TextBlock
-            Margin="0,4,0,2"
+            Margin="0,6,0,2"
             FontWeight="Bold"
             Text="测量结果:" />
         <DataGrid

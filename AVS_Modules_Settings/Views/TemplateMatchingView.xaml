@@ -3,20 +3,21 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     d:DesignHeight="600"
-    d:DesignWidth="340"
+    d:DesignWidth="300"
     mc:Ignorable="d">
 
-    <StackPanel Margin="0" Background="AliceBlue">
+    <StackPanel Background="Transparent">
         <!--  状态消息  -->
         <Border
-            Margin="2,4"
-            Padding="4"
-            Background="#FFF0E0"
-            BorderBrush="#CCC"
+            Margin="0,0,0,6"
+            Padding="6"
+            Background="#FFF3E0"
+            BorderBrush="#FF9800"
             BorderThickness="1"
-            CornerRadius="3">
+            CornerRadius="4">
             <TextBlock
                 FontSize="12"
                 Text="{Binding StatusMessage}"
@@ -24,19 +25,13 @@
         </Border>
 
         <!--  掩膜编辑  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#E0E0FF"
-            BorderBrush="#AAA"
-            BorderThickness="1"
-            CornerRadius="3">
+        <GroupBox
+            Margin="0,0,0,6"
+            Padding="6"
+            Background="#F3F0FF"
+            BorderBrush="#7B68EE"
+            Header="🎭 掩膜编辑">
             <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontSize="12"
-                    FontWeight="Bold"
-                    Text="掩膜编辑:" />
                 <WrapPanel Margin="0,0,0,4">
                     <CheckBox
                         Margin="2"
@@ -48,6 +43,7 @@
                         IsChecked="{Binding IsEraseMode}" />
                     <Button
                         Margin="2"
+                        Padding="4,2"
                         Background="#FF6666"
                         Command="{Binding ClearMaskCommand}"
                         Content="清除掩膜"
@@ -85,76 +81,61 @@
                     <ComboBox
                         Grid.Row="1"
                         Grid.Column="1"
-                        Height="22"
+                        Height="24"
                         Margin="2"
                         ItemsSource="{Binding EraserTypes}"
                         SelectedItem="{Binding EraserType}" />
                 </Grid>
             </StackPanel>
-        </Border>
+        </GroupBox>
 
         <!--  操作按钮  -->
-        <Border
-            Margin="2,0,2,4"
-            Padding="4"
-            Background="#E8E8E8"
-            BorderBrush="#AAA"
-            BorderThickness="1"
-            CornerRadius="3">
-            <WrapPanel>
-                <Button
-                    Width="75"
-                    Margin="2"
-                    Background="DodgerBlue"
-                    Command="{Binding CreateModelCommand}"
-                    Content="创建模板"
-                    FontSize="11"
-                    Foreground="White" />
-                <Button
-                    Width="75"
-                    Margin="2"
-                    Background="ForestGreen"
-                    Command="{Binding FindModelCommand}"
-                    Content="查找模板"
-                    FontSize="11"
-                    Foreground="White" />
+        <WrapPanel Margin="0,0,0,6">
+            <Button
+                Width="80"
+                Margin="2"
+                Background="#1976D2"
+                Command="{Binding CreateModelCommand}"
+                Content="创建模板"
+                FontSize="11"
+                Foreground="White" />
+            <Button
+                Width="80"
+                Margin="2"
+                Background="#388E3C"
+                Command="{Binding FindModelCommand}"
+                Content="查找模板"
+                FontSize="11"
+                Foreground="White" />
+            <Button
+                Width="90"
+                Margin="2"
+                Background="#FF9800"
+                Command="{Binding DataContext.SetMetroRefCommand, RelativeSource={RelativeSource AncestorType=local:TempAndCaliDebugView}}"
+                Content="设为计量参考"
+                FontSize="11"
+                Foreground="White"
+                ToolTip="将当前匹配结果设为计量模型的参考位姿" />
+            <Button
+                Width="80"
+                Margin="2"
+                Background="#757575"
+                Command="{Binding SaveModelCommand}"
+                Content="保存模板"
+                FontSize="11"
+                Foreground="White" />
 
-                <Button
-                    Width="75"
-                    Margin="2"
-                    Background="Gray"
-                    Command="{Binding SaveModelCommand}"
-                    Content="保存模板"
-                    FontSize="11"
-                    Foreground="White" />
-                <Button
-                    Width="75"
-                    Margin="2"
-                    Background="Gray"
-                    Command="{Binding LoadModelCommand}"
-                    Content="加载模板"
-                    FontSize="11"
-                    Foreground="White" />
-                <Button
-                    Width="75"
-                    Margin="2"
-                    Background="Gray"
-                    Command="{Binding SaveAllCommand}"
-                    Content="保存全部"
-                    FontSize="11"
-                    Foreground="White" />
-                <Button
-                    Width="75"
-                    Margin="2"
-                    Background="Gray"
-                    Command="{Binding LoadAllCommand}"
-                    Content="加载全部"
-                    FontSize="11"
-                    Foreground="White" />
-            </WrapPanel>
-        </Border>
+            <Button
+                Width="80"
+                Margin="2"
+                Background="#757575"
+                Command="{Binding LoadModelCommand}"
+                Content="加载模板"
+                FontSize="11"
+                Foreground="White" />
+        </WrapPanel>
 
-        <!--  创建模板  -->
+        <!--  创建模板参数  -->
         <Expander
             Margin="0,0,0,4"
             Header="创建模板"
@@ -162,7 +143,7 @@
             <StackPanel Margin="4">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="95" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -185,7 +166,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding CmAngleStart, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="1"
                         Grid.Column="0"
@@ -196,7 +176,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding CmAngleExtent, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="2"
                         Grid.Column="0"
@@ -208,7 +187,6 @@
                         Margin="2"
                         ItemsSource="{Binding MetricOptions}"
                         SelectedItem="{Binding CmMetric}" />
-
                     <TextBlock
                         Grid.Row="3"
                         Grid.Column="0"
@@ -219,7 +197,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding CmContrastLow, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="4"
                         Grid.Column="0"
@@ -230,7 +207,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding CmContrastHigh, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="5"
                         Grid.Column="0"
@@ -241,7 +217,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding CmMinContrast, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="6"
                         Grid.Column="0"
@@ -274,7 +249,7 @@
             </StackPanel>
         </Expander>
 
-        <!--  查找模板  -->
+        <!--  查找模板参数  -->
         <Expander
             Margin="0,0,0,4"
             Header="查找模板"
@@ -308,7 +283,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmAngleStart, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="1"
                         Grid.Column="0"
@@ -319,7 +293,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmAngleExtent, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="2"
                         Grid.Column="0"
@@ -330,7 +303,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmScaleMin, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="3"
                         Grid.Column="0"
@@ -341,7 +313,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmScaleMax, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="4"
                         Grid.Column="0"
@@ -352,7 +323,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmNumMatches, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="5"
                         Grid.Column="0"
@@ -363,7 +333,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmMinScore, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="6"
                         Grid.Column="0"
@@ -374,7 +343,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmMaxOverlap, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="7"
                         Grid.Column="0"
@@ -385,7 +353,6 @@
                         Grid.Column="1"
                         Margin="2"
                         Text="{Binding FmGreediness, UpdateSourceTrigger=PropertyChanged}" />
-
                     <TextBlock
                         Grid.Row="8"
                         Grid.Column="0"
@@ -397,7 +364,6 @@
                         Margin="2"
                         ItemsSource="{Binding SubPixelOptions}"
                         SelectedItem="{Binding FmSubPixel}" />
-
                     <TextBlock
                         Grid.Row="9"
                         Grid.Column="0"
@@ -461,7 +427,6 @@
                         Margin="2"
                         Text="{Binding HighScore, UpdateSourceTrigger=PropertyChanged}" />
                 </Grid>
-
                 <CheckBox
                     Margin="0,4,0,0"
                     Content="数量判定"
@@ -519,7 +484,7 @@
             ItemsSource="{Binding MatchResults}">
             <DataGrid.Columns>
                 <DataGridTextColumn
-                    Width="40"
+                    Width="30"
                     Binding="{Binding Index}"
                     Header="#" />
                 <DataGridTextColumn
@@ -541,5 +506,4 @@
             </DataGrid.Columns>
         </DataGrid>
     </StackPanel>
-
 </UserControl>

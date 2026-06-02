@@ -12,7 +12,7 @@ using System.Windows;
 namespace AVS_Modules_Settings.ViewModels
 {
     /// <summary>
-    /// 温度与标定调试 - 协调器ViewModel
+    /// 模板与卡尺协调器
     /// 统一管理子ViewModel和ROI绘制，
     /// 掩膜编辑仍由 TemplateMatchingViewModel 负责，
     /// ROI绘制提升至协调器层供模板匹配和卡尺测量共用。
@@ -34,11 +34,11 @@ namespace AVS_Modules_Settings.ViewModels
 
         private CaliperMeasureViewModel _caliperMeasureVM;
 
-        public CaliperMeasureViewModel CaliperMeasureVM
-        {
-            get => _caliperMeasureVM;
-            set => SetProperty(ref _caliperMeasureVM, value);
-        }
+        //public CaliperMeasureViewModel CaliperMeasureVM
+        //{
+        //    get => _caliperMeasureVM;
+        //    set => SetProperty(ref _caliperMeasureVM, value);
+        //}
         private MetrologyViewModel _metrologyVM;
         public MetrologyViewModel MetrologyVM
         {
@@ -48,13 +48,13 @@ namespace AVS_Modules_Settings.ViewModels
         #endregion
 
         #region 构造函数
-        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService, IMetrologyService metrologyService, ICaliperService caliperService)
+        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService, IMetrologyService metrologyService/*, ICaliperService caliperService*/)
         {
             _matchingService = matchingService;
-            _caliperService = caliperService;
+            //_caliperService = caliperService;
 
             TemplateMatchingVM = new TemplateMatchingViewModel(matchingService);
-            CaliperMeasureVM = new CaliperMeasureViewModel(caliperService);
+            //CaliperMeasureVM = new CaliperMeasureViewModel(caliperService);
             MetrologyVM = new MetrologyViewModel(metrologyService);
 
             MetrologyVM.RequestMatch = () =>
@@ -70,7 +70,7 @@ namespace AVS_Modules_Settings.ViewModels
             };
             // 将当前 ROI 对象引用注入子 ViewModel，使模板匹配/掩膜编辑可独立同步 DrawingObject
             TemplateMatchingVM.ActiveRoi = _currentRoi;
-            CaliperMeasureVM.CurrentRoi = _currentRoi;
+            //CaliperMeasureVM.CurrentRoi = _currentRoi;
             MetrologyVM.CurrentRoi = _currentRoi;
 
             // ===== 命令 =====
@@ -79,8 +79,6 @@ namespace AVS_Modules_Settings.ViewModels
             SaveRoiCommand = new DelegateCommand(OnSaveRoi);
             LoadRoiCommand = new DelegateCommand(OnLoadRoi);
             ClearRoiCommand = new DelegateCommand(OnClearRoi);
-            SaveAllCommand = new DelegateCommand(OnSaveAll);
-            LoadAllCommand = new DelegateCommand(OnLoadAll);
             SetMetroRefCommand = new DelegateCommand(OnSetMetroRef);
 
             // ===== ROI绘制命令（迁入协调器层） =====
@@ -108,7 +106,7 @@ namespace AVS_Modules_Settings.ViewModels
                 if (SetProperty(ref _halconWindow, value))
                 {
                     if (TemplateMatchingVM != null) TemplateMatchingVM.HalconWindow = value;
-                    if (CaliperMeasureVM != null) CaliperMeasureVM.HalconWindow = value;
+                    //if (CaliperMeasureVM != null) CaliperMeasureVM.HalconWindow = value;
                     if (MetrologyVM != null) MetrologyVM.HalconWindow = value;
                     _matchingService.SetHalconWindow(value);
                     _caliperService.SetHalconWindow(value);
@@ -126,7 +124,7 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     _caliperService.SetImage(value);
                     if (TemplateMatchingVM != null) TemplateMatchingVM.CurrentImage = value;
-                    if (CaliperMeasureVM != null) CaliperMeasureVM.CurrentImage = value;
+                    //if (CaliperMeasureVM != null) CaliperMeasureVM.CurrentImage = value;
                     if (MetrologyVM != null) MetrologyVM.CurrentImage = value;
                 }
             }
@@ -240,8 +238,6 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand DrawPolygonCommand { get; }
         public DelegateCommand ClearDrawingCommand { get; }
         public DelegateCommand ConfirmRoiCommand { get; }
-        public DelegateCommand SaveAllCommand { get; }
-        public DelegateCommand LoadAllCommand { get; }
         public DelegateCommand SetMetroRefCommand { get; }
         #endregion
 
@@ -288,7 +284,7 @@ namespace AVS_Modules_Settings.ViewModels
                 MetrologyVM.MeasureCommand.Execute();
                 RunResult = "OK";
                 IsPass = true;
-                
+
             }
             catch (Exception ex)
             {
@@ -624,26 +620,6 @@ namespace AVS_Modules_Settings.ViewModels
         }
         #endregion
 
-        private void OnSaveAll()
-        {
-            // 保存 ROI
-            OnSaveRoi();
-            // 保存模板模型（如果 TemplateMatchingVM 提供了保存接口）
-            if (TemplateMatchingVM.SaveModelCommand.CanExecute())
-                TemplateMatchingVM.SaveModelCommand.Execute();
-            // 保存计量模型
-            if (MetrologyVM.SaveMetroCommand.CanExecute())
-                MetrologyVM.SaveMetroCommand.Execute();
-        }
-
-        private void OnLoadAll()
-        {
-            OnLoadRoi();
-            if (TemplateMatchingVM.LoadModelCommand.CanExecute())
-                TemplateMatchingVM.LoadModelCommand.Execute();
-            MetrologyVM.LoadMetroCommand.Execute();
-        }
-
         //更新计量模块的参考位姿
         public void UpdateMetrologyRef(double refRow, double refCol, double refAngle)
         {
@@ -653,6 +629,6 @@ namespace AVS_Modules_Settings.ViewModels
                 MetrologyVM.ModelRefCol = refCol;
                 MetrologyVM.ModelRefAngle = refAngle;
             }
-        }       
+        }
     }
 }
