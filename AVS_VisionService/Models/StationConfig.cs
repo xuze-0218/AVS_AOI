@@ -12,6 +12,9 @@ namespace AVS_Service.Models
     /// </summary>
     public class StationConfig : BindableBase
     {
+        /// <summary>
+        /// 工位ID，唯一标识一个工位，例如 "Station1", "Station2"，用于与 PLC&相机 映射
+        /// </summary>
         private string _stationId;
         public string StationId
         {
@@ -53,8 +56,31 @@ namespace AVS_Service.Models
             get => _role;
             set => SetProperty(ref _role, value);
         }
+
+        /// <summary>
+        /// 相机类型
+        /// </summary>
+        private VisionDimension _dimension = VisionDimension.TwoD;
+        public VisionDimension Dimension
+        {
+            get => _dimension;
+            set => SetProperty(ref _dimension, value);
+        }
+
+        /// <summary>
+        /// 参数模块名（用于IParametersConfigService 读取对应模块的参数），例如 "SideA", "SideB"
+        /// </summary>
+        private string _productConfigSection = "SideA";
+        public string ProductConfigSection
+        {
+            get => _productConfigSection;
+            set => SetProperty(ref _productConfigSection, value);
+        }
+
+        public string AiModelStationId { get; set; }
     }
 
     public enum CommProtocol { TCP, UDP }
     public enum CommRole { Server, Client }
+    public enum VisionDimension { TwoD, ThreeD }
 }

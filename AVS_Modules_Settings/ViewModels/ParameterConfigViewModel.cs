@@ -2,16 +2,12 @@
 using AVS_Service.Models;
 using Prism.Commands;
 using Prism.Mvvm;
-using Prism.Services.Dialogs;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Data;
 
 namespace AVS_Modules_Settings.ViewModels

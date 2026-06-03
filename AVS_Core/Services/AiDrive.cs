@@ -43,6 +43,8 @@ namespace AVS_Core.Services
         /// 释放指定工位的所有模型
         /// </summary>
         void UnloadStation(string stationId);
+
+        bool IsModelLoaded(string stationId);
     }
 
     /// <summary>
@@ -76,12 +78,17 @@ namespace AVS_Core.Services
             {
                 _logger?.Warning("[AiDrive] LoadSegModel: stationId 或 modelPaths 无效");
                 return false;
-            }
-
+            }         
             try
             {
                 lock (_lock)
                 {
+                  
+                    if (_segHandles.ContainsKey(stationId))
+                    {
+                        _logger?.Information("[AiDrive] 工位 {StationId} 分割模型已加载，跳过", stationId);
+                        return true;
+                    }
                     // 释放旧模型
                     DisposeHandles(_segHandles, stationId);
                     var handles = new List<Segmentor>();
@@ -113,6 +120,11 @@ namespace AVS_Core.Services
             {
                 lock (_lock)
                 {
+                    if (_detHandles.ContainsKey(stationId))
+                    {
+                        _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已加载，跳过", stationId);
+                        return true;
+                    }
                     DisposeHandles(_detHandles, stationId);
                     var handles = new List<Detector>();
                     foreach (var path in modelPaths)
@@ -215,6 +227,15 @@ namespace AVS_Core.Services
                 _logger?.Error(ex, "[AiDrive] 工位 {StationId} 检测推理失败 (modelIndex={Index})", stationId, modelIndex);
                 targetLabels = multiTarget ? new int[2] { -1, -1 } : new int[1] { -1 };
                 targetRect = new HTuple();
+            }
+        }
+
+
+        public bool IsModelLoaded(string stationId)
+        {
+            lock (_lock)
+            {
+                return _detHandles.ContainsKey(stationId) || _segHandles.ContainsKey(stationId);
             }
         }
 

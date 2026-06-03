@@ -16,9 +16,17 @@ namespace AVS_Modules_Settings.ViewModels
     {
         private readonly IStationConfigService _stationConfigService;
         private readonly ICameraConfigService _cameraConfigService;
+        private readonly IParametersConfigService _paramService;
 
         public ObservableCollection<StationConfig> Stations => _stationConfigService.Stations;
         public ObservableCollection<string> AvailableCameraRoles { get; private set; } = new ObservableCollection<string>();
+        public ObservableCollection<VisionDimension> AvailableDimensions { get; } = new ObservableCollection<VisionDimension>
+        {
+            VisionDimension.TwoD,
+            VisionDimension.ThreeD
+        };
+        // 产品参数模块名下拉源（从参数服务中动态获取所有 ModuleName）
+        public ObservableCollection<string> AvailableProductSections { get; } = new ObservableCollection<string>();
         public ICommand MoveUpCommand { get; }
         public ICommand MoveDownCommand { get; }
         public ICommand DeleteCommand { get; }
@@ -33,10 +41,11 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _selectedStation, value);
         }
 
-        public StationConfigViewModel(IStationConfigService stationConfigService, ICameraConfigService cameraConfigService)
+        public StationConfigViewModel(IStationConfigService stationConfigService, ICameraConfigService cameraConfigService, IParametersConfigService paramService)
         {
             _stationConfigService = stationConfigService;
             _cameraConfigService = cameraConfigService;
+            _paramService = paramService;
 
             MoveUpCommand = new DelegateCommand(OnMoveUp, () => SelectedStation != null && Stations.IndexOf(SelectedStation) > 0)
                 .ObservesProperty(() => SelectedStation);
@@ -47,6 +56,7 @@ namespace AVS_Modules_Settings.ViewModels
             SaveCommand = new DelegateCommand(() => _stationConfigService.Save());
             LoadCommand = new DelegateCommand(SyncWithCameras);
             RefreshCameraRoles();
+            RefreshProductSections();
         }
 
         private void RefreshCameraRoles()
@@ -64,12 +74,29 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
+        private void RefreshProductSections()
+        {
+            var modules = _paramService.ConfigParams
+                ?.Select(p => p.ModuleName)
+                .Where(m => !string.IsNullOrEmpty(m))
+                .Distinct()
+                .OrderBy(m => m)
+                .ToList() ?? new List<string>();
+
+            AvailableProductSections.Clear();
+            foreach (var module in modules)
+                AvailableProductSections.Add(module);
+        }
+
         private void OnAdd()
         {
+            //刷新参数模块列表以确保最新
+            RefreshProductSections();
             var newStation = new StationConfig
             {
                 StationId = $"Station{Stations.Count + 1}",
-                CameraRole = "SelectRole"
+                CameraRole = "SelectRole",
+                ProductConfigSection = AvailableProductSections.FirstOrDefault() ?? "SideA",
             };
             Stations.Add(newStation);
         }
@@ -100,7 +127,7 @@ namespace AVS_Modules_Settings.ViewModels
         public void SyncWithCameras()
         {
             RefreshCameraRoles();
-
+            RefreshProductSections();
             var cameraRoles = AvailableCameraRoles.ToList();
             // 移除不再存在的相机角色配置
             var toRemove = Stations.Where(s => !cameraRoles.Contains(s.CameraRole)).ToList();
@@ -114,8 +141,9 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     Stations.Add(new StationConfig
                     {
-                        StationId = "DefaultStation",  // 默认用角色名作为工位ID
-                        CameraRole = role
+                        StationId = "DefaultStation",  //默认用角色名作为工位ID
+                        CameraRole = role,
+                        ProductConfigSection = AvailableProductSections.FirstOrDefault() ?? "SideA",
                     });
                 }
             }

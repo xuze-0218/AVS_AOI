@@ -1,5 +1,6 @@
 ﻿using AVS_Core.Models;
 using AVS_Service;
+using AVS_Service.Models;
 using HalconDotNet;
 using Prism.Ioc;
 using Serilog;
@@ -58,7 +59,9 @@ namespace AVS_Core.Services
 
     public class StationSessionService : IStationSessionService
     {
-        private readonly IContainerProvider _containerProvider;
+        private readonly IContainerProvider _container;
+        private readonly IAiDriveService _aiDriveService;
+        private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfig;
         private readonly ILogger _logger;
         private readonly object _preloadLock = new object();
@@ -71,36 +74,55 @@ namespace AVS_Core.Services
         /// <summary>
         /// 视觉服务缓存
         /// </summary>
-        private readonly ConcurrentDictionary<string, IVisionService> _visionServices = new();
+        //private readonly ConcurrentDictionary<string, IVisionService> _visionServices = new();
+        private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new();
 
-        public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfig, ILogger logger)
+        public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfig, 
+            IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService)
         {
-            _containerProvider = containerProvider;
+
+            _paramService = paramService;
+            _container = containerProvider;
             _stationConfig = stationConfig;
             _logger = logger;
+            _aiDriveService = aiDriveService;
         }
 
         public async Task InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
         {
-            await EnsurePreloadCompletedAsync();
+            //await EnsurePreloadCompletedAsync();
             // 清理旧会话
             if (_sessions.TryRemove(stationId, out var oldState))
                 oldState.Dispose();
 
             // 从缓存中获取视觉服务（此时应已预加载完成，若未完成则同步等待）
-            if (!_visionServices.TryGetValue(stationId, out var visionService))
+            //if (!_visionServices.TryGetValue(stationId, out var visionService))
+            //{
+            //    visionService = _container.Resolve<IVisionService>();
+            //    //visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
+            //    await visionService.InitializeAsync(stationId);
+            //    _visionServices.TryAdd(stationId, visionService);
+            //    _logger.Warning("工位 {StationId} 未预加载，已同步初始化", stationId);
+            //}
+
+            if (!_providers.TryGetValue(stationId, out var provider))
             {
-                visionService = _containerProvider.Resolve<IVisionService>();
-                //visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
-                await visionService.InitializeAsync(stationId);
-                _visionServices.TryAdd(stationId, visionService);
-                _logger.Warning("工位 {StationId} 未预加载，已同步初始化", stationId);
+                var stationCfg = _stationConfig.GetStation(stationId);
+                provider = stationCfg.Dimension switch
+                {
+                    VisionDimension.TwoD => _container.Resolve<I2DVisionProvider>(),
+                    VisionDimension.ThreeD => _container.Resolve<I3DVisionProvider>(),
+                    _ => throw new NotSupportedException()
+                };
+                await provider.InitializeAsync(stationCfg);
+                _providers.TryAdd(stationId, provider);
             }
 
             var state = new SessionState
             {
                 WorkType = workType,
-                visionService = visionService,  //复用缓存
+                //visionService = visionService,  //复用缓存
+                Provider = provider,  //复用缓存
                 Cts = new CancellationTokenSource(),
                 ImageQueue = new BlockingCollection<HObject>(),
                 MsgPoleCapacity = 0,
@@ -241,16 +263,58 @@ namespace AVS_Core.Services
                 {
                     var tasks = _stationConfig.Stations.Select(async station =>
                     {
-                        try
+                        //try
+                        //{
+                        //    var visionService = _container.Resolve<IVisionService>();
+                        //    await visionService.InitializeAsync(station.StationId);
+                        //    _visionServices.TryAdd(station.StationId, visionService);
+                        //    _logger.Information("工位 {StationId} 视觉服务预加载完成", station.StationId);
+                        //}
+                        //catch (Exception ex)
+                        //{
+                        //    _logger.Error(ex, "工位 {StationId} 视觉服务预加载失败", station.StationId);
+                        //}
+                        //初始化视觉服务并缓存，加载halcon引擎参数等
+                        if (!_providers.ContainsKey(station.StationId))
                         {
-                            var visionService = _containerProvider.Resolve<IVisionService>();
-                            await visionService.InitializeAsync(station.StationId);
-                            _visionServices.TryAdd(station.StationId, visionService);
-                            _logger.Information("工位 {StationId} 视觉服务预加载完成", station.StationId);
+                            IVisionProvider provider = station.Dimension switch
+                            {
+                                VisionDimension.TwoD => _container.Resolve<I2DVisionProvider>(),
+                                VisionDimension.ThreeD => _container.Resolve<I3DVisionProvider>(),
+                                _ => throw new NotSupportedException()
+                            };
+                            await provider.InitializeAsync(station);
+                            _providers.TryAdd(station.StationId, provider);
+                            _logger.Information("预加载工位 {Id} 视觉完成", station.StationId);
                         }
-                        catch (Exception ex)
+                        //加载AI模型
+                        string moduleName = station.ProductConfigSection ?? station.StationId;
+                        bool isAiCheck = _paramService.GetBool(moduleName, "isAiCheck", false);
+                        if (isAiCheck)
                         {
-                            _logger.Error(ex, "工位 {StationId} 视觉服务预加载失败", station.StationId);
+                            // 确定 AI 模型键：优先使用 AiModelStationId，否则用 StationId
+                            string aiKey = string.IsNullOrEmpty(station.AiModelStationId)
+                                           ? station.StationId
+                                           : station.AiModelStationId;
+
+                            // 如果该 AI 键的模型尚未加载，则加载
+                            if (!_aiDriveService.IsModelLoaded(aiKey))
+                            {
+                                // 模型路径从参数配置中读取（也可以硬编码或从 station 配置中获取）
+                                string detModelPath = _paramService.GetString(moduleName, "DetModelPath", "");
+                                string segModelPathsStr = _paramService.GetString(moduleName, "SegModelPaths", "");
+
+                                if (!string.IsNullOrEmpty(detModelPath))
+                                    _aiDriveService.LoadDetModel(aiKey, new[] { detModelPath });
+
+                                if (!string.IsNullOrEmpty(segModelPathsStr))
+                                {
+                                    var segPaths = segModelPathsStr.Split(';');
+                                    _aiDriveService.LoadSegModel(aiKey, segPaths);
+                                }
+                            }
+                            _logger.Information("工位 {StationId} AI 模型加载完成（键: {AiKey}）", station.StationId, aiKey);
+
                         }
                     });
                     await Task.WhenAll(tasks);
@@ -258,14 +322,14 @@ namespace AVS_Core.Services
                 });
             }
             return _preloadTask;
-            
+
         }
 
-        private async Task EnsurePreloadCompletedAsync()
-        {
-            if (_preloadTask != null)
-                await _preloadTask;
-        }
+        //private async Task EnsurePreloadCompletedAsync()
+        //{
+        //    if (_preloadTask != null)
+        //        await _preloadTask;
+        //}
 
         /// <summary>
         /// 图像处理
@@ -331,7 +395,18 @@ namespace AVS_Core.Services
             }
             int poleNum = state.PoleOrder[idx];
             state.ProcessIndex++;
-            result = await state.visionService.Execute2DInspectAsync(image, poleNum, new InspectionParams());
+            switch (state.Provider)
+            {
+                case I2DVisionProvider p2D:
+                    result = await p2D.ExecuteInspectAsync(image, poleNum, new InspectionParams());
+                    break;
+                case I3DVisionProvider p3D:
+                    result = await p3D.ExecuteInspectAsync(image, poleNum, new InspectionParams());
+                    break;
+                default:
+                    throw new InvalidOperationException($"未知的视觉提供者类型: {state.Provider.GetType()}");
+            }
+            //result = await state.visionService.Execute2DInspectAsync(image, poleNum, new InspectionParams());
             state.PoleResults[poleNum] = result;
             state.ResultSources[poleNum].TrySetResult(result);
         }
@@ -346,10 +421,25 @@ namespace AVS_Core.Services
         private async Task ProcessCalibrationImage(SessionState state, HObject image, bool isVerification)
         {
             string result;
-            if (isVerification)
-                result = await state.visionService.ExecuteVerificationAsync(image, new CalibrationParams());
-            else
-                result = await state.visionService.ExecuteCalibrationAsync(image, new CalibrationParams());
+            //if (isVerification)
+            //    result = await state.visionService.ExecuteVerificationAsync(image, new CalibrationParams());
+            //else
+            //    result = await state.visionService.ExecuteCalibrationAsync(image, new CalibrationParams());
+
+            switch (state.Provider)
+            {
+                case I2DVisionProvider p2D:
+                    result = isVerification
+                        ? await p2D.ExecuteVerificationAsync(image, new CalibrationParams())
+                        : await p2D.ExecuteCalibrationAsync(image, new CalibrationParams());
+                    break;
+                case I3DVisionProvider p3D:
+                    result = await p3D.ExecuteCalibrationAsync(image, new CalibrationParams());
+                    break;
+                default:
+                    throw new InvalidOperationException($"未知类型: {state.Provider.GetType()}");
+            }
+
             //结果汇总时用','连接
             state.CalibResult = result.Split(',')[0];
             state.CalibData = result.Split(',')[1];
@@ -371,7 +461,8 @@ namespace AVS_Core.Services
     /// </summary>
     internal class SessionState
     {
-        public IVisionService visionService { get; set; }
+        //public IVisionService visionService { get; set; }
+        public IVisionProvider Provider { get; set; }
         public SessionWorkType WorkType { get; set; }
         public CancellationTokenSource Cts { get; set; }
         public Task ProcessTask { get; set; }

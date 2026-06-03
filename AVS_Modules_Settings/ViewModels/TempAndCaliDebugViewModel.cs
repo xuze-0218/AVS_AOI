@@ -1,5 +1,6 @@
 ﻿using AVS_Common.Model;
 using AVS_Service;
+using AVS_Service.Models;
 using HalconDotNet;
 using Microsoft.Win32;
 using Prism.Commands;
@@ -20,7 +21,7 @@ namespace AVS_Modules_Settings.ViewModels
     public class TempAndCaliDebugViewModel : BindableBase
     {
         private readonly ITemplateMatchingService _matchingService;
-        private readonly ICaliperService _caliperService;
+        //private readonly ICaliperService _caliperService;
         private readonly IMetrologyService _metrologyService;
         private HWindow _halconWindow;
 
@@ -109,7 +110,7 @@ namespace AVS_Modules_Settings.ViewModels
                     //if (CaliperMeasureVM != null) CaliperMeasureVM.HalconWindow = value;
                     if (MetrologyVM != null) MetrologyVM.HalconWindow = value;
                     _matchingService.SetHalconWindow(value);
-                    _caliperService.SetHalconWindow(value);
+                    //_caliperService.SetHalconWindow(value);
                 }
             }
         }
@@ -122,7 +123,7 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 if (SetProperty(ref _currentImage, value))
                 {
-                    _caliperService.SetImage(value);
+                    //_caliperService.SetImage(value);
                     if (TemplateMatchingVM != null) TemplateMatchingVM.CurrentImage = value;
                     //if (CaliperMeasureVM != null) CaliperMeasureVM.CurrentImage = value;
                     if (MetrologyVM != null) MetrologyVM.CurrentImage = value;

@@ -9,7 +9,7 @@
     d:DesignWidth="300"
     mc:Ignorable="d">
 
-    <StackPanel Background="Transparent">
+    <StackPanel Background="AliceBlue">
         <!--  状态消息  -->
         <Border
             Margin="0,0,0,6"

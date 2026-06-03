@@ -1,15 +1,7 @@
 ﻿using HalconDotNet;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System;
-namespace AVS_Common.Model
+
+namespace AVS_Service.Models
 {
-
-
     public enum RoiType
     {
         RECTANGLE1,

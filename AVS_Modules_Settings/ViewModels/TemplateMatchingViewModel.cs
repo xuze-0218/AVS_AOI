@@ -1,4 +1,3 @@
-using AVS_Common.Model;
 using AVS_Service;
 using HalconDotNet;
 using Microsoft.Win32;
@@ -7,6 +6,7 @@ using Prism.Mvvm;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using AVS_Service.Models;
 
 namespace AVS_Modules_Settings.ViewModels
 {

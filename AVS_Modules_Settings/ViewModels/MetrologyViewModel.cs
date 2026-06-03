@@ -1,5 +1,5 @@
-﻿using AVS_Common.Model;
-using AVS_Service;
+﻿using AVS_Service;
+using AVS_Service.Models;
 using HalconDotNet;
 using Microsoft.Win32;
 using Prism.Commands;
