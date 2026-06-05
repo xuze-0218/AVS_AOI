@@ -153,17 +153,7 @@
                     </DataGridTemplateColumn.CellEditingTemplate>
                 </DataGridTemplateColumn>
 
-
-
-                <!--<DataGridTemplateColumn Width="100" Header="模型共享标识">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding AiModelStationId}" ToolTip="不同station共用同一模型，防止显存占用" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>-->
-
-                <DataGridTemplateColumn Width="100" Header="模型共享标识">
+                <DataGridTemplateColumn Width="100" Header="模型共享ID标识">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock

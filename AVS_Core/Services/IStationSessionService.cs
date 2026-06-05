@@ -297,7 +297,7 @@ namespace AVS_Core.Services
                                            ? station.StationId
                                            : station.AiModelStationId;
 
-                            // 如果该 AI 键的模型尚未加载，则加载
+                            // 如果该键的模型尚未加载，则加载
                             if (!_aiDriveService.IsModelLoaded(aiKey))
                             {
                                 // 模型路径从参数配置中读取（也可以硬编码或从 station 配置中获取）
@@ -387,13 +387,13 @@ namespace AVS_Core.Services
         private async Task ProcessInspectImage(SessionState state, HObject image)
         {
             string result = string.Empty;
-            int idx = state.ProcessIndex;
+            int idx = state.ProcessIndex;     //当前拍照序号
             if (idx >= state.PoleOrder.Length)
             {
                 _logger.Error("处理序号超出极柱总数");
                 return;
             }
-            int poleNum = state.PoleOrder[idx];
+            int poleNum = state.PoleOrder[idx];// 映射为物理极柱号
             state.ProcessIndex++;
             switch (state.Provider)
             {
@@ -407,7 +407,7 @@ namespace AVS_Core.Services
                     throw new InvalidOperationException($"未知的视觉提供者类型: {state.Provider.GetType()}");
             }
             //result = await state.visionService.Execute2DInspectAsync(image, poleNum, new InspectionParams());
-            state.PoleResults[poleNum] = result;
+            state.PoleResults[poleNum] = result;  // 按物理编号存储
             state.ResultSources[poleNum].TrySetResult(result);
         }
 
@@ -470,14 +470,14 @@ namespace AVS_Core.Services
         public bool IsActive => Cts != null && !Cts.IsCancellationRequested;
 
         //检测相关
-        public int[] PoleOrder { get; set; }        // 极柱拍照顺序（物理编号数组）
-        public string[] PoleResults { get; set; }   // 按物理编号存储每个极柱的结果字符串 "01+0001234+0005678..."
-        public string resultData { get; set; }      // 结果数据字符串
-        public int ReceivedCount { get; set; }      // 已入队图像数量（用于校验）
+        public int[] PoleOrder { get; set; }        // 极柱拍照顺序（物理编号）假设4行13列共52个极柱，拍照顺序可能是 [1~13 26~14 27~39 52~40],索引0-51
+        public string[] PoleResults { get; set; }   // 按物理编号存储每个极柱的结果字符串 "01+0001234+0005678..." 索引 = 物理极柱号，PoleResults[1]存储1号极柱结果
+        public int ReceivedCount { get; set; }      // 已入队图像数量,防越界，超过 PoleOrder.Length 则丢弃
         /// <summary>
-        /// 当前处理的极柱在 PoleOrder中的索引
+        /// 当前处理的极柱在PoleOrder中的索引,初始0，每处理一张图像自增1
+        /// 取值顺序PoleOrder[ProcessIndex]得到本次极柱号
         /// </summary>
-        public int ProcessIndex { get; set; }
+        public int ProcessIndex { get; set; }  
         //为每个物理编号提供一个 TaskCompletionSource，用于异步等待该极柱的结果
         public TaskCompletionSource<string>[] ResultSources { get; set; } // 索引 = 物理编号；
         public int MsgPoleCapacity { get; set; }    // 单次报文最大极柱数（10 或 25）

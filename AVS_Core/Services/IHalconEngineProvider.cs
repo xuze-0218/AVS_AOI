@@ -1,4 +1,5 @@
-﻿using HalconDotNet;
+﻿using AVS_Service;
+using HalconDotNet;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,6 +23,9 @@ namespace AVS_Core.Services
         private readonly object _lock = new object();
         private HDevEngine _engine;
         private bool _initialized;
+
+
+
 
         public HDevEngine GetEngine()
         {

@@ -196,16 +196,15 @@ namespace AVS_Core.Services
         private async Task<string> HandleCalibInit(string stationId, SessionConfig config, bool isVerify)
         {
             await _sessionService.InitializeSession(stationId, isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
-            string calibResult = _sessionService.GetResultData(stationId);
+            string data = _sessionService.GetResultData(stationId);
             //格式为 "01+0000000+0000000" 共18字符，按协议拆分
-            // 标定初始化成功返回固定格式   这里是硬编码测试
-            _protocolEngine.SetVariable("Result", calibResult.Substring(0, 2));
-            //backup1不需要，这里放了一个和Result一样的值，后面改
-            _protocolEngine.SetVariable("backup2", calibResult.Substring(0, 2));
-            _protocolEngine.SetVariable("backup3", calibResult.Substring(2, 4));
-            _protocolEngine.SetVariable("backup4", calibResult.Substring(6, 4));
-            _protocolEngine.SetVariable("backup5", calibResult.Substring(10, 4));
-            _protocolEngine.SetVariable("backup6", calibResult.Substring(14, 4));
+            // 标定初始化成功返回固定格式
+            _protocolEngine.SetVariable("Result", data.Substring(0, 2));// 结果码 "01" 或 "02"
+            _protocolEngine.SetVariable("backup2", data.Substring(2, 4));
+            _protocolEngine.SetVariable("backup3", data.Substring(6, 4));
+            _protocolEngine.SetVariable("backup4", data.Substring(10, 4));
+            _protocolEngine.SetVariable("backup5", data.Substring(14, 4));
+            _protocolEngine.SetVariable("backup6", "0000");
             _logger.Information("Calibration session initialized for {StationId}, isVerify: {IsVerify}", stationId, isVerify);
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
@@ -214,11 +213,11 @@ namespace AVS_Core.Services
         {
             string calibResult = _sessionService.GetResultData(stationId);
             _protocolEngine.SetVariable("Result", calibResult.Substring(0, 2));
-            _protocolEngine.SetVariable("backup2", calibResult.Substring(0, 2));
-            _protocolEngine.SetVariable("backup3", calibResult.Substring(2, 4));
-            _protocolEngine.SetVariable("backup4", calibResult.Substring(6, 4));
-            _protocolEngine.SetVariable("backup5", calibResult.Substring(10, 4));
-            _protocolEngine.SetVariable("backup6", calibResult.Substring(14, 4));
+            _protocolEngine.SetVariable("backup2", calibResult.Substring(2, 4));
+            _protocolEngine.SetVariable("backup3", calibResult.Substring(6, 4));
+            _protocolEngine.SetVariable("backup4", calibResult.Substring(10, 4));
+            _protocolEngine.SetVariable("backup5", calibResult.Substring(14, 4));
+            _protocolEngine.SetVariable("backup6", "0000");
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 
