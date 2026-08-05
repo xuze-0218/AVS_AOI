@@ -133,13 +133,16 @@
                 </DataGridTemplateColumn>
 
                 <!--  产品参数模块（下拉选择，也可手动输入）  -->
-                <DataGridTemplateColumn Width="150" Header="参数模块">
+                <DataGridTemplateColumn Width="150" Header="参数所属模块">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock
                                 Margin="5,0"
                                 VerticalAlignment="Center"
-                                Text="{Binding ProductConfigSection}" />
+                                Text="{Binding ProductConfigSection}"
+                                ToolTip="不同相机共享参数"
+                                ToolTipService.BetweenShowDelay="1"
+                                ToolTipService.InitialShowDelay="1" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>

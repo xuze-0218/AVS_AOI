@@ -67,7 +67,7 @@ namespace AVS_Modules_Settings.ViewModels
             });
 
             DeleteCommand = new DelegateCommand<ParametersConfig>(p => Parameters.Remove(p));
-            SaveCommand = new DelegateCommand(() => _configService.SaveConfig(Parameters));
+            SaveCommand = new DelegateCommand(() => _configService.SaveConfig());
             initial();
         }
       

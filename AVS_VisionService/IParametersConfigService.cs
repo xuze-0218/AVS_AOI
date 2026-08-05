@@ -13,10 +13,18 @@ namespace AVS_Service
 {
     public interface IParametersConfigService
     {
+        /// <summary>
+        /// 获取当前配方的名称或路径（供UI显示）
+        /// </summary>
+        string CurrentRecipePath { get; }
+        /// <summary>
+        /// 加载指定配方文件夹内的ConfigParas.json
+        /// </summary>
+        bool LoadRecipe(string recipePath);
         ObservableCollection<ParametersConfig> ConfigParams { get; }
         void LoadConfig();
         bool SaveConfig();
-        bool SaveConfig(IEnumerable<ParametersConfig> configs);
+        //bool SaveConfig(IEnumerable<ParametersConfig> configs);
         void UpdateParam(string moduleName, string paramName, string value, ParamOutputType type = ParamOutputType.STRING);
         int GetInt(string moduleName, string paramName, int defaultValue = 0);
         double GetDouble(string moduleName, string paramName, double defaultValue = 0.0);
@@ -26,15 +34,32 @@ namespace AVS_Service
 
     public class ParametersConfigService : IParametersConfigService
     {
-        private readonly string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config/ConfigParas.json");
-        public ObservableCollection<ParametersConfig> ConfigParams { get; private set; }
+        private string _configPath;
+        public string CurrentRecipePath { get; private set; }
+        public ObservableCollection<ParametersConfig> ConfigParams { get; private set; }=new ObservableCollection<ParametersConfig>();
 
 
         public ParametersConfigService()
         {
-            ConfigParams = new ObservableCollection<ParametersConfig>();
+            _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "ConfigParas.json");
+            CurrentRecipePath = _configPath;
+            //ConfigParams = new ObservableCollection<ParametersConfig>();
             LoadConfig();
         }
+
+        public bool LoadRecipe(string recipePath)
+        {
+            if (!Directory.Exists(recipePath))
+                return false;
+            var file = Path.Combine(recipePath, "ConfigParas.json");
+            if (!File.Exists(file))
+                return false;
+            _configPath = file;
+            CurrentRecipePath = recipePath;
+            LoadConfig();
+            return true;
+        }
+
         public int GetInt(string moduleName, string paramName, int defaultValue = 0)
         {
             var p = FindParam(moduleName, paramName);
@@ -112,12 +137,12 @@ namespace AVS_Service
 
             }
         }
-
-        public bool SaveConfig(IEnumerable<ParametersConfig> configs)
+       
+        public bool SaveConfig()
         {
             try
             {
-                var json = JsonConvert.SerializeObject(configs, Formatting.Indented);
+                var json = JsonConvert.SerializeObject(ConfigParams, Formatting.Indented);
                 File.WriteAllText(_configPath, json);
                 return true;
             }
@@ -126,11 +151,6 @@ namespace AVS_Service
                 Log.Error(ex, "配置保存失败");
                 return false;
             }
-        }
-
-        public bool SaveConfig()
-        {
-            return SaveConfig(this.ConfigParams);
         }
 
         private ParametersConfig FindParam(string moduleName, string paramName)

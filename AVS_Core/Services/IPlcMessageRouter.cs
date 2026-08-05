@@ -130,7 +130,7 @@ namespace AVS_Core.Services
             int[] inspectOrder = new int[numForInspect];
 
             int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
-            string imageName = _protocolEngine.GetVariable("imageName");
+            string imageName = _protocolEngine.GetVariable("imgName");
             int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));
             //inspectOrders是什么？
             //不理解电芯类型减1是什么鬼东西，索引默认取0？

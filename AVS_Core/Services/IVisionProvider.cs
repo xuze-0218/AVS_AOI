@@ -39,6 +39,7 @@ namespace AVS_Core.Services
     {
         private string _stationId;
         private string _aiModelId;
+        private string _moduleName;
         private HWindow _windowHandle;
         private readonly IHalconEngineProvider _engineProvider;
         private readonly IAiDriveService _aiDrive;
@@ -128,14 +129,14 @@ namespace AVS_Core.Services
             HOperatorSet.GenEmptyObj(out HObject mask01);
             HOperatorSet.GenEmptyObj(out HObject mask02);
             HOperatorSet.GenEmptyObj(out HObject mask03);
-            bool isAiCheck = _paramService.GetBool("ProductParam", "isAiCheck");
+            bool isAiCheck = _paramService.GetBool(_moduleName, "isAiCheck");
             string sn = _stationConfig.GetStation(_stationId).CameraRole;
             //忘了需不需要再加个超时重试机制
             //_windowHandle = await _handleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             //目前的逻辑是深度学习一定勾选
             if (isAiCheck)
             {
-                bool isSquareBarWeldMark = _paramService.GetBool("ProductParam", "isSquareBarWeldMark");
+                bool isSquareBarWeldMark = _paramService.GetBool(_moduleName, "isSquareBarWeldMark");
                 if (isSquareBarWeldMark)
                     //这里score要从本地配置里读取 先写死
                     _aiDrive.DetectMulti(_aiModelId, 0, image, 0.8, out int[] beadType01, out beadRect01);
@@ -269,10 +270,11 @@ namespace AVS_Core.Services
         public async Task InitializeAsync(StationConfig config)
         {
             _stationId = config.StationId;
+            _moduleName = config.ProductConfigSection;
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole)/*.ConfigureAwait(false)*/;
             _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
-            bool isSquareBarWeldMark = _paramService.GetBool("ProductParam", "isSquareBarWeldMark");
+            bool isSquareBarWeldMark = _paramService.GetBool(_moduleName, "isSquareBarWeldMark");
             if (isSquareBarWeldMark)
                 paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamA.json");
             else
@@ -291,7 +293,7 @@ namespace AVS_Core.Services
             _cropCall = new HDevProcedureCall(cropProc);
             //bool isCirWeldMark = _paramService.GetBool("ProductParam", "isCirWeldMark");
             //初始化Measure（根据产品类型选择）
-            bool isCirWeldMark = _paramService.GetBool(config.ProductConfigSection, "isCirWeldMark");
+            bool isCirWeldMark = _paramService.GetBool(_moduleName, "isCirWeldMark");
             var measureProcName = isCirWeldMark ? "Measure2d" : "MeasureSB2D";
             var measureProc = new HDevProcedure(measureProcName);
             _measureCall = new HDevProcedureCall(measureProc);
@@ -322,6 +324,7 @@ namespace AVS_Core.Services
     public class ThreeDVisionProvider : I3DVisionProvider
     {
         private string _stationId;
+        private string _moduleName;
         private string _aiModelId;
         private string paramDir = string.Empty;
         private HWindow _windowHandle;
@@ -447,6 +450,7 @@ namespace AVS_Core.Services
         public async Task InitializeAsync(StationConfig config)
         {
             _stationId = config.StationId;
+            _moduleName = config.ProductConfigSection; 
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             var handle = await _handleRegistry.WaitForHandleAsync(config.CameraRole);
             _engineProvider.GetEngine(); // 确保Halcon引擎已初始化

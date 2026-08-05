@@ -62,7 +62,7 @@ namespace AVS_Core.Services
         private readonly IContainerProvider _container;
         private readonly IAiDriveService _aiDriveService;
         private readonly IParametersConfigService _paramService;
-        private readonly IStationConfigService _stationConfig;
+        private readonly IStationConfigService _stationConfigService;
         private readonly ILogger _logger;
         private readonly object _preloadLock = new object();
         private Task _preloadTask; // 后台预加载任务
@@ -77,13 +77,13 @@ namespace AVS_Core.Services
         //private readonly ConcurrentDictionary<string, IVisionService> _visionServices = new();
         private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new();
 
-        public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfig, 
+        public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService, 
             IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService)
         {
 
             _paramService = paramService;
             _container = containerProvider;
-            _stationConfig = stationConfig;
+            _stationConfigService = stationConfigService;
             _logger = logger;
             _aiDriveService = aiDriveService;
         }
@@ -107,7 +107,7 @@ namespace AVS_Core.Services
 
             if (!_providers.TryGetValue(stationId, out var provider))
             {
-                var stationCfg = _stationConfig.GetStation(stationId);
+                var stationCfg = _stationConfigService.GetStation(stationId);
                 provider = stationCfg.Dimension switch
                 {
                     VisionDimension.TwoD => _container.Resolve<I2DVisionProvider>(),
@@ -261,7 +261,7 @@ namespace AVS_Core.Services
 
                 _preloadTask = Task.Run(async () =>
                 {
-                    var tasks = _stationConfig.Stations.Select(async station =>
+                    var tasks = _stationConfigService.Stations.Select(async station =>
                     {
                         //try
                         //{
