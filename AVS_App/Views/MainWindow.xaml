@@ -149,6 +149,7 @@
                         Command="{Binding NavigateCommand}"
                         CommandParameter="CameraDebugView"
                         Content="📷 相机调试"
+                        IsEnabled="{Binding IsCameraConnected}"
                         Style="{StaticResource TopNavButtonStyle}" />
                     <RadioButton
                         VerticalContentAlignment="Center"
@@ -188,6 +189,29 @@
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     Orientation="Horizontal">
+
+                    <Ellipse
+                        Width="12"
+                        Height="12"
+                        Margin="10,0,8,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#FF4C4C" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCameraConnected}" Value="True">
+                                        <Setter Property="Fill" Value="#4CAF50" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock
+                        Margin="0,0,5,0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="#AAA"
+                        Text="CAM" />
+
                     <Ellipse
                         Width="12"
                         Height="12"

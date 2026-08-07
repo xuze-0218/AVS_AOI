@@ -33,7 +33,7 @@ namespace AVS_Core.Services
         /// <summary>
         /// 获取标定\点检的结果数据（用于PLC回复）
         /// </summary>
-        string GetResultData(string stationId, int? startIndex = null, int? endIndex = null);
+        string GetResultData(string stationId);
 
         /// <summary>
         /// 获取检测的结果数据
@@ -77,7 +77,7 @@ namespace AVS_Core.Services
         //private readonly ConcurrentDictionary<string, IVisionService> _visionServices = new();
         private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new();
 
-        public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService, 
+        public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService,
             IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService)
         {
 
@@ -121,7 +121,6 @@ namespace AVS_Core.Services
             var state = new SessionState
             {
                 WorkType = workType,
-                //visionService = visionService,  //复用缓存
                 Provider = provider,  //复用缓存
                 Cts = new CancellationTokenSource(),
                 ImageQueue = new BlockingCollection<HObject>(),
@@ -147,8 +146,8 @@ namespace AVS_Core.Services
                     break;
                 case SessionWorkType.Calibrate:
                 case SessionWorkType.Verify:
-                    state.CalibResult = "97";//测试用
-                    state.CalibData = "+8989333+1212666";
+                    state.CalibResult = "00";
+                    state.CalibData = "+0000000+0000000";
                     break;
             }
 
@@ -160,26 +159,33 @@ namespace AVS_Core.Services
 
         public void EnqueueImage(string stationId, HObject image)
         {
-            if (_sessions.TryGetValue(stationId, out var state) && state.IsActive)
+            if (image == null) return;
+            try
             {
-                if (state.WorkType == SessionWorkType.Inspect)
+                if (_sessions.TryGetValue(stationId, out var state) && state.IsActive)
                 {
-                    if (state.ReceivedCount >= state.PoleOrder.Length)
+                    if (state.WorkType == SessionWorkType.Inspect)
                     {
-                        _logger.Warning("接收图像数超出预期，工位{StationId}，已接收{Received}，预期{Total}",
-                            stationId, state.ReceivedCount, state.PoleOrder.Length);
-                        image.Dispose();
-                        return;
+                        if (state.ReceivedCount >= state.PoleOrder.Length)
+                        {
+                            _logger.Warning("接收图像数超出预期，工位{StationId}，已接收{Received}，预期{Total}",
+                                stationId, state.ReceivedCount, state.PoleOrder.Length);
+                            return;
+                        }
+                        state.ReceivedCount++;
                     }
-                    state.ReceivedCount++;
+                    state.ImageQueue.Add(image.Clone());
                 }
-                state.ImageQueue.Add(image.Clone());
+                else
+                {
+                    _logger.Warning("没有激活的{StationId}对话", stationId);
+                }
             }
-            else
+            finally
             {
-                _logger.Warning("没有激活的{StationId}对话", stationId);
-                image?.Dispose();
+                image.Dispose();
             }
+
         }
 
         public void Reset(string stationId)
@@ -191,7 +197,7 @@ namespace AVS_Core.Services
             }
         }
 
-        public string GetResultData(string stationId, int? startIndex = null, int? endIndex = null)
+        public string GetResultData(string stationId)
         {
             if (!_sessions.TryGetValue(stationId, out var state) || !state.IsActive)
             {
@@ -253,11 +259,12 @@ namespace AVS_Core.Services
             return string.Concat(Enumerable.Repeat("00" + new string('0', 48), capacity));
         }
 
-        public Task PreloadAllStationsAsync()
+        public async Task PreloadAllStationsAsync()
         {
+            if (_preloadTask != null) return;
             lock (_preloadLock)
             {
-                if (_preloadTask != null) return _preloadTask;
+                if (_preloadTask != null) return;
 
                 _preloadTask = Task.Run(async () =>
                 {
@@ -289,8 +296,8 @@ namespace AVS_Core.Services
                         }
                         //加载AI模型
                         string moduleName = station.ProductConfigSection ?? station.StationId;
-                        bool isAiCheck = _paramService.GetBool(moduleName, "isAiCheck", false);
-                        if (isAiCheck)
+                        var p = _paramService.GetStationParams(moduleName);
+                        if (p.IsAiCheck)
                         {
                             // 确定 AI 模型键：优先使用 AiModelStationId，否则用 StationId
                             string aiKey = string.IsNullOrEmpty(station.AiModelStationId)
@@ -321,8 +328,7 @@ namespace AVS_Core.Services
                     _logger.Information("所有工位视觉服务预加载完成");
                 });
             }
-            return _preloadTask;
-
+            await _preloadTask;
         }
 
         //private async Task EnsurePreloadCompletedAsync()
@@ -439,10 +445,26 @@ namespace AVS_Core.Services
                 default:
                     throw new InvalidOperationException($"未知类型: {state.Provider.GetType()}");
             }
+            if (string.IsNullOrEmpty(result))
+            {
+                _logger.Error("标定结果为空");
+                state.CalibResult = "02";
+                state.CalibData = "+0000000+0000000";
+                return;
+            }
 
-            //结果汇总时用','连接
-            state.CalibResult = result.Split(',')[0];
-            state.CalibData = result.Split(',')[1];
+            var parts = result.Split(',');
+            if (parts.Length >= 2)
+            {
+                state.CalibResult = parts[0];
+                state.CalibData = parts[1];
+            }
+            else
+            {
+                _logger.Error("标定结果格式无效: {Result}", result);
+                state.CalibResult = "02";
+                state.CalibData = "+0000000+0000000";
+            }
         }
 
         private string GenerateErrorResult(SessionWorkType type)
@@ -468,7 +490,7 @@ namespace AVS_Core.Services
         public Task ProcessTask { get; set; }
         public BlockingCollection<HObject> ImageQueue { get; set; }
         public bool IsActive => Cts != null && !Cts.IsCancellationRequested;
-
+      
         //检测相关
         public int[] PoleOrder { get; set; }        // 极柱拍照顺序（物理编号）假设4行13列共52个极柱，拍照顺序可能是 [1~13 26~14 27~39 52~40],索引0-51
         public string[] PoleResults { get; set; }   // 按物理编号存储每个极柱的结果字符串 "01+0001234+0005678..." 索引 = 物理极柱号，PoleResults[1]存储1号极柱结果
@@ -477,13 +499,15 @@ namespace AVS_Core.Services
         /// 当前处理的极柱在PoleOrder中的索引,初始0，每处理一张图像自增1
         /// 取值顺序PoleOrder[ProcessIndex]得到本次极柱号
         /// </summary>
-        public int ProcessIndex { get; set; }  
+        public int ProcessIndex { get; set; }
         //为每个物理编号提供一个 TaskCompletionSource，用于异步等待该极柱的结果
         public TaskCompletionSource<string>[] ResultSources { get; set; } // 索引 = 物理编号；
         public int MsgPoleCapacity { get; set; }    // 单次报文最大极柱数（10 或 25）
 
 
-        // —— 标定/点检相关 ——
+        /// <summary>
+        /// —— 标定/点检相关 ——
+        /// </summary>
         public string CalibResult { get; set; } = "00";  // 结果 01 ok/02 ng
         public string CalibData { get; set; } = "+0000000+0000000"; // X+Y 坐标
 
@@ -492,6 +516,10 @@ namespace AVS_Core.Services
             Cts?.Cancel();
             ImageQueue?.CompleteAdding();
             ProcessTask?.Wait(TimeSpan.FromSeconds(3));
+            while (ImageQueue?.TryTake(out var img) == true)
+            {
+                img?.Dispose();
+            }
             Cts?.Dispose();
             ImageQueue?.Dispose();
         }

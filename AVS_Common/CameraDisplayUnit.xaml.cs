@@ -54,21 +54,23 @@ namespace AVS_Common
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            // 确保 HalconWindow 始终可用，不依赖 DataContext 类型
-            if (HalconWindow == null)
-            {
-                try
-                {
-                    if (HsmartWindow.ActualWidth > 0 && HsmartWindow.ActualHeight > 0)
-                        HalconWindow = HsmartWindow.HalconWindow;
-                }
-                catch (HalconException)
-                {
-                    // 尺寸为 0 时 HALCON 初始化会失败，等下次 SizeChanged 触发
-                }
-            }
+            //// 确保 HalconWindow 始终可用，不依赖 DataContext 类型
+            //if (HalconWindow == null)
+            //{
+            //    try
+            //    {
+            //        if (HsmartWindow.ActualWidth > 0 && HsmartWindow.ActualHeight > 0)
+            //            HalconWindow = HsmartWindow.HalconWindow;
+            //    }
+            //    catch (HalconException)
+            //    {
+            //        // 尺寸为 0 时 HALCON 初始化会失败，等下次 SizeChanged 触发
+            //    }
+            //}
             TryRegister();
+            UpdateDisplay();
         }
+
 
         private void TryRegister()
         {
@@ -79,7 +81,9 @@ namespace AVS_Common
                     return;
                 try
                 {
-                    var hWindow = HalconWindow = HsmartWindow.HalconWindow;
+                    var hWindow = HsmartWindow.HalconWindow;
+                    if (hWindow == null || !hWindow.IsInitialized()) return;
+                    HalconWindow = hWindow;
                     WindowHandleEvent.RaiseHandleRegistered(item.CameraRoleName, hWindow);
                     _isRegistered = true;
                 }
@@ -195,6 +199,5 @@ namespace AVS_Common
 
             hw.SetPart((int)row1, (int)col1, (int)row2, (int)col2);
         }
-
     }
 }

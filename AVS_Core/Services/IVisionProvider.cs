@@ -68,6 +68,7 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
         {
+            var p = _paramService.GetStationParams(_moduleName);
             HTuple angleStart = _paramService.GetDouble("TemplateMatch", "angleStart");
             HTuple angleExtent = _paramService.GetDouble("TemplateMatch", "angleExtent");
             HTuple scaleMin = _paramService.GetDouble("TemplateMatch", "minScale");
@@ -91,10 +92,8 @@ namespace AVS_Core.Services
             HOperatorSet.TupleConcat(matchParam, subPixel, out matchParam);
             HOperatorSet.TupleConcat(matchParam, numLevel, out matchParam);
             HOperatorSet.TupleConcat(matchParam, greediness, out matchParam);
-            HTuple fx = _paramService.GetDouble("CalibrateParam", "fx");
-            HTuple fy = _paramService.GetDouble("CalibrateParam", "fy");
-            HOperatorSet.TupleConcat(matchParam, fx, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, fy, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.Fx, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.Fy, out matchParam);
 
             HDevProcedure hStep = new HDevProcedure();
             hStep.LoadProcedure("Cali2d");
@@ -113,14 +112,15 @@ namespace AVS_Core.Services
             string calibrateResult = result[0].D == 1 ? "01" : "02";
             string boardCenterX = DoubleToString(result[1].D, 8);
             string boardCenterY = DoubleToString(result[2].D, 8);
-            _paramService.UpdateParam("CalibrateParam", "fx", result[3].D.ToString(), ParamOutputType.FLOAT);
-            _paramService.UpdateParam("CalibrateParam", "fy", result[4].D.ToString(), ParamOutputType.FLOAT);
+            _paramService.UpdateParam(_moduleName, "Fx", result[3].D.ToString(), ParamOutputType.FLOAT);
+            _paramService.UpdateParam(_moduleName, "Fy", result[4].D.ToString(), ParamOutputType.FLOAT);
             string calibrateData = boardCenterX + boardCenterY;
             return Task.FromResult(calibrateResult + "," + calibrateData);
         }
 
-        public async Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
+        public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
+            var p = _paramService.GetStationParams(_moduleName);
             string result = "01";
             string measureResults = string.Empty;
             HTuple resultArray = new HTuple();
@@ -129,21 +129,24 @@ namespace AVS_Core.Services
             HOperatorSet.GenEmptyObj(out HObject mask01);
             HOperatorSet.GenEmptyObj(out HObject mask02);
             HOperatorSet.GenEmptyObj(out HObject mask03);
-            bool isAiCheck = _paramService.GetBool(_moduleName, "isAiCheck");
+
             string sn = _stationConfig.GetStation(_stationId).CameraRole;
             //忘了需不需要再加个超时重试机制
             //_windowHandle = await _handleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             //目前的逻辑是深度学习一定勾选
-            if (isAiCheck)
+            if (p.IsAiCheck)
             {
-                bool isSquareBarWeldMark = _paramService.GetBool(_moduleName, "isSquareBarWeldMark");
-                if (isSquareBarWeldMark)
+
+                if (p.IsSquareBarWeldMark)
                     //这里score要从本地配置里读取 先写死
-                    _aiDrive.DetectMulti(_aiModelId, 0, image, 0.8, out int[] beadType01, out beadRect01);
+                    _aiDrive.DetectMulti(_aiModelId, 0, image, p.ScoreValue, out int[] beadType01, out beadRect01);
                 else
-                    _aiDrive.Detect(_aiModelId, 0, image, 0.8, out int beadType01, out beadRect01);
+                    _aiDrive.Detect(_aiModelId, 0, image, p.ScoreValue, out int beadType01, out beadRect01);
                 if (beadRect01.Length < 4)
                 {
+                    mask01.Dispose();
+                    mask02.Dispose();
+                    mask03.Dispose();
                     HOperatorSet.TupleGenConst(13, 2, out resultArray);
                     string result01 = DoubleToString(resultArray[2].D, 8);//焊缝长度
                     string result02 = DoubleToString(resultArray[4].D, 8);//焊缝宽度
@@ -152,7 +155,6 @@ namespace AVS_Core.Services
                     string result05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                     string result06 = DoubleToString(resultArray[12].D, 8);//虚焊尺寸
                     measureResults = "02" + result01 + result02 + result03 + result04 + result05 + result06;
-                    return measureResults;
                 }
                 else
                 {
@@ -163,14 +165,14 @@ namespace AVS_Core.Services
                     _cropCall.Execute();
                     HObject imgBead = _cropCall.GetOutputIconicParamObject("ImageRoi"); // 根据检测框裁切ROI
                                                                                         //-分割模型应用
-                    if (isSquareBarWeldMark)
+                    if (p.IsSquareBarWeldMark)
                     {   // 检测方条焊缝
-                        _aiDrive.DetectMulti(_aiModelId, 0, imgBead, 0.8, out int[] beadType02, out beadRect02); // imgBead—>裁切ROI
+                        _aiDrive.DetectMulti(_aiModelId, 0, imgBead, p.ScoreValue, out int[] beadType02, out beadRect02); // imgBead—>裁切ROI
                         _measureCall.SetInputCtrlParamTuple("BeadType", beadType02); // 数组类型
                     }
                     else
                     { // 检测单个焊缝
-                        _aiDrive.Detect(_stationId, 0, imgBead, 0.8, out int beadType02, out beadRect02);
+                        _aiDrive.Detect(_aiModelId, 0, imgBead, p.ScoreValue, out int beadType02, out beadRect02);
                         _measureCall.SetInputCtrlParamTuple("BeadType", beadType02);
                     }
                     _aiDrive.Predict(_aiModelId, 0, imgBead, out mask01);
@@ -188,6 +190,9 @@ namespace AVS_Core.Services
                     _measureCall.Execute();
                     resultArray = _measureCall.GetOutputCtrlParamTuple("ResultArray");
                     imgBead.Dispose();
+                    mask01.Dispose();
+                    mask02.Dispose();
+                    mask03.Dispose();
                     //方形数据格式位  焊缝长度 - 方形焊缝宽度 - 条形焊缝宽度 -焊缝间距- 爆孔数量
                     //圆形数据格式位  焊缝长度 - 焊缝宽度 - 焊缝偏移 -爆孔数量- 焊缝外径
                     string data01 = DoubleToString(resultArray[2].D, 8);//焊缝长度
@@ -197,25 +202,26 @@ namespace AVS_Core.Services
                     string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                     string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
                     measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
-                    return measureResults;
+
                 }
             }
             else
             {
-                result = "02";
-                resultArray = new HTuple();
-                HOperatorSet.TupleGenConst(13, 0, out resultArray);
-                resultArray[0] = 02;
-                string data01 = DoubleToString(resultArray[2].D, 8);//焊缝长度
-                string data02 = DoubleToString(resultArray[4].D, 8);//焊缝宽度
-                string data03 = DoubleToString(resultArray[6].D, 8);//焊缝偏移
-                string data04 = DoubleToString(resultArray[8].D, 8);//爆孔尺寸
-                string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
-                string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
-                measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
-                await Task.FromResult(measureResults);
+                try
+                {
+                    measureResults = new string('0', 50);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "2D传统检测出错");
+                    measureResults = "02"
+                        + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8)
+                        + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
+                }
+
             }
-            return measureResults;
+            return Task.FromResult(measureResults);
+
         }
 
         public Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param)
@@ -230,6 +236,9 @@ namespace AVS_Core.Services
             HTuple subPixel = _paramService.GetDouble("TemplateMatch", "subPixel");
             HTuple numLevel = _paramService.GetInt("TemplateMatch", "numLevel");
             HTuple greediness = _paramService.GetDouble("TemplateMatch", "greediness");
+            var p = _paramService.GetStationParams(_moduleName);
+            HTuple fx = new HTuple(p.Fx);
+            HTuple fy = new HTuple(p.Fy);
             HTuple matchParam = new HTuple();
             HOperatorSet.TupleConcat(matchParam, angleStart, out matchParam);
             HOperatorSet.TupleConcat(matchParam, angleExtent, out matchParam);
@@ -241,8 +250,6 @@ namespace AVS_Core.Services
             HOperatorSet.TupleConcat(matchParam, subPixel, out matchParam);
             HOperatorSet.TupleConcat(matchParam, numLevel, out matchParam);
             HOperatorSet.TupleConcat(matchParam, greediness, out matchParam);
-            HTuple fx = _paramService.GetDouble("CalibrateParam", "fx");
-            HTuple fy = _paramService.GetDouble("CalibrateParam", "fy");
             HOperatorSet.TupleConcat(matchParam, fx, out matchParam);
             HOperatorSet.TupleConcat(matchParam, fy, out matchParam);
             HDevProcedure hStep = new HDevProcedure();
@@ -274,17 +281,18 @@ namespace AVS_Core.Services
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole)/*.ConfigureAwait(false)*/;
             _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
-            bool isSquareBarWeldMark = _paramService.GetBool(_moduleName, "isSquareBarWeldMark");
-            if (isSquareBarWeldMark)
-                paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamA.json");
-            else
-                paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamA.json");
+            var p = _paramService.GetStationParams(_moduleName);
+
+            paramDir = p.IsSquareBarWeldMark
+                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamA.json")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamA.json");
             //加载并执行 LoadParam
             var loadProc = new HDevProcedure("LoadParam");
             var loadCall = new HDevProcedureCall(loadProc);
             loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
             loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
             loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
+            //这里先注释，报错了
             //loadCall.Execute();
             loadCall.Dispose();
             loadProc.Dispose();
@@ -293,8 +301,7 @@ namespace AVS_Core.Services
             _cropCall = new HDevProcedureCall(cropProc);
             //bool isCirWeldMark = _paramService.GetBool("ProductParam", "isCirWeldMark");
             //初始化Measure（根据产品类型选择）
-            bool isCirWeldMark = _paramService.GetBool(_moduleName, "isCirWeldMark");
-            var measureProcName = isCirWeldMark ? "Measure2d" : "MeasureSB2D";
+            var measureProcName = p.IsCirWeldMark ? "Measure2d" : "MeasureSB2D";
             var measureProc = new HDevProcedure(measureProcName);
             _measureCall = new HDevProcedureCall(measureProc);
             await Task.CompletedTask;
@@ -303,21 +310,22 @@ namespace AVS_Core.Services
 
         private string DoubleToString(double detectValue, int len)
         {
-            //len   生成字符的总长度 
-            string standZero = "00000000";
-            string valueStr = "";
-            int valueInt = Math.Abs(Convert.ToInt32(detectValue * 1000));
-            valueStr = standZero.Substring(0, 8) + valueInt.ToString();
-            valueStr = valueStr.Substring(valueStr.Length - (len - 1), len - 1);
-            if (detectValue >= 0)
+            // NaN/Infinity 保护
+            if (double.IsNaN(detectValue) || double.IsInfinity(detectValue))
             {
-                valueStr = "+" + valueStr;
+                return "+" + new string('0', len - 1);
             }
-            else
-            {
-                valueStr = "-" + valueStr;
-            }
-            return valueStr;
+
+            // 放大1000倍，限制范围
+            double scaled = Math.Max(-99999999, Math.Min(99999999, detectValue * 1000));
+            int valueInt = Math.Abs((int)Math.Round(scaled));
+
+            // 截断到 len-1 位
+            string valueStr = valueInt.ToString().PadLeft(len - 1, '0');
+            if (valueStr.Length > len - 1)
+                valueStr = valueStr.Substring(valueStr.Length - (len - 1));
+
+            return (detectValue >= 0 ? "+" : "-") + valueStr;
         }
     }
 
@@ -354,20 +362,29 @@ namespace AVS_Core.Services
         public Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
         {
             //读取ROI区域
-            string regionNameStrA = "Region" + "_" + (4).ToString() + ".hobj";
-            string regionNameStrB = "Region" + "_" + (5).ToString() + ".hobj";
+            var p = _paramService.GetStationParams(_moduleName);
+            string recipePath = p.RecipePath;
+            if (string.IsNullOrEmpty(recipePath))
+                recipePath = AppDomain.CurrentDomain.BaseDirectory;
+
+            string regionNameStrA = Path.Combine(recipePath, $"Region{_stationId}_4.hobj");
+            string regionNameStrB = Path.Combine(recipePath, $"Region{_stationId}_5.hobj");
+           
             HOperatorSet.ReadRegion(out HObject roiRegionA, regionNameStrA);
             HOperatorSet.ReadRegion(out HObject roiRegionB, regionNameStrB);
-            //参数未配置好之前先写死，后续改成从配置里读
-            double resoX = 0;
-            double resoY = 0;
-            double resoZ = 0;
+            double resoX = p.Fx;
+            double resoY = p.Fy;
+            double resoZ = p.Fz;
             BoardCalibrate(image, roiRegionA, roiRegionB, resoX, resoY, resoZ, out string calibrateResult, out string calibrateData);
+            roiRegionA.Dispose(); 
+            roiRegionB.Dispose(); 
             return Task.FromResult(calibrateResult + "," + calibrateData);
 
         }
-        public async Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
+
+        public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
+            var p = _paramService.GetStationParams(_moduleName);
             string result = "01";
             string measureResults = string.Empty;
             HTuple resultArray = new HTuple();
@@ -375,28 +392,34 @@ namespace AVS_Core.Services
             HOperatorSet.GenEmptyObj(out HObject mask01);
             HOperatorSet.GenEmptyObj(out HObject mask02);
             HOperatorSet.GenEmptyObj(out HObject mask03);
-            bool isAiCheck = _paramService.GetBool("ProductParam", "isAiCheck");
             string sn = _stationConfig.GetStation(_stationId).CameraRole;
             //忘了需不需要再加个超时重试机制
             //_windowHandle = await _handleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
             //目前的逻辑是深度学习一定勾选
-            if (isAiCheck)
+            if (p.IsAiCheck)
             {
                 _cropCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
                 _cropCall.SetInputCtrlParamTuple("ParamSide", _stationId);
                 _cropCall.SetInputIconicParamObject("Image", image);
                 _cropCall.Execute();
                 HObject imgByte = _cropCall.GetOutputIconicParamObject("ImageByte");
-                bool isSquareBarWeldMark = _paramService.GetBool("ProductParam", "isSquareBarWeldMark");
-                if (isSquareBarWeldMark)
-                    //这里score要从本地配置里读取 先写死
-                    _aiDrive.DetectMulti(_aiModelId, 0, imgByte, 0.8, out int[] beadType01, out beadRect);
-                else
-                    _aiDrive.Detect(_aiModelId, 0, imgByte, 0.8, out int beadType01, out beadRect);
                 var call = _measureCall != null ? _measureCall : _planeFitCall;
-                call.SetInputCtrlParamTuple("BeadType", beadRect);
+                if (p.IsSquareBarWeldMark)
+                {
+                    _aiDrive.DetectMulti(_aiModelId, 0, imgByte, p.ScoreValue, out int[] beadType01, out beadRect);
+                    call.SetInputCtrlParamTuple("BeadType", beadType01);
+                }
+                else
+                {
+                    _aiDrive.Detect(_aiModelId, 0, imgByte, p.ScoreValue, out int beadType01, out beadRect);
+                    call.SetInputCtrlParamTuple("BeadType", beadType01);
+                }
+
                 if (beadRect.Length < 4)
                 {
+                    mask01.Dispose();
+                    mask02.Dispose();
+                    mask03.Dispose();
                     HOperatorSet.TupleGenConst(13, 2, out resultArray);
                     string result01 = DoubleToString(resultArray[2].D, 8);//方形余高
                     string result02 = DoubleToString(resultArray[4].D, 8);//方形下塌
@@ -405,7 +428,6 @@ namespace AVS_Core.Services
                     string result05 = DoubleToString(resultArray[10].D, 8);//
                     string result06 = DoubleToString(resultArray[12].D, 8);//
                     measureResults = "02" + result01 + result02 + result03 + result04 + result05 + result06;
-                    return measureResults;
                 }
                 else
                 {
@@ -419,6 +441,9 @@ namespace AVS_Core.Services
                     call.Execute();
                     resultArray = call.GetOutputCtrlParamTuple("ResultArray");
                     imgByte.Dispose();
+                    mask01.Dispose();
+                    mask02.Dispose();
+                    mask03.Dispose();
                     string data01 = DoubleToString(resultArray[2].D, 8);  //方形余高
                     string data02 = DoubleToString(resultArray[4].D, 8);  //方形下塌
                     string data03 = DoubleToString(resultArray[6].D, 8);  // 条形余高
@@ -426,39 +451,36 @@ namespace AVS_Core.Services
                     string data05 = DoubleToString(0, 8);
                     string data06 = DoubleToString(0, 8);
                     measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
-                    await Task.FromResult( measureResults);
                 }
             }
             else
             {
-                result = "02";
-                resultArray = new HTuple();
-                HOperatorSet.TupleGenConst(13, 2, out resultArray);
-                resultArray[0] = 02;
-                string data01 = DoubleToString(resultArray[2].D, 8);//下榻
-                string data02 = DoubleToString(resultArray[4].D, 8);//余高
-                string data03 = DoubleToString(resultArray[6].D, 8);//
-                string data04 = DoubleToString(resultArray[8].D, 8);//
-                string data05 = DoubleToString(resultArray[10].D, 8);//
-                string data06 = DoubleToString(resultArray[12].D, 8);//
-                measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
-                await Task.FromResult(measureResults);
+                try
+                {
+                    measureResults = new string('0', 50);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "3D传统检测出错");
+                    measureResults = "02"
+                        + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8)
+                        + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
+                }
             }
-            return measureResults;
+            return Task.FromResult(measureResults);
         }
-       
+
         public async Task InitializeAsync(StationConfig config)
         {
             _stationId = config.StationId;
-            _moduleName = config.ProductConfigSection; 
+            _moduleName = config.ProductConfigSection;
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
-            var handle = await _handleRegistry.WaitForHandleAsync(config.CameraRole);
+            _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole);
             _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
-            bool isSquareBarWeldMark = _paramService.GetBool("ProductParam", "isSquareBarWeldMark");
-            if (isSquareBarWeldMark)
-                paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json");
-            else
-                paramDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
+            var p = _paramService.GetStationParams(_moduleName);
+            paramDir = p.IsSquareBarWeldMark
+                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
             //加载并执行 LoadParam
             var loadProc = new HDevProcedure("LoadParam");
             var loadCall = new HDevProcedureCall(loadProc);
@@ -471,17 +493,19 @@ namespace AVS_Core.Services
             //初始化Crop3d
             var cropProc = new HDevProcedure("Crop3d");
             _cropCall = new HDevProcedureCall(cropProc);
-            bool isPlanecheck = _paramService.GetBool(config.ProductConfigSection, "isPlanecheck");
-            if (isPlanecheck)
+
+            if (p.IsPlaneCheck)
             {
-                bool isSquare = _paramService.GetBool(config.ProductConfigSection, "isSquareBarWeldMark");
-                var proc = isSquare ? new HDevProcedure("PlaneFitSB3D") : new HDevProcedure("PlaneFit3D");
+                var proc = p.IsSquareBarWeldMark
+                    ? new HDevProcedure("PlaneFitSB3D")
+                    : new HDevProcedure("PlaneFit3D");
                 _planeFitCall = new HDevProcedureCall(proc);
             }
             else
             {
-                bool isSquare = _paramService.GetBool(config.ProductConfigSection, "isSquareBarWeldMark");
-                var proc = isSquare ? new HDevProcedure("MeasureSB3d") : new HDevProcedure("Measure3d");
+                var proc = p.IsSquareBarWeldMark
+                    ? new HDevProcedure("MeasureSB3d")
+                    : new HDevProcedure("Measure3d");
                 _measureCall = new HDevProcedureCall(proc);
             }
         }
@@ -676,21 +700,22 @@ namespace AVS_Core.Services
 
         private string DoubleToString(double detectValue, int len)
         {
-            //len   生成字符的总长度 
-            string standZero = "00000000";
-            string valueStr = "";
-            int valueInt = Math.Abs(Convert.ToInt32(detectValue * 1000));
-            valueStr = standZero.Substring(0, 8) + valueInt.ToString();
-            valueStr = valueStr.Substring(valueStr.Length - (len - 1), len - 1);
-            if (detectValue >= 0)
+            // NaN/Infinity 保护
+            if (double.IsNaN(detectValue) || double.IsInfinity(detectValue))
             {
-                valueStr = "+" + valueStr;
+                return "+" + new string('0', len - 1);
             }
-            else
-            {
-                valueStr = "-" + valueStr;
-            }
-            return valueStr;
+
+            // 放大1000倍，限制范围
+            double scaled = Math.Max(-99999999, Math.Min(99999999, detectValue * 1000));
+            int valueInt = Math.Abs((int)Math.Round(scaled));
+
+            // 截断到 len-1 位
+            string valueStr = valueInt.ToString().PadLeft(len - 1, '0');
+            if (valueStr.Length > len - 1)
+                valueStr = valueStr.Substring(valueStr.Length - (len - 1));
+
+            return (detectValue >= 0 ? "+" : "-") + valueStr;
         }
     }
 }

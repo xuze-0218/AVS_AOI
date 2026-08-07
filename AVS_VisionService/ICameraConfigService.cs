@@ -16,6 +16,7 @@ namespace AVS_Service
     {
         IReadOnlyDictionary<string, ICamera> ConnectedCameras { get; }
         List<CameraSettingModel> AllSettings { get; }
+        event Action<string, bool> CameraStatusChanged;
         //event Action<string, HObject> OnImageCaptured;
 
         void SaveSettings();
@@ -45,6 +46,7 @@ namespace AVS_Service
     {
         private readonly ILogger _logger;
         private readonly IEventAggregator _eventAggregator;
+        public event Action<string, bool> CameraStatusChanged;
         private readonly string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CameraSettings.json");
         private Dictionary<string, ICamera> _connectedCameras = new Dictionary<string, ICamera>();
         private List<CameraSettingModel> _settingsCache = new List<CameraSettingModel>();
@@ -78,7 +80,7 @@ namespace AVS_Service
 
                     ApplySettingToDevice(sn);
                     StartCameraGrabbing(sn);
-
+                    CameraStatusChanged?.Invoke(setting.SerilalNum, true);
                     _logger.Information("调试界面接入新相机 {SN}，初始化并启动取图成功", sn);
                     return true;
                 }
@@ -102,6 +104,7 @@ namespace AVS_Service
             {
                 camera.CloseDevice();
                 _connectedCameras.Remove(sn);
+                CameraStatusChanged?.Invoke(sn, false);
             }
         }
 
@@ -128,7 +131,7 @@ namespace AVS_Service
 
         public async Task InitializeAllCameras()
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
              {
                  foreach (var setting in _settingsCache)
                  {
@@ -136,24 +139,47 @@ namespace AVS_Service
 
                      try
                      {
+                         // 先确保没连上
+                         if (_connectedCameras.TryGetValue(setting.SerilalNum, out var existing))
+                         {
+                             existing.CloseDevice();
+                             _connectedCameras.Remove(setting.SerilalNum, out _);
+                         }
+
                          ICamera camera = CamFactory.CreatCamera((CameraBrand)setting.CameraType);
 
-                         if (camera != null && camera.InitDevice(setting.SerilalNum))
+                         bool initSuccess = false;
+                         for (int retry = 0; retry < 3; retry++)
                          {
-                             if (!_connectedCameras.ContainsKey(setting.SerilalNum))
+                             if (camera.InitDevice(setting.SerilalNum))
                              {
-                                 _connectedCameras.Add(setting.SerilalNum, camera);
-                                 ApplySettingToDevice(setting.SerilalNum);
-                                 StartCameraGrabbing(setting.SerilalNum);
-
-                                 _logger.Information("相机 {SN} (索引:{Index}) 初始化并启动取图成功", setting.SerilalNum, setting.CamSelectIndex);
+                                 initSuccess = true;
+                                 break;
                              }
+                             _logger.Warning("相机 {SN} 初始化失败，第 {Retry} 次重试", setting.SerilalNum, retry + 1);
+                             camera.CloseDevice();
+                             await Task.Delay(500);
                          }
+
+                         if (!initSuccess)
+                         {
+                             _logger.Error("相机 {SN} 初始化失败，已重试3次", setting.SerilalNum);
+                             continue;
+                         }
+
+                         _connectedCameras.TryAdd(setting.SerilalNum, camera);
+                         CameraStatusChanged?.Invoke(setting.SerilalNum, true);
+                         ApplySettingToDevice(setting.SerilalNum);
+                         StartCameraGrabbing(setting.SerilalNum);
+
+                         _logger.Information("相机 {SN} 初始化成功", setting.SerilalNum);
                      }
                      catch (Exception ex)
                      {
-                         _logger.Error(ex, "相机 {SN} 初始化失败", setting.SerilalNum);
+                         _logger.Error(ex, "相机 {SN} 初始化异常", setting.SerilalNum);
                      }
+
+                     await Task.Delay(200); // 相机之间的间隔
                  }
              });
 
@@ -216,7 +242,7 @@ namespace AVS_Service
                     _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
                     {
                         CameraSN = camera.SN,
-                        Image = img, //谁订阅谁Clone，最后Dispose
+                        Image = img.Clone()//发布副本，避免Halcon对象被Dispose后引用失效
                     });
                 }
             }

@@ -18,27 +18,28 @@ namespace AVS_Core.Services
     }
 
 
-    public class HalconEngineProvider : IHalconEngineProvider
+    public class HalconEngineProvider : IHalconEngineProvider, IDisposable
     {
-        private readonly object _lock = new object();
-        private HDevEngine _engine;
-        private bool _initialized;
-
-
-
-
-        public HDevEngine GetEngine()
+        //private readonly object _lock = new object();
+        //private HDevEngine _engine;
+        //private bool _initialized;
+        private readonly Lazy<HDevEngine> _engine = new(() =>
         {
-            if (_initialized) return _engine;
-            lock (_lock)
+            var engine = new HDevEngine();
+            string procFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+            engine.SetProcedurePath(procFolder);
+            //engine.StartDebugServer();//仅debug模式下使用，可以调试halcon程序
+            return engine;
+        });
+
+        public HDevEngine GetEngine() => _engine.Value;
+
+        public void Dispose()
+        {
+            if (_engine.IsValueCreated)
             {
-                if (_initialized) return _engine;
-                _engine = new HDevEngine();
-                _engine.SetProcedurePath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "HalconEngine.hdpl"));
-                _engine.StartDebugServer();
-                _initialized = true;
+                _engine.Value.Dispose();
             }
-            return _engine;
         }
     }
 }

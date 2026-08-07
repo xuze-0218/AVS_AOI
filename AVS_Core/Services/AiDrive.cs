@@ -17,34 +17,34 @@ namespace AVS_Core.Services
         /// <summary>
         /// 加载分割模型
         /// </summary>
-        bool LoadSegModel(string stationId, string[] modelPaths);
+        bool LoadSegModel(string modelId, string[] modelPaths);
 
         /// <summary>
         /// 加载检测模型
         /// </summary>
-        bool LoadDetModel(string stationId, string[] modelPaths);
+        bool LoadDetModel(string modelId, string[] modelPaths);
 
         /// <summary>
         /// 图像分割推理
         /// </summary>
-        void Predict(string stationId, int modelIndex, HObject imgGray, out HObject imgMask);
+        void Predict(string modelId, int modelIndex, HObject imgGray, out HObject imgMask);
 
         /// <summary>
         /// 图像目标检测（单目标）
         /// </summary>
-        void Detect(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect);
+        void Detect(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect);
 
         /// <summary>
         /// 图像目标检测（多目标，最多2个）
         /// </summary>
-        void DetectMulti(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int[] targetLabels, out HTuple targetRect);
+        void DetectMulti(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, out int[] targetLabels, out HTuple targetRect);
 
         /// <summary>
         /// 释放指定工位的所有模型
         /// </summary>
-        void UnloadStation(string stationId);
+        void UnloadStation(string modelId);
 
-        bool IsModelLoaded(string stationId);
+        bool IsModelLoaded(string modelId);
     }
 
     /// <summary>
@@ -72,9 +72,9 @@ namespace AVS_Core.Services
 
         // ========== 模型加载 ==========
 
-        public bool LoadSegModel(string stationId, string[] modelPaths)
+        public bool LoadSegModel(string modelId, string[] modelPaths)
         {
-            if (string.IsNullOrEmpty(stationId) || modelPaths == null || modelPaths.Length == 0)
+            if (string.IsNullOrEmpty(modelId) || modelPaths == null || modelPaths.Length == 0)
             {
                 _logger?.Warning("[AiDrive] LoadSegModel: stationId 或 modelPaths 无效");
                 return false;
@@ -84,33 +84,33 @@ namespace AVS_Core.Services
                 lock (_lock)
                 {
                   
-                    if (_segHandles.ContainsKey(stationId))
+                    if (_segHandles.ContainsKey(modelId))
                     {
-                        _logger?.Information("[AiDrive] 工位 {StationId} 分割模型已加载，跳过", stationId);
+                        _logger?.Information("[AiDrive] 工位 {StationId} 分割模型已加载，跳过", modelId);
                         return true;
                     }
                     // 释放旧模型
-                    DisposeHandles(_segHandles, stationId);
+                    DisposeHandles(_segHandles, modelId);
                     var handles = new List<Segmentor>();
                     foreach (var path in modelPaths)
                     {
                         handles.Add(new Segmentor(path, _deviceName, _deviceId));
                     }
-                    _segHandles[stationId] = handles;
+                    _segHandles[modelId] = handles;
                 }
-                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个分割模型完成", stationId, modelPaths.Length);
+                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个分割模型完成", modelId, modelPaths.Length);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载分割模型失败", stationId);
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载分割模型失败", modelId);
                 return false;
             }
         }
 
-        public bool LoadDetModel(string stationId, string[] modelPaths)
+        public bool LoadDetModel(string modelId, string[] modelPaths)
         {
-            if (string.IsNullOrEmpty(stationId) || modelPaths == null || modelPaths.Length == 0)
+            if (string.IsNullOrEmpty(modelId) || modelPaths == null || modelPaths.Length == 0)
             {
                 _logger?.Warning("[AiDrive] LoadDetModel: stationId 或 modelPaths 无效");
                 return false;
@@ -120,36 +120,36 @@ namespace AVS_Core.Services
             {
                 lock (_lock)
                 {
-                    if (_detHandles.ContainsKey(stationId))
+                    if (_detHandles.ContainsKey(modelId))
                     {
-                        _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已加载，跳过", stationId);
+                        _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已加载，跳过", modelId);
                         return true;
                     }
-                    DisposeHandles(_detHandles, stationId);
+                    DisposeHandles(_detHandles, modelId);
                     var handles = new List<Detector>();
                     foreach (var path in modelPaths)
                     {
                         handles.Add(new Detector(path, _deviceName, _deviceId));
                     }
-                    _detHandles[stationId] = handles;
+                    _detHandles[modelId] = handles;
                 }
-                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个检测模型完成", stationId, modelPaths.Length);
+                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个检测模型完成", modelId, modelPaths.Length);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载检测模型失败", stationId);
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载检测模型失败", modelId);
                 return false;
             }
         }
 
         // ========== 推理接口 ==========
 
-        public void Predict(string stationId, int modelIndex, HObject imgGray, out HObject imgMask)
+        public void Predict(string modelId, int modelIndex, HObject imgGray, out HObject imgMask)
         {
             HOperatorSet.GenEmptyObj(out imgMask);
 
-            if (!TryGetHandle(_segHandles, stationId, modelIndex, out var segmentor))
+            if (!TryGetHandle(_segHandles, modelId, modelIndex, out var segmentor))
                 return;
 
             try
@@ -162,29 +162,29 @@ namespace AVS_Core.Services
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 分割推理失败 (modelIndex={Index})", stationId, modelIndex);
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 分割推理失败 (modelIndex={Index})", modelId, modelIndex);
                 HOperatorSet.GenEmptyObj(out imgMask);
             }
         }
 
-        public void Detect(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect)
+        public void Detect(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect)
         {
-            DetectInternal(stationId, modelIndex, imgGray, scoreThreshold, multiTarget: false, out var labels, out targetRect);
+            DetectInternal(modelId, modelIndex, imgGray, scoreThreshold, multiTarget: false, out var labels, out targetRect);
             targetLabel = labels.Length > 0 ? labels[0] : -1;
         }
 
-        public void DetectMulti(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, out int[] targetLabels, out HTuple targetRect)
+        public void DetectMulti(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, out int[] targetLabels, out HTuple targetRect)
         {
-            DetectInternal(stationId, modelIndex, imgGray, scoreThreshold, multiTarget: true, out targetLabels, out targetRect);
+            DetectInternal(modelId, modelIndex, imgGray, scoreThreshold, multiTarget: true, out targetLabels, out targetRect);
         }
 
-        private void DetectInternal(string stationId, int modelIndex, HObject imgGray, double scoreThreshold, bool multiTarget,
+        private void DetectInternal(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, bool multiTarget,
             out int[] targetLabels, out HTuple targetRect)
         {
             targetRect = new HTuple();
             targetLabels = multiTarget ? new int[2] { -1, -1 } : new int[1] { -1 };
 
-            if (!TryGetHandle(_detHandles, stationId, modelIndex, out var detector))
+            if (!TryGetHandle(_detHandles, modelId, modelIndex, out var detector))
                 return;
 
             try
@@ -194,7 +194,7 @@ namespace AVS_Core.Services
 
                 if (output == null || output.Count == 0 || output[0].Results == null)
                 {
-                    _logger?.Debug("[AiDrive] 工位 {StationId} 检测输出为空", stationId);
+                    _logger?.Debug("[AiDrive] 工位 {StationId} 检测输出为空", modelId);
                     return;
                 }
 
@@ -224,31 +224,31 @@ namespace AVS_Core.Services
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 检测推理失败 (modelIndex={Index})", stationId, modelIndex);
+                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 检测推理失败 (modelIndex={Index})", modelId, modelIndex);
                 targetLabels = multiTarget ? new int[2] { -1, -1 } : new int[1] { -1 };
                 targetRect = new HTuple();
             }
         }
 
 
-        public bool IsModelLoaded(string stationId)
+        public bool IsModelLoaded(string modelId)
         {
             lock (_lock)
             {
-                return _detHandles.ContainsKey(stationId) || _segHandles.ContainsKey(stationId);
+                return _detHandles.ContainsKey(modelId) || _segHandles.ContainsKey(modelId);
             }
         }
 
         // ========== 资源管理 ==========
 
-        public void UnloadStation(string stationId)
+        public void UnloadStation(string modelId)
         {
             lock (_lock)
             {
-                DisposeHandles(_segHandles, stationId);
-                DisposeHandles(_detHandles, stationId);
+                DisposeHandles(_segHandles, modelId);
+                DisposeHandles(_detHandles, modelId);
             }
-            _logger?.Information("[AiDrive] 工位 {StationId} 模型已卸载", stationId);
+            _logger?.Information("[AiDrive] 工位 {StationId} 模型已卸载", modelId);
         }
 
         public void Dispose()

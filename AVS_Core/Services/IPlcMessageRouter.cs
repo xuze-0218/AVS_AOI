@@ -131,13 +131,15 @@ namespace AVS_Core.Services
 
             int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
             string imageName = _protocolEngine.GetVariable("imgName");
-            int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));
-            //inspectOrders是什么？
-            //不理解电芯类型减1是什么鬼东西，索引默认取0？
-            //这里是空值，还没赋值，后续本地读取
-            //InspectOrder order = new ParamsSide().inspectOrders[orderIndex - 1];
-            //这里先硬编码
-            InspectOrder order = new InspectOrder() { row = 2, col = 13, start = [1, 26], end = [25, 2] };
+            int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));            
+            var p = _paramService.GetStationParams(stationId);
+
+            if (p.InspectOrders == null || orderIndex < 1 || orderIndex > p.InspectOrders.Length)
+            {
+                _logger.Error("无效的检测类型索引: {Index}, 工位: {StationId}", orderIndex, stationId);
+                return CreateErrorResponse(config, "Invalid inspect order index");
+            }
+            InspectOrder order = p.InspectOrders[orderIndex - 1];
             for (int j = 0; j < order.row; j++)
             {
                 int mdiff = (int)(Math.Abs(order.end[j] - order.start[j])) / (order.col - 1);
@@ -196,14 +198,13 @@ namespace AVS_Core.Services
         private async Task<string> HandleCalibInit(string stationId, SessionConfig config, bool isVerify)
         {
             await _sessionService.InitializeSession(stationId, isVerify ? SessionWorkType.Verify : SessionWorkType.Calibrate);
-            string data = _sessionService.GetResultData(stationId);
-            //格式为 "01+0000000+0000000" 共18字符，按协议拆分
+
             // 标定初始化成功返回固定格式
-            _protocolEngine.SetVariable("Result", data.Substring(0, 2));// 结果码 "01" 或 "02"
-            _protocolEngine.SetVariable("backup2", data.Substring(2, 4));
-            _protocolEngine.SetVariable("backup3", data.Substring(6, 4));
-            _protocolEngine.SetVariable("backup4", data.Substring(10, 4));
-            _protocolEngine.SetVariable("backup5", data.Substring(14, 4));
+            _protocolEngine.SetVariable("Result", "01");          // 初始化成功
+            _protocolEngine.SetVariable("backup2", "0000");       
+            _protocolEngine.SetVariable("backup3", "0000");
+            _protocolEngine.SetVariable("backup4", "0000");
+            _protocolEngine.SetVariable("backup5", "0000");
             _protocolEngine.SetVariable("backup6", "0000");
             _logger.Information("Calibration session initialized for {StationId}, isVerify: {IsVerify}", stationId, isVerify);
             return _protocolEngine.BuildOutput(config.OutputFields);
@@ -212,6 +213,11 @@ namespace AVS_Core.Services
         private string HandleCalibResult(string stationId, SessionConfig config)
         {
             string calibResult = _sessionService.GetResultData(stationId);
+            if (string.IsNullOrEmpty(calibResult) || calibResult.Length < 16)
+            {
+                _logger.Error("标定结果数据无效: {Data}", calibResult ?? "null");
+                return CreateErrorResponse(config, "Invalid calibration result");
+            }
             _protocolEngine.SetVariable("Result", calibResult.Substring(0, 2));
             _protocolEngine.SetVariable("backup2", calibResult.Substring(2, 4));
             _protocolEngine.SetVariable("backup3", calibResult.Substring(6, 4));

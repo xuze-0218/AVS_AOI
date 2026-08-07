@@ -47,6 +47,8 @@ namespace AVS_Modules_Settings.ViewModels
                         CurrentPort = value.Port;
                         CurrentProtocol = value.Protocol;
                         CurrentRole = value.Role;
+                        IsConnected = _communicationService.IsActive(value.StationId);
+                        UpdateStatusMessage();
                     }
                 }
             }
@@ -166,13 +168,18 @@ namespace AVS_Modules_Settings.ViewModels
                 _logger.Information("日志已清空");
             });
             _communicationService.ConnectionStatusChanged += OnConnectionStatusChanged;
-            _communicationService.LogMessage += m => Application.Current.Dispatcher.Invoke(() =>
+            _communicationService.LogMessage += m => Application.Current?.Dispatcher.Invoke(() =>
             {
                 Logs.Insert(0, $"{DateTime.Now:HH:mm:ss} {m}");
             });
             _communicationService.MessageReceived += (s, m) => HandleMessage(s, m);
             UpdateStatusMessage();
             UpdateCommandsCanExecute();
+            if (SelectedStation != null)
+            {
+                IsConnected = _communicationService.IsActive(SelectedStation.StationId);
+                UpdateStatusMessage();
+            }
             _logger.Information("ViewModel 初始化，当前连接状态: {IsConnected}", IsConnected);
             _logger.Debug("通讯配置界面已打开");
         }
@@ -185,8 +192,11 @@ namespace AVS_Modules_Settings.ViewModels
 
             dispatcher.Invoke(() =>
             {
-                IsConnected = isConnected;
-                UpdateStatusMessage();
+                if (SelectedStation != null && stationId == SelectedStation.StationId)
+                {
+                    IsConnected = isConnected;
+                    UpdateStatusMessage();
+                }
                 UpdateCommandsCanExecute();
             });
         }
@@ -202,7 +212,11 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void HandleMessage(string source, string message)
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+                return;
+
+            dispatcher.Invoke(() =>
             {
                 var newMessage = new CommunicationMessage
                 {

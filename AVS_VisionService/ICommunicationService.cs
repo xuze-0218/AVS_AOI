@@ -196,33 +196,102 @@ namespace AVS_Service
             }, ctx.Cts.Token);
         }
 
+        //private void StartTcpClient(ConnectionContext ctx)
+        //{
+        //    Task.Run(async () =>
+        //    {
+        //        while (!ctx.Cts.Token.IsCancellationRequested)
+        //        {
+        //            try
+        //            {
+        //                var client = new TcpClient();
+        //                await client.ConnectAsync(ctx.IP, ctx.Port);
+        //                ctx.TcpClient = client;
+        //                ctx.IsActive = true;
+        //                ConnectionStatusChanged?.Invoke(ctx.ConnectionId, true);
+        //                _logger.Information("[{Id}] TCP Client 已连接 {IP}:{Port}", ctx.ConnectionId, ctx.IP, ctx.Port);
+
+        //                await HandleTcpSession(ctx.ConnectionId, client, ctx.Cts.Token);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                _logger.Error(ex, "[{Id}] 连接失败，5秒后重试", ctx.ConnectionId);
+        //                ctx.IsActive = false;
+        //                ConnectionStatusChanged?.Invoke(ctx.ConnectionId, false);
+        //                await Task.Delay(5000, ctx.Cts.Token);
+        //            }
+        //        }
+        //    }, ctx.Cts.Token);
+        //}
+
         private void StartTcpClient(ConnectionContext ctx)
         {
             Task.Run(async () =>
             {
+                int consecutiveFailCount = 0; //连续失败计数器
+                const int logInterval = 3;   // 每失败3次输出一次错误日志
+
                 while (!ctx.Cts.Token.IsCancellationRequested)
                 {
+                    TcpClient client = null;
                     try
                     {
-                        var client = new TcpClient();
+                        client = new TcpClient();
                         await client.ConnectAsync(ctx.IP, ctx.Port);
                         ctx.TcpClient = client;
                         ctx.IsActive = true;
+                        consecutiveFailCount = 0; //连接成功，重置失败计数
+
                         ConnectionStatusChanged?.Invoke(ctx.ConnectionId, true);
                         _logger.Information("[{Id}] TCP Client 已连接 {IP}:{Port}", ctx.ConnectionId, ctx.IP, ctx.Port);
 
                         await HandleTcpSession(ctx.ConnectionId, client, ctx.Cts.Token);
                     }
+                    catch (OperationCanceledException)
+                    {
+                        //主动取消，正常退出，不打错误日志
+                        break;
+                    }
                     catch (Exception ex)
                     {
-                        _logger.Error(ex, "[{Id}] 连接失败，5秒后重试", ctx.ConnectionId);
+                        //失败后清理残留socket
+                        if (client != null)
+                        {
+                            client.Dispose();
+                        }
+                        ctx.TcpClient = null;
                         ctx.IsActive = false;
                         ConnectionStatusChanged?.Invoke(ctx.ConnectionId, false);
+
+                        consecutiveFailCount++;
+
+                        // 首次失败 || 达到日志间隔，输出错误；其余静默
+                        if (consecutiveFailCount == 1 || consecutiveFailCount % logInterval == 0)
+                        {
+                            _logger.Error(ex, "[{Id}] TCP连接失败，已连续失败{FailCnt}次，{Delay}秒后重试 {IP}:{Port}",
+                                ctx.ConnectionId, consecutiveFailCount, 5, ctx.IP, ctx.Port);
+                        }
+                        else
+                        {
+                            // 中间静默，可选择Trace/Debug级别，生产环境不显示
+                            _logger.Debug("[{Id}] TCP持续连接失败，连续失败{FailCnt}次，静默不输出错误", ctx.ConnectionId, consecutiveFailCount);
+                        }
+                    }
+
+                    try
+                    {
                         await Task.Delay(5000, ctx.Cts.Token);
                     }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
                 }
+
+                _logger.Debug("[{Id}] Tcp重连循环已退出", ctx.ConnectionId);
             }, ctx.Cts.Token);
         }
+
 
         private async Task HandleTcpSession(string connectionId, TcpClient client, CancellationToken token)
         {

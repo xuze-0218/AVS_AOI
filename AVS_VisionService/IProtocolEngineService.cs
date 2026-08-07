@@ -72,7 +72,7 @@ namespace AVS_Service
             try
             {
                 var sortedFields = inputConfig.OrderBy(f => f.StartIndex).ToList();
-                foreach (var field in inputConfig)
+                foreach (var field in sortedFields)
                 {
                     int start = field.StartIndex - 1;
                     int length = field.GetActualLength(VariablePool);

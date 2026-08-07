@@ -16,6 +16,7 @@ namespace AVS_Core.Services
         /// <summary>
         /// 记录后台初始化任务，确保在应用关闭时可以等待其完成或安全取消
         /// </summary>
+        private SubscriptionToken _imageEventToken;
         private Task _backgroundInitializationTask;
         private readonly IEventAggregator _eventAggregator;
         private readonly IStationSessionService _sessionService;
@@ -59,7 +60,8 @@ namespace AVS_Core.Services
                 //{
                 //    await _visionService.InitializeAsync(item.StationId);
                 //}
-                _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageCaptured);
+                _imageEventToken = _eventAggregator.GetEvent<HImageDisplayEvent>()
+                    .Subscribe(OnImageCaptured, ThreadOption.BackgroundThread, false);
                 _backgroundInitializationTask = Task.Run(async () =>
                 {
                     try
@@ -84,18 +86,29 @@ namespace AVS_Core.Services
 
         private void OnImageCaptured(CameraImagePayload payload)
         {
-            // 根据相机逻辑角色确定工位ID
-            var camSetting = _cameraConfigService.AllSettings
-                .FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
-            var station = _stationConfigService.GetStationByCameraRole(camSetting.CameraRole);
-
-            if (station != null && station.StationId != null)
+            try
             {
+                var camSetting = _cameraConfigService.AllSettings
+                    .FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
+
+                if (camSetting == null)
+                {
+                    _logger.Warning("未配置的相机SN: {SN}，图像丢弃", payload.CameraSN);
+                    return;
+                }
+
+                var station = _stationConfigService.GetStationByCameraRole(camSetting.CameraRole);
+                if (station == null || string.IsNullOrEmpty(station.StationId))
+                {
+                    _logger.Warning("未找到相机角色 {Role} 对应的工位", camSetting.CameraRole);
+                    return;
+                }
+
                 _sessionService.EnqueueImage(station.StationId, payload.Image);
             }
-            else
+            finally
             {
-                _logger.Warning("Unknown camera role for SN {SN}, image discarded", payload.CameraSN);
+                payload.Image?.Dispose();  // 无论是否匹配成功，都释放
             }
         }
 
@@ -106,10 +119,10 @@ namespace AVS_Core.Services
             try
             {
 
-                //foreach (var station in _stationConfigService.Stations)
-                //{
-                //    _communicationService.Start(station.StationId, station.Protocol, station.Role, station.IP, station.Port);
-                //}
+                foreach (var station in _stationConfigService.Stations)
+                {
+                    _communicationService.Start(station.StationId, station.Protocol, station.Role, station.IP, station.Port);
+                }
 
                 _communicationService.MessageReceived += async (connectionPlcId, message) =>
                 {
@@ -139,6 +152,11 @@ namespace AVS_Core.Services
         {
             try
             {
+                if (_imageEventToken != null)
+                {
+                    _eventAggregator.GetEvent<HImageDisplayEvent>().Unsubscribe(_imageEventToken);
+                    _imageEventToken = null;
+                }
                 if (_backgroundInitializationTask != null && !_backgroundInitializationTask.IsCompleted)
                 {
                     _logger.Debug("等待后台初始化任务完成...");

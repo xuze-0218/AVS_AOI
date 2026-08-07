@@ -8,8 +8,8 @@
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
-    d:DesignHeight="550"
-    d:DesignWidth="800"
+    d:DesignHeight="650"
+    d:DesignWidth="850"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
     <UserControl.Resources>
@@ -132,6 +132,13 @@
                                 Content="注销相机"
                                 Style="{StaticResource ModernButton}" />
                         </Grid>
+                        <Button
+                            Margin="5"
+                            Background="#FFE0E0"
+                            BorderBrush="#FFCCCC"
+                            Command="{Binding DeleteCommand}"
+                            Content="删除本地配置"
+                            Style="{StaticResource ModernButton}" />
                     </StackPanel>
                 </GroupBox>
 

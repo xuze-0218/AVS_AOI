@@ -30,13 +30,14 @@ namespace AVS_Service
         double GetDouble(string moduleName, string paramName, double defaultValue = 0.0);
         string GetString(string moduleName, string paramName, string defaultValue = "");
         bool GetBool(string moduleName, string paramName, bool defaultValue = false);
+        StationParamsSnapshot GetStationParams(string section);
     }
 
     public class ParametersConfigService : IParametersConfigService
     {
         private string _configPath;
         public string CurrentRecipePath { get; private set; }
-        public ObservableCollection<ParametersConfig> ConfigParams { get; private set; }=new ObservableCollection<ParametersConfig>();
+        public ObservableCollection<ParametersConfig> ConfigParams { get; private set; } = new ObservableCollection<ParametersConfig>();
 
 
         public ParametersConfigService()
@@ -137,7 +138,7 @@ namespace AVS_Service
 
             }
         }
-       
+
         public bool SaveConfig()
         {
             try
@@ -159,6 +160,30 @@ namespace AVS_Service
             return ConfigParams.FirstOrDefault(p =>
                 (string.IsNullOrEmpty(moduleName) || p.ModuleName == moduleName) &&
                 p.Name == paramName);
+        }
+
+        public StationParamsSnapshot GetStationParams(string section)
+        {
+            return new StationParamsSnapshot
+            {
+                IsNormalCheck = GetBool(section, "IsNormalCheck"),
+                IsAiCheck = GetBool(section, "IsAiCheck"),
+                IsRotated = GetBool(section, "IsRotated"),
+                IsSquareBarWeldMark = GetBool(section, "IsSquareBarWeldMark"),
+                IsCirWeldMark = GetBool(section, "IsCirWeldMark"),
+                ScoreValue = GetDouble(section, "ScoreValue", 0.8),
+                IsPlaneCheck = GetBool(section, "IsPlaneCheck"),
+                Fx = GetDouble(section, "Fx", 0.014),
+                Fy = GetDouble(section, "Fy", 0.014),
+                Fz = GetDouble(section, "Fz", 0.005),
+                RecipePath = GetString(section, "RecipePath"),
+                ImageSaveDir = GetString(section, "ImageSaveDir"),
+                IsSaveOrnImg = GetBool(section, "IsSaveOrnImg"),
+                IsSaveOkRenImg = GetBool(section, "IsSaveOkRenImg"),
+                IsSaveNgRenImg = GetBool(section, "IsSaveNgRenImg"),
+                SaveOrnImgDays = GetInt(section, "SaveOrnImgDays", 30),
+                SaveRenImgDays = GetInt(section, "SaveRenImgDays", 30),
+            };
         }
     }
 }

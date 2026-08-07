@@ -71,7 +71,7 @@
             <DataGrid.Columns>
                 <!--  工位ID  -->
                 <DataGridTextColumn
-                    Width="50"
+                    Width="100"
                     Binding="{Binding StationId}"
                     Header="工位ID" />
 

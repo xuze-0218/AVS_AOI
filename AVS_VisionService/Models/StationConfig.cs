@@ -70,7 +70,7 @@ namespace AVS_Service.Models
         /// <summary>
         /// 参数模块名（用于IParametersConfigService 读取对应模块的参数），例如 "SideA", "SideB"
         /// </summary>
-        private string _productConfigSection = "SideA";
+        private string _productConfigSection = "SideA_2D";
         public string ProductConfigSection
         {
             get => _productConfigSection;

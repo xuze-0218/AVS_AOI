@@ -48,7 +48,12 @@ namespace AVS_App.ViewModels
             var targetCam = CameraDisplayList.FirstOrDefault(x => x.PhysicalSN == payload.CameraSN);
             if (targetCam != null)
             {
+                targetCam.CurrentImage?.Dispose();           // 释放旧图
                 targetCam.CurrentImage = payload.Image;
+            }
+            else
+            {
+                payload.Image?.Dispose();                    // 没用到就释放
             }
         }
 
