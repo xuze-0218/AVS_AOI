@@ -152,7 +152,7 @@ namespace AVS_Drivers.Camera.Mode
                     Debug.WriteLine("Set HeartBeatTimeout  failed!", nRet);
                 }
             }
-            _myCamera.MV_CC_SetEnumValue_NET("TriggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON);
+            //_myCamera.MV_CC_SetEnumValue_NET("TriggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON); //这行先注释
             // ch:设置采集连续模式 | en:Set Continues Aquisition Mode
             // _myCamera.MV_CC_SetEnumValue_NET("AcquisitionMode", (uint)MVCameraCtrl.MV_CAM_ACQUISITION_MODE.MV_ACQ_MODE_CONTINUOUS);
             // _myCamera.MV_CC_SetEnumValue_NET("triggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_OFF);

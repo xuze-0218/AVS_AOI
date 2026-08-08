@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AVS_Drivers.Camera.Common.Enum;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -37,5 +38,14 @@ namespace AVS_Service.Models
 
         [Description("Port")]
         public int Port { get; set; }
+
+        [Description("触发模式")]
+        public TriggerMode TriggerMode { get; set; } = TriggerMode.On;
+
+        /// <summary>
+        /// 触发源：Line0/Line1 等外部信号，Software=程序软触发
+        /// </summary>
+        [Description("触发源")]
+        public TriggerSource TriggerSource { get; set; } = TriggerSource.Line1;
     }
 }

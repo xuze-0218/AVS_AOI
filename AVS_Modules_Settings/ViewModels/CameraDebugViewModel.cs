@@ -259,6 +259,7 @@ namespace AVS_Modules_Settings.ViewModels
         private void ExecuteStopGrab()
         {
             if (_camera == null || !IsGrabbing) return;
+            _camera.StopCallback(null);          // 移除调试界面注册的回调
             // 退出抓图时，强制恢复为主程序需要的软触发状态
             _cameraConfigService.SetCameraAcquisitionMode(SelectedDevice, AcquisitionMode.SoftTrigger);
             IsGrabbing = false;
@@ -297,6 +298,8 @@ namespace AVS_Modules_Settings.ViewModels
                     _currentConfig.IP = IP;
                     _currentConfig.Port = Port;
                     _currentConfig.CameraRole = CameraRoleName;
+                    _currentConfig.TriggerMode = IsTriggerMode ? TriggerMode.On : TriggerMode.Off;
+                    _currentConfig.TriggerSource = SelectedTriggerSource;
                     _cameraConfigService.UpdateCameraSetting(_currentConfig);
                 }
                 StatusMessage = "参数已保存到本地";
@@ -318,6 +321,17 @@ namespace AVS_Modules_Settings.ViewModels
             IP = _currentConfig.IP;
             Port = _currentConfig.Port;
             CameraRoleName = _currentConfig.CameraRole;
+            if (_currentConfig.TriggerMode == TriggerMode.On)
+            {
+                IsTriggerMode = true;
+                IsContinuousMode = false;
+            }
+            else
+            {
+                IsTriggerMode = false;
+                IsContinuousMode = true;
+            }
+            SelectedTriggerSource = _currentConfig.TriggerSource;
         }
 
         public void OnNavigatedTo(NavigationContext navigationContext)

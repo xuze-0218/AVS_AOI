@@ -194,7 +194,7 @@ namespace AVS_Service
             if (!_connectedCameras.TryGetValue(sn, out var camera)) return;
 
             if (_grabContexts.ContainsKey(sn)) return; // 已经在运行
-
+            var setting = GetCameraSetting(sn);
             var ctx = new CameraGrabContext { Cts = new CancellationTokenSource() };
             ctx.GrabCallback = ptr =>
             {
@@ -217,9 +217,18 @@ namespace AVS_Service
                 }
                 catch (OperationCanceledException) { }
             }, ctx.Cts.Token);
+            camera.SetTriggerMode(TriggerMode.On, setting.TriggerSource);
 
-            camera.StartWith_SoftTriggerModel_SetCallback(ctx.GrabCallback);
-
+            if (setting.TriggerSource == TriggerSource.Software)
+            {
+                camera.StartWith_SoftTriggerModel_SetCallback(ctx.GrabCallback);
+                _logger.Information("相机 {SN} 软触发模式启动", sn);
+            }
+            else
+            {
+                camera.StartWith_HardTriggerModel_SetCallback(setting.TriggerSource, ctx.GrabCallback);
+                _logger.Information("相机 {SN} 硬触发模式启动，触发源: {Source}", sn, setting.TriggerSource);
+            }
         }
 
         /// <summary>
