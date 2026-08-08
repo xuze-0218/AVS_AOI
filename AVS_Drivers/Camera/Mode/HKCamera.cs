@@ -152,9 +152,10 @@ namespace AVS_Drivers.Camera.Mode
                     Debug.WriteLine("Set HeartBeatTimeout  failed!", nRet);
                 }
             }
-            //_myCamera.MV_CC_SetEnumValue_NET("TriggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON); //这行先注释
+            _myCamera.MV_CC_SetEnumValue_NET("TriggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON); 
+            _myCamera.MV_CC_SetEnumValue_NET("TriggerSource", (uint)MVCameraCtrl.MV_CAM_TRIGGER_SOURCE.MV_TRIGGER_SOURCE_LINE0);
             // ch:设置采集连续模式 | en:Set Continues Aquisition Mode
-            // _myCamera.MV_CC_SetEnumValue_NET("AcquisitionMode", (uint)MVCameraCtrl.MV_CAM_ACQUISITION_MODE.MV_ACQ_MODE_CONTINUOUS);
+            //_myCamera.MV_CC_SetEnumValue_NET("AcquisitionMode", (uint)MVCameraCtrl.MV_CAM_ACQUISITION_MODE.MV_ACQ_MODE_CONTINUOUS);
             // _myCamera.MV_CC_SetEnumValue_NET("triggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_OFF);
 
             // Reserve buffer
@@ -468,6 +469,7 @@ namespace AVS_Drivers.Camera.Mode
             // Turn off real-time mode which is default
             // 0: real-time
             // 1: trigger         
+            _myCamera.MV_CC_ClearImageBuffer_NET();
             var success = _myCamera.MV_CC_StartGrabbing_NET() == 0;
             if (!success) Debug.WriteLine("Grab start failed");
             IsGrabing = success;

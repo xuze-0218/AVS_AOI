@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using Prism.Events;
 using Serilog;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using Formatting = Newtonsoft.Json.Formatting;
 
@@ -195,6 +196,21 @@ namespace AVS_Service
 
             if (_grabContexts.ContainsKey(sn)) return; // 已经在运行
             var setting = GetCameraSetting(sn);
+
+            bool triggerSetOk = camera.SetTriggerMode(TriggerMode.On, setting.TriggerSource);
+            if (!triggerSetOk)
+            {
+                _logger.Warning("相机 {SN} 设置触发模式({Source})失败，回退为软触发", sn, setting.TriggerSource);
+                bool fallbackOk = camera.SetTriggerMode(TriggerMode.On, TriggerSource.Software);
+                if (!fallbackOk)
+                {
+                    _logger.Error("相机 {SN} 回退软触发也失败，放弃启动采集", sn);
+                    return;
+                }
+                // 回退成功，更新内存中的触发源，保证后续逻辑一致
+                setting.TriggerSource = TriggerSource.Software;
+            }
+
             var ctx = new CameraGrabContext { Cts = new CancellationTokenSource() };
             ctx.GrabCallback = ptr =>
             {
@@ -217,8 +233,7 @@ namespace AVS_Service
                 }
                 catch (OperationCanceledException) { }
             }, ctx.Cts.Token);
-            camera.SetTriggerMode(TriggerMode.On, setting.TriggerSource);
-
+       
             if (setting.TriggerSource == TriggerSource.Software)
             {
                 camera.StartWith_SoftTriggerModel_SetCallback(ctx.GrabCallback);
