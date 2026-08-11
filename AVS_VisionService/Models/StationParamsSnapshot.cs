@@ -48,11 +48,11 @@ namespace AVS_Service.Models
 
     public struct InspectOrder
     {
-        public int row;//排数
-        public int col;//列数
+        public int Row;//排数
+        public int Col;//列数
         [JsonIgnore]
-        public int[] start;
+        public int[] Start;
         [JsonIgnore]
-        public int[] end;
+        public int[] End;
     }
 }

@@ -1,6 +1,8 @@
-﻿using AVS_Service;
+﻿using AVS_Common.Events;
+using AVS_Service;
 using AVS_Service.Models;
 using Prism.Commands;
+using Prism.Events;
 using Prism.Mvvm;
 using System;
 using System.Collections.Generic;
@@ -17,6 +19,7 @@ namespace AVS_Modules_Settings.ViewModels
         private readonly IStationConfigService _stationConfigService;
         private readonly ICameraConfigService _cameraConfigService;
         private readonly IParametersConfigService _paramService;
+        private readonly IEventAggregator _eventAggregator;
 
         public ObservableCollection<StationConfig> Stations => _stationConfigService.Stations;
         public ObservableCollection<string> AvailableCameraRoles { get; private set; } = new ObservableCollection<string>();
@@ -41,12 +44,21 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _selectedStation, value);
         }
 
-        public StationConfigViewModel(IStationConfigService stationConfigService, ICameraConfigService cameraConfigService, IParametersConfigService paramService)
+        public StationConfigViewModel(
+            IStationConfigService stationConfigService, 
+            ICameraConfigService cameraConfigService, 
+            IParametersConfigService paramService,
+            IEventAggregator eventAggregator)
         {
+            _eventAggregator = eventAggregator;
             _stationConfigService = stationConfigService;
             _cameraConfigService = cameraConfigService;
             _paramService = paramService;
 
+            _eventAggregator.GetEvent<SectionsChangedEvent>().Subscribe(() =>
+            {
+                RefreshProductSections();
+            });
             MoveUpCommand = new DelegateCommand(OnMoveUp, () => SelectedStation != null && Stations.IndexOf(SelectedStation) > 0)
                 .ObservesProperty(() => SelectedStation);
             MoveDownCommand = new DelegateCommand(OnMoveDown, () => SelectedStation != null && Stations.IndexOf(SelectedStation) < Stations.Count - 1)
@@ -78,7 +90,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             var modules = _paramService.ConfigParams
                 ?.Select(p => p.ModuleName)
-                .Where(m => !string.IsNullOrEmpty(m))
+                 .Where(m => !string.IsNullOrEmpty(m) && m != "Global")  //排除 Global
                 .Distinct()
                 .OrderBy(m => m)
                 .ToList() ?? new List<string>();
@@ -141,7 +153,7 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     Stations.Add(new StationConfig
                     {
-                        StationId = "DefaultStation",  //默认用角色名作为工位ID
+                        StationId = "role",  //CameraRole作为默认 StationId，保证唯一
                         CameraRole = role,
                         ProductConfigSection = AvailableProductSections.FirstOrDefault() ?? "SideA",
                     });

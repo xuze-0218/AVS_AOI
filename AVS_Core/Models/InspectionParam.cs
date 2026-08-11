@@ -26,7 +26,7 @@ namespace AVS_Core.Models
         /// </summary>
         public string ImageName { get; set; }
         /// <summary>
-        /// 拍照顺序（物理编号数组）
+        /// 存储拍照顺序对应的物理极柱号 例如：1-52
         /// </summary>
         public int[] PoleOrder { get; set; }
         /// <summary>

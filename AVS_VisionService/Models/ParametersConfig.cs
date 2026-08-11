@@ -20,7 +20,7 @@ namespace AVS_Service.Models
     public class ParametersConfig : BindableBase
     {
         private string _moduleName;
-        public string ModuleName { get { return _moduleName; } set { _moduleName = value; } }
+        public string ModuleName { get { return _moduleName; } set => SetProperty(ref _moduleName, value); }
 
         private string _name;
         public string Name { get => _name; set => SetProperty(ref _name, value); }

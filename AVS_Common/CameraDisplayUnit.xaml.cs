@@ -1,4 +1,5 @@
-﻿using AVS_Common.Model;
+﻿using AVS_Common.Events;
+using AVS_Common.Model;
 using HalconDotNet;
 using System.Windows;
 using System.Windows.Controls;

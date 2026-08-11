@@ -1,4 +1,4 @@
-﻿using AVS_Common;
+﻿using AVS_Common.Events;
 using AVS_Drivers.Camera;
 using AVS_Drivers.Camera.Common.Enum;
 using AVS_Service.Models;

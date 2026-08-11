@@ -1,5 +1,6 @@
 ﻿using AVS_App.Views;
 using AVS_Common;
+using AVS_Common.Events;
 using AVS_Common.Services;
 using AVS_Core.Services;
 using AVS_Modules_Settings.Views;
@@ -40,6 +41,7 @@ namespace AVS_App
             containerRegistry.RegisterForNavigation<CameraDebugView>();
             containerRegistry.RegisterForNavigation<PlcDebugView>();
             containerRegistry.RegisterForNavigation<MetrologyView>();
+            containerRegistry.RegisterForNavigation<DebugCenterView>();
 
 
 
@@ -166,7 +168,4 @@ namespace AVS_App
             base.OnStartup(e);
         }
     }
-
-
-
 }

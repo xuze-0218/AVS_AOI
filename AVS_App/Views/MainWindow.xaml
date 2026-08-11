@@ -147,40 +147,15 @@
                     <RadioButton
                         VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
-                        CommandParameter="CameraDebugView"
-                        Content="📷 相机调试"
-                        IsEnabled="{Binding IsCameraConnected}"
+                        CommandParameter="DebugCenterView"
+                        Content="🔧 调试中心"
                         Style="{StaticResource TopNavButtonStyle}" />
-                    <RadioButton
-                        VerticalContentAlignment="Center"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="PlcDebugView"
-                        Content="📡 通讯测试"
-                        Cursor=""
-                        Style="{StaticResource TopNavButtonStyle}" />
-                    <RadioButton
-                        VerticalContentAlignment="Center"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="ProtocolConfigView"
-                        Content="📋 报文测试"
-                        Style="{StaticResource TopNavButtonStyle}" />
-                    <RadioButton
-                        VerticalContentAlignment="Center"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="StationConfigView"
-                        Content="🗂️ 映射配置"
-                        Style="{StaticResource TopNavButtonStyle}" />
+
                     <RadioButton
                         VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
                         CommandParameter="HistoryRecordView"
                         Content="📊 历史记录"
-                        Style="{StaticResource TopNavButtonStyle}" />
-                    <RadioButton
-                        VerticalContentAlignment="Center"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="TempAndCaliDebugView"
-                        Content="🧪 模型创建"
                         Style="{StaticResource TopNavButtonStyle}" />
                 </ItemsControl>
 

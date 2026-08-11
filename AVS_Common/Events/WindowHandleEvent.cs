@@ -1,7 +1,7 @@
 ﻿using HalconDotNet;
 
 
-namespace AVS_Common
+namespace AVS_Common.Events
 {
     /// <summary>
     /// CameraDisplayUnit无法通过有参构造函数注册服务，因为它是通过XAML实例化的。

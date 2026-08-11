@@ -140,15 +140,15 @@ namespace AVS_Core.Services
                 return CreateErrorResponse(config, "Invalid inspect order index");
             }
             InspectOrder order = p.InspectOrders[orderIndex - 1];
-            for (int j = 0; j < order.row; j++)
+            for (int j = 0; j < order.Row; j++)
             {
-                int mdiff = (int)(Math.Abs(order.end[j] - order.start[j])) / (order.col - 1);
-                if (order.end[j] - order.start[j] < 0)
+                int mdiff = (int)(Math.Abs(order.End[j] - order.Start[j])) / (order.Col - 1);
+                if (order.End[j] - order.Start[j] < 0)
                     mdiff = -mdiff;
 
-                for (int i = 0; i < order.col; i++)
+                for (int i = 0; i < order.Col; i++)
                 {
-                    inspectOrder[i + j * order.col] = (int)order.start[j] + mdiff * i;
+                    inspectOrder[i + j * order.Col] = (int)order.Start[j] + mdiff * i;
                 }
             }
             var initParams = new InspectionInitParams

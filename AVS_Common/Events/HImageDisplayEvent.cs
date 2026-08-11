@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AVS_Common
+namespace AVS_Common.Events
 {
     public class CameraImagePayload
     {
