@@ -39,7 +39,6 @@ namespace AVS_Core.Services
     {
         private string _stationId;
         private string _aiModelId;
-        private string _moduleName;
         private HWindow _windowHandle;
         private readonly IHalconEngineProvider _engineProvider;
         private readonly IAiDriveService _aiDrive;
@@ -68,30 +67,18 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
         {
-            var p = _paramService.GetStationParams(_moduleName);
-            HTuple angleStart = _paramService.GetDouble("TemplateMatch", "angleStart");
-            HTuple angleExtent = _paramService.GetDouble("TemplateMatch", "angleExtent");
-            HTuple scaleMin = _paramService.GetDouble("TemplateMatch", "minScale");
-            HTuple scaleMax = _paramService.GetDouble("TemplateMatch", "maxScale");
-            HTuple minScore = _paramService.GetDouble("TemplateMatch", "minScore");
-            HTuple numMatch = _paramService.GetInt("TemplateMatch", "maxMatchNum");
-            HTuple maxOverlap = _paramService.GetDouble("TemplateMatch", "maxOverlap");
-            HTuple subPixel = _paramService.GetDouble("TemplateMatch", "subPixel");
-            HTuple numLevel = _paramService.GetInt("TemplateMatch", "numLevel");
-            HTuple greediness = _paramService.GetDouble("TemplateMatch", "greediness");
-
-
+            var p = _paramService.GetStationParams(_stationId);
             HTuple matchParam = new HTuple();
-            HOperatorSet.TupleConcat(matchParam, angleStart, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, angleExtent, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, scaleMin, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, scaleMax, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, minScore, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, numMatch, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, maxOverlap, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, subPixel, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, numLevel, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, greediness, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.AngleStart, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.AngleExtent, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MinScale, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MaxScale, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MinScore, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MaxMatchNum, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MaxOverlap, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.SubPixel, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.NumLevel, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.Greediness, out matchParam);
             HOperatorSet.TupleConcat(matchParam, p.Fx, out matchParam);
             HOperatorSet.TupleConcat(matchParam, p.Fy, out matchParam);
 
@@ -112,15 +99,15 @@ namespace AVS_Core.Services
             string calibrateResult = result[0].D == 1 ? "01" : "02";
             string boardCenterX = DoubleToString(result[1].D, 8);
             string boardCenterY = DoubleToString(result[2].D, 8);
-            _paramService.UpdateParam(_moduleName, "Fx", result[3].D.ToString(), ParamOutputType.FLOAT);
-            _paramService.UpdateParam(_moduleName, "Fy", result[4].D.ToString(), ParamOutputType.FLOAT);
+            _paramService.UpdateParam(_stationId, "Fx", result[3].D.ToString(), ParamOutputType.FLOAT);
+            _paramService.UpdateParam(_stationId, "Fy", result[4].D.ToString(), ParamOutputType.FLOAT);
             string calibrateData = boardCenterX + boardCenterY;
             return Task.FromResult(calibrateResult + "," + calibrateData);
         }
 
         public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
-            var p = _paramService.GetStationParams(_moduleName);
+            var p = _paramService.GetStationParams(_stationId);
             string result = "01";
             string measureResults = string.Empty;
             HTuple resultArray = new HTuple();
@@ -214,8 +201,7 @@ namespace AVS_Core.Services
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "2D传统检测出错");
-                    measureResults = "02"
-                        + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8)
+                    measureResults = "02" + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8)
                         + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
                 }
 
@@ -226,32 +212,21 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param)
         {
-            HTuple angleStart = _paramService.GetDouble("TemplateMatch", "angleStart");
-            HTuple angleExtent = _paramService.GetDouble("TemplateMatch", "angleExtent");
-            HTuple scaleMin = _paramService.GetDouble("TemplateMatch", "minScale");
-            HTuple scaleMax = _paramService.GetDouble("TemplateMatch", "maxScale");
-            HTuple minScore = _paramService.GetDouble("TemplateMatch", "minScore");
-            HTuple numMatch = _paramService.GetInt("TemplateMatch", "maxMatchNum");
-            HTuple maxOverlap = _paramService.GetDouble("TemplateMatch", "maxOverlap");
-            HTuple subPixel = _paramService.GetDouble("TemplateMatch", "subPixel");
-            HTuple numLevel = _paramService.GetInt("TemplateMatch", "numLevel");
-            HTuple greediness = _paramService.GetDouble("TemplateMatch", "greediness");
-            var p = _paramService.GetStationParams(_moduleName);
-            HTuple fx = new HTuple(p.Fx);
-            HTuple fy = new HTuple(p.Fy);
+         
+            var p = _paramService.GetStationParams(_stationId);
             HTuple matchParam = new HTuple();
-            HOperatorSet.TupleConcat(matchParam, angleStart, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, angleExtent, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, scaleMin, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, scaleMax, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, minScore, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, numMatch, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, maxOverlap, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, subPixel, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, numLevel, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, greediness, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, fx, out matchParam);
-            HOperatorSet.TupleConcat(matchParam, fy, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.AngleStart, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.AngleExtent, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MinScale, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MaxScale, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MinScore, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MaxMatchNum, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.MaxOverlap, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.SubPixel, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.NumLevel, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.Greediness, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.Fx, out matchParam);
+            HOperatorSet.TupleConcat(matchParam, p.Fy, out matchParam);
             HDevProcedure hStep = new HDevProcedure();
             hStep.LoadProcedure("Check2d");
             var procCall = new HDevProcedureCall(hStep);
@@ -277,11 +252,10 @@ namespace AVS_Core.Services
         public async Task InitializeAsync(StationConfig config)
         {
             _stationId = config.StationId;
-            _moduleName = config.ProductConfigSection;
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole)/*.ConfigureAwait(false)*/;
             _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
-            var p = _paramService.GetStationParams(_moduleName);
+            var p = _paramService.GetStationParams(_stationId);
 
             paramDir = p.IsSquareBarWeldMark
                 ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamA.json")
@@ -332,7 +306,6 @@ namespace AVS_Core.Services
     public class ThreeDVisionProvider : I3DVisionProvider
     {
         private string _stationId;
-        private string _moduleName;
         private string _aiModelId;
         private string paramDir = string.Empty;
         private HWindow _windowHandle;
@@ -362,29 +335,29 @@ namespace AVS_Core.Services
         public Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
         {
             //读取ROI区域
-            var p = _paramService.GetStationParams(_moduleName);
+            var p = _paramService.GetStationParams(_stationId);
             string recipePath = p.RecipePath;
             if (string.IsNullOrEmpty(recipePath))
                 recipePath = AppDomain.CurrentDomain.BaseDirectory;
 
             string regionNameStrA = Path.Combine(recipePath, $"Region{_stationId}_4.hobj");
             string regionNameStrB = Path.Combine(recipePath, $"Region{_stationId}_5.hobj");
-           
+
             HOperatorSet.ReadRegion(out HObject roiRegionA, regionNameStrA);
             HOperatorSet.ReadRegion(out HObject roiRegionB, regionNameStrB);
             double resoX = p.Fx;
             double resoY = p.Fy;
             double resoZ = p.Fz;
             BoardCalibrate(image, roiRegionA, roiRegionB, resoX, resoY, resoZ, out string calibrateResult, out string calibrateData);
-            roiRegionA.Dispose(); 
-            roiRegionB.Dispose(); 
+            roiRegionA.Dispose();
+            roiRegionB.Dispose();
             return Task.FromResult(calibrateResult + "," + calibrateData);
 
         }
 
         public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
-            var p = _paramService.GetStationParams(_moduleName);
+            var p = _paramService.GetStationParams(_stationId);
             string result = "01";
             string measureResults = string.Empty;
             HTuple resultArray = new HTuple();
@@ -473,11 +446,10 @@ namespace AVS_Core.Services
         public async Task InitializeAsync(StationConfig config)
         {
             _stationId = config.StationId;
-            _moduleName = config.ProductConfigSection;
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole);
             _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
-            var p = _paramService.GetStationParams(_moduleName);
+            var p = _paramService.GetStationParams(_stationId);
             paramDir = p.IsSquareBarWeldMark
                 ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json")
                 : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");

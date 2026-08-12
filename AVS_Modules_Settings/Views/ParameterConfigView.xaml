@@ -2,10 +2,10 @@
     x:Class="AVS_Modules_Settings.Views.ParameterConfigView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converts="clr-namespace:AVS_Common.Converts;assembly=AVS_Common"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
-    xmlns:converts="clr-namespace:AVS_Common.Converts;assembly=AVS_Common"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
 
@@ -48,9 +48,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <converts:BoolToBorderConverter  x:Key="BoolToBorderConverter"></converts:BoolToBorderConverter>
+        <converts:BoolToBorderConverter x:Key="BoolToBorderConverter" />
+        <converts:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </UserControl.Resources>
-    
+
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -92,7 +93,7 @@
                     VerticalAlignment="Center"
                     FontSize="11"
                     Foreground="Gray"
-                    Text="切换 Section 将刷新基础参数和检测顺序，AI模型与图像保存为全局配置" />
+                    Text="切换Section将刷新基础参数" />
 
                 <Button
                     Grid.Column="3"
@@ -107,7 +108,6 @@
         <!--  ========== 分类 TabControl ==========  -->
         <TabControl Grid.Row="1" Background="White">
 
-            <!--  Tab1: 基础参数（按 Section 过滤）  -->
             <TabItem Header="基础参数">
                 <Grid MinHeight="200" Margin="5">
                     <Grid.RowDefinitions>
@@ -194,7 +194,6 @@
                 </Grid>
             </TabItem>
 
-            <!--  Tab2: 检测顺序（按 Section）  -->
             <TabItem Header="🔢 检测顺序">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
@@ -215,6 +214,7 @@
                         <ComboBox
                             Width="80"
                             Margin="5"
+                            VerticalContentAlignment="Center"
                             ItemsSource="{Binding RecipeList}"
                             SelectedIndex="{Binding RecipeIndex}" />
                         <TextBlock
@@ -224,6 +224,7 @@
                         <TextBox
                             Width="40"
                             Margin="5"
+                            VerticalContentAlignment="Center"
                             Text="{Binding GridRows}" />
                         <TextBlock
                             Margin="5"
@@ -232,6 +233,7 @@
                         <TextBox
                             Width="40"
                             Margin="5"
+                            VerticalContentAlignment="Center"
                             Text="{Binding GridCols}" />
                         <Button
                             Margin="5"
@@ -254,8 +256,7 @@
                                         Height="40"
                                         Margin="3"
                                         Background="Transparent"
-                                        MouseLeftButtonDown="PoleCircle_Click"
-                                        MouseRightButtonDown="PoleCircle_Click">
+                                        MouseLeftButtonDown="PoleCircle_Click">
                                         <Ellipse
                                             Width="30"
                                             Height="30"
@@ -266,7 +267,29 @@
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
                                             FontSize="10"
-                                            Text="{Binding PoleNumber}" />
+                                            Text="{Binding PoleNumber}"
+                                            Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}" />
+
+                                        <!--  编辑状态：透明输入框  -->
+                                        <TextBox
+                                            Width="28"
+                                            Height="22"
+                                            Padding="0"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            CaretBrush="Black"
+                                            FontSize="10"
+                                            Foreground="Black"
+                                            KeyDown="PoleTextBox_KeyDown"
+                                            Loaded="PoleTextBox_Loaded"
+                                            LostFocus="PoleTextBox_LostFocus"
+                                            Text="{Binding PoleNumber, TargetNullValue='', UpdateSourceTrigger=PropertyChanged}"
+                                            Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -281,18 +304,6 @@
                         Orientation="Horizontal">
                         <Button
                             Margin="5"
-                            Command="{Binding MarkAsStartCommand}"
-                            Content="标记为起点" />
-                        <Button
-                            Margin="5"
-                            Command="{Binding MarkAsEndCommand}"
-                            Content="标记为终点" />
-                        <Button
-                            Margin="5"
-                            Command="{Binding AutoFillRowCommand}"
-                            Content="自动填充当前行" />
-                        <Button
-                            Margin="5"
                             Command="{Binding ClearRowCommand}"
                             Content="清除当前行" />
                         <Separator Width="20" />
@@ -305,7 +316,6 @@
                 </Grid>
             </TabItem>
 
-            <!--  Tab3: AI模型路径（公共参数，不随 Section 变化）  -->
             <TabItem Header="AI模型路径">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>

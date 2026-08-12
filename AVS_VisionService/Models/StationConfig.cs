@@ -1,10 +1,4 @@
 ﻿using Prism.Mvvm;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace AVS_Service.Models
 {
     /// <summary>
@@ -13,7 +7,7 @@ namespace AVS_Service.Models
     public class StationConfig : BindableBase
     {
         /// <summary>
-        /// 工位ID，唯一标识一个工位，例如 "Station1", "Station2"，用于与 PLC&相机 映射
+        /// 工位唯一标识，例如 "Left2D"、"Right3D"，用于会话管理、图像入队、PLC通信路由
         /// </summary>
         private string _stationId;
         public string StationId
@@ -67,16 +61,11 @@ namespace AVS_Service.Models
             set => SetProperty(ref _dimension, value);
         }
 
-        /// <summary>
-        /// 参数模块名（用于IParametersConfigService 读取对应模块的参数），例如 "SideA", "SideB"
-        /// </summary>
-        private string _productConfigSection = "SideA_2D";
-        public string ProductConfigSection
-        {
-            get => _productConfigSection;
-            set => SetProperty(ref _productConfigSection, value);
-        }
+      
 
+        /// <summary>
+        ///共享模型Key，多个工位可共用同一套AI模型。为空时默认使用 StationId</summary>
+        /// </summary>
         public string AiModelStationId { get; set; }
     }
 

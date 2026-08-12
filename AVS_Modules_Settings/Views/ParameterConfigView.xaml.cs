@@ -17,63 +17,73 @@ namespace AVS_Modules_Settings.Views
             InitializeComponent();
         }
 
-        // ParameterConfigView.xaml.cs
         private void PoleCircle_Click(object sender, MouseButtonEventArgs e)
         {
-            var grid = sender as Grid;
-            if (grid?.DataContext is PoleCircleItem item)
+            var element = sender as FrameworkElement;
+            PoleCircleItem item = null;
+            while (element != null)
             {
-                // 从 View 中找到 ViewModel
-                var vm = DataContext as ParameterConfigViewModel;
-                if (vm == null) return;
+                if (element.DataContext is PoleCircleItem poleItem)
+                {
+                    item = poleItem;
+                    break;
+                }
+                element = element.Parent as FrameworkElement;
+            }
 
-                if (e.ChangedButton == MouseButton.Left)
-                {
-                    // 左键：选中该圆
-                    vm.SelectedPole = item;
-                    e.Handled = true;
-                }
-                else if (e.ChangedButton == MouseButton.Right)
-                {
-                    // 右键：弹出上下文菜单
-                    vm.SelectedPole = item;
-                    ShowPoleContextMenu(grid, item, vm);
-                    e.Handled = true;
-                }
+            if (item == null)
+                return;
+
+            var vm = DataContext as ParameterConfigViewModel;
+            if (vm == null)
+                return;
+            if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2)
+            {
+                vm.BeginEditPole(item);
+                e.Handled = true;
+                return;
+            }
+            if (e.ChangedButton == MouseButton.Left && e.ClickCount == 1)
+            {
+                vm.SelectedPole = item;
+                e.Handled = true;
             }
         }
 
-        private void ShowPoleContextMenu(FrameworkElement target, PoleCircleItem item, ParameterConfigViewModel vm)
+        private void PoleTextBox_Loaded(object sender, RoutedEventArgs e)
         {
-            var menu = new ContextMenu();
-
-            var markStart = new MenuItem { Header = "标记为起点" };
-            markStart.Click += (s, e) => vm.MarkAsStartCommand.Execute();
-            menu.Items.Add(markStart);
-
-            var markEnd = new MenuItem { Header = "标记为终点" };
-            markEnd.Click += (s, e) => vm.MarkAsEndCommand.Execute();
-            menu.Items.Add(markEnd);
-
-            menu.Items.Add(new Separator());
-
-            var setNumber = new MenuItem { Header = "手动输入序号..." };
-            setNumber.Click += (s, e) =>
+            if (sender is TextBox tb)
             {
-                string result = Microsoft.VisualBasic.Interaction.InputBox(
-                    "请输入该位置的极柱号:", "输入极柱号", item.PoleNumber?.ToString() ?? "");
-                if (int.TryParse(result, out int num))
+                tb.Focus();
+                tb.SelectAll();
+            }
+        }
+
+        private void PoleTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox tb && tb.DataContext is PoleCircleItem item)
+            {
+                var vm = DataContext as ParameterConfigViewModel;
+                vm?.CommitEditPole(item, tb.Text);
+            }
+        }
+
+        private void PoleTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (sender is TextBox tb && tb.DataContext is PoleCircleItem item)
+            {
+                var vm = DataContext as ParameterConfigViewModel;
+                if (e.Key == Key.Enter)
                 {
-                    item.PoleNumber = num;
+                    vm?.CommitEditPole(item, tb.Text);
+                    e.Handled = true;
                 }
-            };
-            menu.Items.Add(setNumber);
-
-            var clear = new MenuItem { Header = "清除该圆" };
-            clear.Click += (s, e) => { item.PoleNumber = null; };
-            menu.Items.Add(clear);
-
-            menu.IsOpen = true;
+                else if (e.Key == Key.Escape)
+                {
+                    vm?.CancelEditPole(item);
+                    e.Handled = true;
+                }
+            }
         }
     }
 }

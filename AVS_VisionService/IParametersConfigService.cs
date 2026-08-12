@@ -30,7 +30,7 @@ namespace AVS_Service
         double GetDouble(string moduleName, string paramName, double defaultValue = 0.0);
         string GetString(string moduleName, string paramName, string defaultValue = "");
         bool GetBool(string moduleName, string paramName, bool defaultValue = false);
-        StationParamsSnapshot GetStationParams(string section);
+        StationParamsSnapshot GetStationParams(string stationId);
     }
 
     public class ParametersConfigService : IParametersConfigService
@@ -162,27 +162,33 @@ namespace AVS_Service
                 p.Name == paramName);
         }
 
-        public StationParamsSnapshot GetStationParams(string section)
+        public StationParamsSnapshot GetStationParams(string stationId)
         {
             return new StationParamsSnapshot
             {
-                IsNormalCheck = GetBool(section, "IsNormalCheck"),
-                IsAiCheck = GetBool(section, "IsAiCheck"),
-                IsRotated = GetBool(section, "IsRotated"),
-                IsSquareBarWeldMark = GetBool(section, "IsSquareBarWeldMark"),
-                IsCirWeldMark = GetBool(section, "IsCirWeldMark"),
-                ScoreValue = GetDouble(section, "ScoreValue", 0.8),
-                IsPlaneCheck = GetBool(section, "IsPlaneCheck"),
-                Fx = GetDouble(section, "Fx", 0.014),
-                Fy = GetDouble(section, "Fy", 0.014),
-                Fz = GetDouble(section, "Fz", 0.005),
-                RecipePath = GetString(section, "RecipePath"),
-                ImageSaveDir = GetString(section, "ImageSaveDir"),
-                IsSaveOrnImg = GetBool(section, "IsSaveOrnImg"),
-                IsSaveOkRenImg = GetBool(section, "IsSaveOkRenImg"),
-                IsSaveNgRenImg = GetBool(section, "IsSaveNgRenImg"),
-                SaveOrnImgDays = GetInt(section, "SaveOrnImgDays", 30),
-                SaveRenImgDays = GetInt(section, "SaveRenImgDays", 30),
+                IsNormalCheck = GetBool(stationId, "IsNormalCheck"),
+                IsAiCheck = GetBool(stationId, "IsAiCheck"),
+                IsRotated = GetBool(stationId, "IsRotated"),
+                IsSquareBarWeldMark = GetBool(stationId, "IsSquareBarWeldMark"),
+                IsCirWeldMark = GetBool(stationId, "IsCirWeldMark"),
+                ScoreValue = GetDouble(stationId, "ScoreValue", 0.8),
+                IsPlaneCheck = GetBool(stationId, "IsPlaneCheck"),
+                Fx = GetDouble(stationId, "Fx", 0.014),
+                Fy = GetDouble(stationId, "Fy", 0.014),
+                Fz = GetDouble(stationId, "Fz", 0.005),
+                RecipePath = GetString(stationId, "RecipePath"),
+                AngleStart = GetDouble(stationId, "AngleStart", 0),
+                AngleExtent = GetDouble(stationId, "AngleExtent", 360),
+                MinScale = GetDouble(stationId, "MinScale", 0.9),
+                MaxScale = GetDouble(stationId, "MaxScale", 1.1),
+                MinScore = GetDouble(stationId, "MinScore", 0.5),
+                MaxMatchNum = GetInt(stationId, "MaxMatchNum", 1),
+                MaxOverlap = GetDouble(stationId, "MaxOverlap", 0.5),
+                NumLevel = GetInt(stationId, "NumLevel", 0),
+                Greediness = GetDouble(stationId, "Greediness", 0.9),
+                SubPixel = GetString(stationId, "SubPixel", "least_squares"),
+                DetModelPath = GetString(stationId, "DetModelPath", ""),
+                SegModelPaths = GetString(stationId, "SegModelPaths", ""),
             };
         }
     }

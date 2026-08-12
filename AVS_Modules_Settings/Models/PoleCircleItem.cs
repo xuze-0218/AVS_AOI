@@ -1,10 +1,5 @@
 ﻿using Prism.Mvvm;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Windows.Media;
 
 namespace AVS_Modules_Settings.Models
 {
@@ -57,8 +52,6 @@ namespace AVS_Modules_Settings.Models
                 };
             }
         }
-
-        // PoleCircleItem 中
         private bool _isSelected;
         public bool IsSelected
         {
@@ -68,6 +61,14 @@ namespace AVS_Modules_Settings.Models
                 if (SetProperty(ref _isSelected, value))
                     RaisePropertyChanged(nameof(CircleColor));  // 选中高亮
             }
+        }
+
+        private bool _isEditing;
+
+        public bool IsEditing
+        {
+            get => _isEditing;
+            set => SetProperty(ref _isEditing, value);
         }
     }
 

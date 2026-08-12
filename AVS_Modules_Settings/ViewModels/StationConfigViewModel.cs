@@ -4,12 +4,9 @@ using AVS_Service.Models;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace AVS_Modules_Settings.ViewModels
@@ -28,8 +25,7 @@ namespace AVS_Modules_Settings.ViewModels
             VisionDimension.TwoD,
             VisionDimension.ThreeD
         };
-        // 产品参数模块名下拉源（从参数服务中动态获取所有 ModuleName）
-        public ObservableCollection<string> AvailableProductSections { get; } = new ObservableCollection<string>();
+ 
         public ICommand MoveUpCommand { get; }
         public ICommand MoveDownCommand { get; }
         public ICommand DeleteCommand { get; }
@@ -93,11 +89,7 @@ namespace AVS_Modules_Settings.ViewModels
                  .Where(m => !string.IsNullOrEmpty(m) && m != "Global")  //排除 Global
                 .Distinct()
                 .OrderBy(m => m)
-                .ToList() ?? new List<string>();
-
-            AvailableProductSections.Clear();
-            foreach (var module in modules)
-                AvailableProductSections.Add(module);
+                .ToList() ?? new List<string>();          
         }
 
         private void OnAdd()
@@ -108,7 +100,6 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 StationId = $"Station{Stations.Count + 1}",
                 CameraRole = "SelectRole",
-                ProductConfigSection = AvailableProductSections.FirstOrDefault() ?? "SideA",
             };
             Stations.Add(newStation);
         }
@@ -155,7 +146,6 @@ namespace AVS_Modules_Settings.ViewModels
                     {
                         StationId = "role",  //CameraRole作为默认 StationId，保证唯一
                         CameraRole = role,
-                        ProductConfigSection = AvailableProductSections.FirstOrDefault() ?? "SideA",
                     });
                 }
             }

@@ -4,11 +4,7 @@ using AVS_Service.Models;
 using HalconDotNet;
 using Prism.Ioc;
 using Serilog;
-using Serilog.Core;
-using System;
 using System.Collections.Concurrent;
-using System.Threading.Tasks;
-
 
 namespace AVS_Core.Services
 {
@@ -67,20 +63,15 @@ namespace AVS_Core.Services
         private readonly object _preloadLock = new object();
         private Task _preloadTask; // 后台预加载任务
 
-        /// <summary>
-        /// 
-        /// </summary>
+
         private readonly ConcurrentDictionary<string, SessionState> _sessions = new();
         /// <summary>
         /// 视觉服务缓存
         /// </summary>
-        //private readonly ConcurrentDictionary<string, IVisionService> _visionServices = new();
         private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new();
-
         public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService,
             IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService)
         {
-
             _paramService = paramService;
             _container = containerProvider;
             _stationConfigService = stationConfigService;
@@ -94,17 +85,6 @@ namespace AVS_Core.Services
             // 清理旧会话
             if (_sessions.TryRemove(stationId, out var oldState))
                 oldState.Dispose();
-
-            // 从缓存中获取视觉服务（此时应已预加载完成，若未完成则同步等待）
-            //if (!_visionServices.TryGetValue(stationId, out var visionService))
-            //{
-            //    visionService = _container.Resolve<IVisionService>();
-            //    //visionService.InitializeAsync(stationId).GetAwaiter().GetResult();
-            //    await visionService.InitializeAsync(stationId);
-            //    _visionServices.TryAdd(stationId, visionService);
-            //    _logger.Warning("工位 {StationId} 未预加载，已同步初始化", stationId);
-            //}
-
             if (!_providers.TryGetValue(stationId, out var provider))
             {
                 var stationCfg = _stationConfigService.GetStation(stationId);
@@ -126,16 +106,13 @@ namespace AVS_Core.Services
                 ImageQueue = new BlockingCollection<HObject>(),
                 MsgPoleCapacity = 0,
                 ReceivedCount = 0,
-
             };
             // 根据类型初始化内部数据结构
             switch (workType)
             {
                 case SessionWorkType.Inspect:
-
                     var p = (InspectionInitParams)parameters;
                     int maxPole = p.PoleOrder.Max();
-
                     state.PoleOrder = p.PoleOrder;
                     state.MsgPoleCapacity = p.MsgPoleCapacity;
                     state.ProcessIndex = 0;
@@ -150,7 +127,6 @@ namespace AVS_Core.Services
                     state.CalibData = "+0000000+0000000";
                     break;
             }
-
             _sessions[stationId] = state;
             //启动后台任务
             state.ProcessTask = Task.Run(() => ProcessLoop(stationId, state, state.Cts.Token));
@@ -177,15 +153,12 @@ namespace AVS_Core.Services
                     state.ImageQueue.Add(image.Clone());
                 }
                 else
-                {
                     _logger.Warning("没有激活的{StationId}对话", stationId);
-                }
             }
             finally
             {
                 image.Dispose();
             }
-
         }
 
         public void Reset(string stationId)
@@ -214,14 +187,12 @@ namespace AVS_Core.Services
                 _logger.Warning("无效会话或非检测模式，工位 {StationId}", stationId);
                 return GenerateEmptyResult(msgPoleCapacity);
             }
-
             int requestedCount = endPole - startPole + 1;
             if (requestedCount > msgPoleCapacity)
             {
                 _logger.Warning("请求极柱数 {Requested} 超过单次容量 {Capacity}", requestedCount, msgPoleCapacity);
                 requestedCount = msgPoleCapacity;
             }
-
             var results = new List<string>();
             for (int pole = startPole; pole <= endPole; pole++)
             {
@@ -230,7 +201,6 @@ namespace AVS_Core.Services
                     results.Add("00" + new string('0', 48));
                     continue;
                 }
-
                 var tcs = state.ResultSources[pole];
                 // 等待结果或超时（5秒）
                 var timeoutTask = Task.Delay(5000, ct);
@@ -250,14 +220,10 @@ namespace AVS_Core.Services
             {
                 results.Add("00" + new string('0', 48));
             }
-
             return string.Concat(results);
         }
 
-        private string GenerateEmptyResult(int capacity)
-        {
-            return string.Concat(Enumerable.Repeat("00" + new string('0', 48), capacity));
-        }
+        private string GenerateEmptyResult(int capacity) => string.Concat(Enumerable.Repeat("00" + new string('0', 48), capacity));
 
         public async Task PreloadAllStationsAsync()
         {
@@ -270,17 +236,6 @@ namespace AVS_Core.Services
                 {
                     var tasks = _stationConfigService.Stations.Select(async station =>
                     {
-                        //try
-                        //{
-                        //    var visionService = _container.Resolve<IVisionService>();
-                        //    await visionService.InitializeAsync(station.StationId);
-                        //    _visionServices.TryAdd(station.StationId, visionService);
-                        //    _logger.Information("工位 {StationId} 视觉服务预加载完成", station.StationId);
-                        //}
-                        //catch (Exception ex)
-                        //{
-                        //    _logger.Error(ex, "工位 {StationId} 视觉服务预加载失败", station.StationId);
-                        //}
                         //初始化视觉服务并缓存，加载halcon引擎参数等
                         if (!_providers.ContainsKey(station.StationId))
                         {
@@ -295,25 +250,20 @@ namespace AVS_Core.Services
                             _logger.Information("预加载工位 {Id} 视觉完成", station.StationId);
                         }
                         //加载AI模型
-                        string moduleName = station.ProductConfigSection ?? station.StationId;
+                        string moduleName = station.StationId;
                         var p = _paramService.GetStationParams(moduleName);
                         if (p.IsAiCheck)
                         {
                             // 确定 AI 模型键：优先使用 AiModelStationId，否则用 StationId
-                            string aiKey = string.IsNullOrEmpty(station.AiModelStationId)
-                                           ? station.StationId
-                                           : station.AiModelStationId;
-
+                            string aiKey = string.IsNullOrEmpty(station.AiModelStationId) ? station.StationId : station.AiModelStationId;
                             // 如果该键的模型尚未加载，则加载
                             if (!_aiDriveService.IsModelLoaded(aiKey))
                             {
                                 // 模型路径从参数配置中读取（也可以硬编码或从 station 配置中获取）
                                 string detModelPath = _paramService.GetString(moduleName, "DetModelPath", "");
                                 string segModelPathsStr = _paramService.GetString(moduleName, "SegModelPaths", "");
-
                                 if (!string.IsNullOrEmpty(detModelPath))
                                     _aiDriveService.LoadDetModel(aiKey, new[] { detModelPath });
-
                                 if (!string.IsNullOrEmpty(segModelPathsStr))
                                 {
                                     var segPaths = segModelPathsStr.Split(';');
@@ -331,19 +281,9 @@ namespace AVS_Core.Services
             await _preloadTask;
         }
 
-        //private async Task EnsurePreloadCompletedAsync()
-        //{
-        //    if (_preloadTask != null)
-        //        await _preloadTask;
-        //}
-
         /// <summary>
         /// 图像处理
         /// </summary>
-        /// <param name="stationId"></param>
-        /// <param name="state"></param>
-        /// <param name="token"></param>
-        /// <returns></returns>
         private async Task ProcessLoop(string stationId, SessionState state, CancellationToken token)
         {
             try
@@ -427,11 +367,6 @@ namespace AVS_Core.Services
         private async Task ProcessCalibrationImage(SessionState state, HObject image, bool isVerification)
         {
             string result;
-            //if (isVerification)
-            //    result = await state.visionService.ExecuteVerificationAsync(image, new CalibrationParams());
-            //else
-            //    result = await state.visionService.ExecuteCalibrationAsync(image, new CalibrationParams());
-
             switch (state.Provider)
             {
                 case I2DVisionProvider p2D:
@@ -490,13 +425,13 @@ namespace AVS_Core.Services
         public Task ProcessTask { get; set; }
         public BlockingCollection<HObject> ImageQueue { get; set; }
         public bool IsActive => Cts != null && !Cts.IsCancellationRequested;
-      
+
         //检测相关
         public int[] PoleOrder { get; set; }        // 极柱拍照顺序（物理编号）假设4行13列共52个极柱，拍照顺序可能是 [1~13 26~14 27~39 52~40],索引0-51
         /// <summary>
         ///按物理编号存储每个极柱的结果字符串 "01+0001234+0005678..." 索引 = 物理极柱号，PoleResults[1]存储1号极柱结果
         /// </summary>
-        public string[] PoleResults { get; set; }   
+        public string[] PoleResults { get; set; }
         public int ReceivedCount { get; set; }      // 已入队图像数量,防越界，超过 PoleOrder.Length 则丢弃
         /// <summary>
         /// 当前处理的极柱在PoleOrder中的索引,初始0，每处理一张图像自增1

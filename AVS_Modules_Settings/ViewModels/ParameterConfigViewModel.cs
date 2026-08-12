@@ -2,6 +2,7 @@
 using AVS_Modules_Settings.Models;
 using AVS_Service;
 using AVS_Service.Models;
+using Newtonsoft.Json;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
@@ -80,18 +81,17 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-
         // ===== 公共参数：AI 模型路径（Global） =====
         public string DetModelPath
         {
-            get => _configService.GetString("Global", "DetModelPath");
-            set => _configService.UpdateParam("Global", "DetModelPath", value);
+            get => _configService.GetString(SelectedSection ?? "Global", "DetModelPath");
+            set => _configService.UpdateParam(SelectedSection ?? "Global", "DetModelPath", value);
         }
 
         public string SegModelPaths
         {
-            get => _configService.GetString("Global", "SegModelPaths");
-            set => _configService.UpdateParam("Global", "SegModelPaths", value);
+            get => _configService.GetString(SelectedSection ?? "Global", "SegModelPaths");
+            set => _configService.UpdateParam(SelectedSection ?? "Global", "SegModelPaths", value);
         }
 
         // ===== 公共参数：图像保存（Global） =====
@@ -173,7 +173,7 @@ namespace AVS_Modules_Settings.ViewModels
 
                 Parameters.Remove(p);
                 RefreshSectionList();
-                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish(); 
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
             });
 
             SaveCommand = new DelegateCommand(() =>
@@ -219,7 +219,7 @@ namespace AVS_Modules_Settings.ViewModels
                     SegModelPaths = string.Join(";", dialog.FileNames);
                 }
             });
-            BrowseImageSaveDirCommand  = new DelegateCommand(() =>
+            BrowseImageSaveDirCommand = new DelegateCommand(() =>
             {
                 var dialog = new Microsoft.Win32.OpenFileDialog
                 {
@@ -240,35 +240,7 @@ namespace AVS_Modules_Settings.ViewModels
                 GenerateEmptyGrid();
             });
 
-            // 从配置加载已有数据（保留作为"加载配方"按钮）
-            // 如果需要切换配方，可以用 LoadPoleGrid 替代
-
-            // 标记起点
-            MarkAsStartCommand = new DelegateCommand(() =>
-            {
-                if (SelectedPole == null) return;
-                foreach (var p in PoleItems.Where(p => p.Row == SelectedPole.Row))
-                    p.IsStartPoint = false;
-                SelectedPole.IsStartPoint = true;
-                TryAutoFill(SelectedPole.Row);
-            });
-
-            // 标记终点
-            MarkAsEndCommand = new DelegateCommand(() =>
-            {
-                if (SelectedPole == null) return;
-                foreach (var p in PoleItems.Where(p => p.Row == SelectedPole.Row))
-                    p.IsEndPoint = false;
-                SelectedPole.IsEndPoint = true;
-                TryAutoFill(SelectedPole.Row);
-            });
-
-            // 自动填充当前行
-            AutoFillRowCommand = new DelegateCommand(() =>
-            {
-                if (SelectedPole != null)
-                    TryAutoFill(SelectedPole.Row);
-            });
+          
 
             // 清除当前行
             ClearRowCommand = new DelegateCommand(() =>
@@ -304,11 +276,10 @@ namespace AVS_Modules_Settings.ViewModels
                 new SortDescription(nameof(ParametersConfig.ModuleName), ListSortDirection.Ascending));
             ParametersView.SortDescriptions.Add(
                 new SortDescription(nameof(ParametersConfig.Name), ListSortDirection.Ascending));
-
             RefreshSectionList();
-
             if (SectionList.Count > 0)
                 SelectedSection = SectionList[0];
+            LoadPoleGrid();
         }
 
         private void OnParameterPropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -377,7 +348,15 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         private int _recipeIndex;
-        public int RecipeIndex { get => _recipeIndex; set { SetProperty(ref _recipeIndex, value); LoadPoleGrid(); } }
+        public int RecipeIndex
+        {
+            get => _recipeIndex;
+            set
+            {
+                if (SetProperty(ref _recipeIndex, value))
+                    LoadPoleGrid();
+            }
+        }
 
         private int _gridRows = 4;
         public int GridRows { get => _gridRows; set => SetProperty(ref _gridRows, value); }
@@ -394,13 +373,80 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         private PoleCircleItem _selectedPole;
-        public PoleCircleItem SelectedPole { get => _selectedPole; set => SetProperty(ref _selectedPole, value); }
+        public PoleCircleItem SelectedPole
+        {
+            get => _selectedPole;
+            set
+            {
+                if (_selectedPole != null && _selectedPole != value)
+                    _selectedPole.IsSelected = false;
+                SetProperty(ref _selectedPole, value);
+                if (_selectedPole != null)
+                    _selectedPole.IsSelected = true;
+            }
+        }
+
+        public void BeginEditPole(PoleCircleItem item)
+        {
+            if (item == null) return;
+
+            // 关闭之前正在编辑的项
+            var editingItem = PoleItems?.FirstOrDefault(p => p.IsEditing);
+            if (editingItem != null && editingItem != item)
+            {
+                editingItem.IsEditing = false;
+            }
+
+            SelectedPole = item;
+            item.IsEditing = true;
+        }
+
+        public void CommitEditPole(PoleCircleItem item, string newValue)
+        {
+            if (item == null) return;
+
+            item.IsEditing = false;
+
+            if (int.TryParse(newValue, out int num))
+            {
+                item.PoleNumber = num;
+
+                // 自动标记该行的起点和终点
+                var rowItems = PoleItems.Where(p => p.Row == item.Row)
+                                        .OrderBy(p => p.Col)
+                                        .ToList();
+                if (rowItems.Count > 0)
+                {
+                    foreach (var p in rowItems)
+                    {
+                        p.IsStartPoint = false;
+                        p.IsEndPoint = false;
+                    }
+
+                    var first = rowItems.FirstOrDefault(p => p.PoleNumber.HasValue);
+                    var last = rowItems.LastOrDefault(p => p.PoleNumber.HasValue);
+                    if (first != null) first.IsStartPoint = true;
+                    if (last != null && last != first) last.IsEndPoint = true;
+                }
+
+                // 如果该行已有至少两个有效极柱号，自动填充
+                TryAutoFill(item.Row);
+            }
+            else
+            {
+                MessageBox.Show("请输入有效的整数序号。", "输入无效",
+                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        public void CancelEditPole(PoleCircleItem item)
+        {
+            if (item == null) return;
+            item.IsEditing = false;
+        }
 
         // 命令
         public DelegateCommand GenerateGridCommand { get; }
-        public DelegateCommand MarkAsStartCommand { get; }
-        public DelegateCommand MarkAsEndCommand { get; }
-        public DelegateCommand AutoFillRowCommand { get; }
         public DelegateCommand ClearRowCommand { get; }
         public DelegateCommand SaveToConfigCommand { get; }
         public DelegateCommand<PoleCircleItem> SelectPoleCommand { get; }
@@ -418,22 +464,34 @@ namespace AVS_Modules_Settings.ViewModels
         // 从配置加载已有数据
         private void LoadPoleGrid()
         {
-            GenerateEmptyGrid();
-            var p = _configService.GetStationParams(SelectedSection ?? "SideA");
-            var orders = p.InspectOrders;
+            if (GridRows <= 0 || GridCols <= 0) return;
+
+            var orders = LoadInspectOrdersFromConfig();
             if (orders == null || RecipeIndex >= orders.Length) return;
+
             var order = orders[RecipeIndex];
+            if (order.Row <= 0 || order.Col <= 0) return;
+            if (order.Start == null || order.End == null) return;
+            if (order.Start.Length < order.Row || order.End.Length < order.Row) return;
+
             GridRows = order.Row;
             GridCols = order.Col;
 
-            // 根据 start/end 计算每行的极柱号并填充
+            GenerateEmptyGrid();
             for (int r = 0; r < order.Row; r++)
             {
-                int mdiff = Math.Abs(order.End[r] - order.Start[r]) / (order.Col - 1);
+                int totalSteps = order.Col - 1;
+                if (totalSteps <= 0) continue;
+
+                int mdiff = Math.Abs(order.End[r] - order.Start[r]) / totalSteps;
                 if (order.End[r] - order.Start[r] < 0) mdiff = -mdiff;
+
                 for (int c = 0; c < order.Col; c++)
                 {
-                    var item = PoleItems[r * order.Col + c];
+                    int index = r * order.Col + c;
+                    if (index >= PoleItems.Count) break;
+
+                    var item = PoleItems[index];
                     item.PoleNumber = order.Start[r] + mdiff * c;
                     if (c == 0) item.IsStartPoint = true;
                     if (c == order.Col - 1) item.IsEndPoint = true;
@@ -444,46 +502,79 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void TryAutoFill(int row)
         {
-            if (PoleItems == null) return;
-
-            // 获取该行所有项，按列排序
-            var rowItems = PoleItems.Where(p => p.Row == row).OrderBy(p => p.Col).ToList();
-            if (rowItems.Count == 0) return;
-
-            // 找到标记为起点和终点的项
-            var startItem = rowItems.FirstOrDefault(p => p.IsStartPoint);
-            var endItem = rowItems.FirstOrDefault(p => p.IsEndPoint);
-
-            // 两者都必须有有效的极柱号
-            if (startItem == null || endItem == null ||
-                !startItem.PoleNumber.HasValue || !endItem.PoleNumber.HasValue)
+            if (PoleItems == null)
                 return;
 
-            int startNum = startItem.PoleNumber.Value;
-            int endNum = endItem.PoleNumber.Value;
-            int count = rowItems.Count;
-
-            // 计算均匀步长（与 HandleInspectInit 完全一致）
-            int mdiff = Math.Abs(endNum - startNum) / (count - 1);
-            if (endNum < startNum) mdiff = -mdiff;
-
-            for (int i = 0; i < count; i++)
+            var rowItems = PoleItems.Where(p => p.Row == row).OrderBy(p => p.Col).ToList();
+            if (rowItems.Count < 2)
+                return;
+            // 找出这一行已经填写极柱号的位置
+            var knownItems = rowItems.Where(p => p.PoleNumber.HasValue).ToList();
+            // 至少需要两个已知点
+            if (knownItems.Count < 2) return;
+            var first = knownItems[0];
+            var second = knownItems[1];
+            if (first.Col == second.Col) return;
+            double step = (double)(second.PoleNumber.Value - first.PoleNumber.Value) / (second.Col - first.Col);
+            // 极柱编号必须是整数，因此步长也必须是整数
+            if (step != Math.Round(step))
             {
-                rowItems[i].PoleNumber = startNum + mdiff * i;
-                // 可选：清除其他标记，只保留起点/终点的特殊颜色
+                MessageBox.Show(
+                    $"当前两个极柱无法形成整数编号规律。\n\n" +
+                    $"位置 {first.Col + 1}：{first.PoleNumber}\n" +
+                    $"位置 {second.Col + 1}：{second.PoleNumber}\n\n" +
+                    $"计算得到步长：{step:F3}",
+                    "无法自动填充",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            int intStep = (int)step;
+            foreach (var item in knownItems)
+            {
+                int offset = item.Col - first.Col;
+                int expectedNumber = first.PoleNumber.Value + intStep * offset;
+                if (item.PoleNumber.Value != expectedNumber)
+                {
+                    MessageBox.Show(
+                        $"当前行已有编号不符合计算规律。\n\n" +
+                        $"第 {item.Col + 1} 个位置\n" +
+                        $"当前编号：{item.PoleNumber.Value}\n" +
+                        $"计算应为：{expectedNumber}\n\n" +
+                        $"请检查已经输入的极柱号。",
+                        "无法自动填充",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+
+                    return;
+                }
+            }
+            foreach (var item in rowItems)
+            {
+                int offset = item.Col - first.Col;
+                item.PoleNumber = first.PoleNumber.Value + intStep * offset;
             }
         }
-
 
         private void SaveToConfig()
         {
             if (PoleItems == null || PoleItems.Count == 0) return;
-            if (string.IsNullOrEmpty(SelectedSection))
+            if (GridRows <= 0 || GridCols <= 0) return;
+
+            // 从配置读取现有的 InspectOrders 数组（如果有）
+            InspectOrder[] orders = LoadInspectOrdersFromConfig();
+
+            // 确保数组足够大
+            if (orders == null) orders = new InspectOrder[Math.Max(RecipeIndex + 1, 20)];
+            if (RecipeIndex >= orders.Length)
             {
-                _logger.Warning("未选择 Section，无法保存检测顺序");
-                return;
+                var newOrders = new InspectOrder[RecipeIndex + 1];
+                Array.Copy(orders, newOrders, orders.Length);
+                orders = newOrders;
             }
 
+            // 构建当前配方的 InspectOrder
             var order = new InspectOrder
             {
                 Row = GridRows,
@@ -494,37 +585,46 @@ namespace AVS_Modules_Settings.ViewModels
 
             for (int r = 0; r < GridRows; r++)
             {
-                // 获取该行所有有效极柱号（按列排序）
                 var rowItems = PoleItems.Where(p => p.Row == r)
                                         .OrderBy(p => p.Col)
                                         .Where(p => p.PoleNumber.HasValue)
                                         .ToList();
-
                 if (rowItems.Count > 0)
                 {
-                    // 起点 = 该行第一个极柱号，终点 = 该行最后一个极柱号
                     order.Start[r] = rowItems.First().PoleNumber.Value;
                     order.End[r] = rowItems.Last().PoleNumber.Value;
                 }
                 else
                 {
-                    // 如果该行完全没填，保留旧值（或设为0）
                     order.Start[r] = 0;
                     order.End[r] = 0;
                 }
             }
 
-            // 保存到当前 Section 的 InspectOrders 中
-            var p = _configService.GetStationParams(SelectedSection);
-            if (p.InspectOrders != null && RecipeIndex < p.InspectOrders.Length)
-            {
-                p.InspectOrders[RecipeIndex] = order;
-            }
-            // 如果 InspectOrders 数组长度不够，可以扩展（但旧版固定20个，通常够用）
+            orders[RecipeIndex] = order;
 
+            // 序列化并保存到 ConfigParams 中
+            string json = JsonConvert.SerializeObject(orders, Formatting.Indented);
+            _configService.UpdateParam("Recipe", "InspectOrders", json);
             _configService.SaveConfig();
-            _logger.Information("配方 {Index} 的检测顺序已保存到 Section {Section}", RecipeIndex, SelectedSection);
+
+            _logger.Information("配方 {Index} 的检测顺序已保存到 'Recipe' Section", RecipeIndex);
         }
 
+        // 辅助方法：从配置加载 InspectOrders 数组
+        private InspectOrder[] LoadInspectOrdersFromConfig()
+        {
+            string json = _configService.GetString("Recipe", "InspectOrders", "");
+            if (string.IsNullOrEmpty(json)) return null;
+            try
+            {
+                return JsonConvert.DeserializeObject<InspectOrder[]>(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "反序列化 InspectOrders 失败");
+                return null;
+            }
+        }
     }
 }

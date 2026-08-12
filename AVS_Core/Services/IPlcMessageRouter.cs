@@ -1,6 +1,7 @@
 ﻿using AVS_Core.Models;
 using AVS_Service;
 using AVS_Service.Models;
+using Newtonsoft.Json;
 using Serilog;
 
 namespace AVS_Core.Services
@@ -127,19 +128,19 @@ namespace AVS_Core.Services
             int inspectStNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(0, 2)); //获取检测极柱开始序号
             int inspectEdNum = Convert.ToInt32(_protocolEngine.GetVariable("backup2").Substring(2, 2)); //获取检测极柱结束序号
             int numForInspect = inspectEdNum - inspectStNum + 1;                                        //获取需要检测的极柱总个数
-            int[] inspectOrder = new int[numForInspect];
+            int[] poleOrder = new int[numForInspect];
 
             int msgPoleCapacity = Convert.ToInt32(_protocolEngine.GetVariable("version")) == 1 ? 10 : 25;//版本号为1：10；为2：25
             string imageName = _protocolEngine.GetVariable("imgName");
-            int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));            
-            var p = _paramService.GetStationParams(stationId);
+            int orderIndex = int.Parse(_protocolEngine.GetVariable("inspectType"));
+            var orders = LoadInspectOrdersFromRecipe();
 
-            if (p.InspectOrders == null || orderIndex < 1 || orderIndex > p.InspectOrders.Length)
+            if (orders == null || orderIndex < 1 || orderIndex > orders.Length)
             {
                 _logger.Error("无效的检测类型索引: {Index}, 工位: {StationId}", orderIndex, stationId);
                 return CreateErrorResponse(config, "Invalid inspect order index");
             }
-            InspectOrder order = p.InspectOrders[orderIndex - 1];
+            InspectOrder order = orders[orderIndex - 1];
             for (int j = 0; j < order.Row; j++)
             {
                 int mdiff = (int)(Math.Abs(order.End[j] - order.Start[j])) / (order.Col - 1);
@@ -148,14 +149,14 @@ namespace AVS_Core.Services
 
                 for (int i = 0; i < order.Col; i++)
                 {
-                    inspectOrder[i + j * order.Col] = (int)order.Start[j] + mdiff * i;
+                    poleOrder[i + j * order.Col] = (int)order.Start[j] + mdiff * i;
                 }
             }
             var initParams = new InspectionInitParams
             {
                 ImageName = imageName,
                 MsgPoleCapacity = msgPoleCapacity,
-                PoleOrder = inspectOrder
+                PoleOrder = poleOrder
             };
 
             await _sessionService.InitializeSession(stationId, SessionWorkType.Inspect, initParams);
@@ -235,5 +236,24 @@ namespace AVS_Core.Services
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 
+
+        /// <summary>
+        /// 获取极柱检测顺序配置
+        /// </summary>
+        /// <returns></returns>
+        private InspectOrder[] LoadInspectOrdersFromRecipe()
+        {
+            string json = _paramService.GetString("Recipe", "InspectOrders", "");
+            if (string.IsNullOrEmpty(json)) return null;
+            try
+            {
+                return JsonConvert.DeserializeObject<InspectOrder[]>(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "反序列化检测顺序失败");
+                return null;
+            }
+        }
     }
 }
