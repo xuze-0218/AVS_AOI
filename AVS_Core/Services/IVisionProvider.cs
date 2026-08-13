@@ -459,7 +459,7 @@ namespace AVS_Core.Services
             loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
             loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
             loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-            loadCall.Execute();
+            //loadCall.Execute();
             loadCall.Dispose();
             loadProc.Dispose();
             //初始化Crop3d

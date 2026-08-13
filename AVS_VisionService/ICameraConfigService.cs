@@ -7,7 +7,6 @@ using Newtonsoft.Json;
 using Prism.Events;
 using Serilog;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO;
 using Formatting = Newtonsoft.Json.Formatting;
 

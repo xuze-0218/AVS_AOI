@@ -3,43 +3,43 @@
     public class StationParamsSnapshot
     {
         // ===== 检测方法 =====
-        public bool IsNormalCheck { get; init; }
-        public bool IsAiCheck { get; init; }
-        public bool IsRotated { get; init; }
+        public bool IsNormalCheck { get; set; }
+        public bool IsAiCheck { get; set; }
+        public bool IsRotated { get; set; }
 
         // ===== 产品类型 =====
-        public bool IsSquareBarWeldMark { get; init; }
-        public bool IsCirWeldMark { get; init; }
+        public bool IsSquareBarWeldMark { get; set; }
+        public bool IsCirWeldMark { get; set; }
 
         // ===== AI 阈值 =====
-        public double ScoreValue { get; init; } = 0.8;
+        public double ScoreValue { get; set; } = 0.8;
 
         // ===== 3D 模式 =====
-        public bool IsPlaneCheck { get; init; }
+        public bool IsPlaneCheck { get; set; }
 
         // ===== 标定参数 =====
-        public double Fx { get; init; }
-        public double Fy { get; init; }
-        public double Fz { get; init; }
+        public double Fx { get; set; }
+        public double Fy { get; set; }
+        public double Fz { get; set; }
 
         // ===== 配方路径 =====
-        public string RecipePath { get; init; } = "";
+        public string RecipePath { get; set; } = "";
 
         //==== 模板匹配参数 =====
-        public double AngleStart;   //起始角度__deg
-        public double AngleExtent;  //角度范围__deg
-        public double MinScale;     //最小缩放
-        public double MaxScale;     //最大缩放
-        public double MinScore;     //最小分数
-        public int MaxMatchNum;     //最大匹配数目
-        public double MaxOverlap;   //最大重叠
-        public int NumLevel;        //最大金子塔层级
-        public double Greediness;   //贪婪度
-        public string SubPixel;     //亚像素
+        public double AngleStart { get; set; } = 0;
+        public double AngleExtent { get; set; } = 360;
+        public double MinScale { get; set; } = 0.9;
+        public double MaxScale { get; set; } = 1.1;
+        public double MinScore { get; set; } = 0.5;
+        public int MaxMatchNum { get; set; } = 1;
+        public double MaxOverlap { get; set; } = 0.5;
+        public int NumLevel { get; set; }
+        public double Greediness { get; set; } = 0.9;
+        public string SubPixel { get; set; } = "least_squares";
 
         // ===== AI 模型路径 =====
-        public string DetModelPath { get; init; } = "";
-        public string SegModelPaths { get; init; } = "";
+        public string DetModelPath { get; set; } = "";
+        public string SegModelPaths { get; set; } = "";
     }
 
 

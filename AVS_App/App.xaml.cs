@@ -48,7 +48,6 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ICameraConfigService, CameraConfigService>();
             containerRegistry.RegisterSingleton<IWindowHandleRegistry, WindowHandleRegistry>();
             containerRegistry.RegisterSingleton<IAiDriveService, AiDriveService>();
-            //containerRegistry.Register<IVisionService, VisionService>();//Transient,每个会话都会创建一个新的实例
             containerRegistry.Register<I2DVisionProvider, TwoDVisionProvider>();
             containerRegistry.Register<I3DVisionProvider, ThreeDVisionProvider>();
             containerRegistry.RegisterSingleton<IHalconEngineProvider, HalconEngineProvider>();
@@ -60,6 +59,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
             containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
             containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
+            containerRegistry.RegisterSingleton<ILocalTestService, LocalTestService>();
             //containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
             containerRegistry.RegisterSingleton<IMetrologyService, MetrologyService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();

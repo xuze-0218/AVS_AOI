@@ -93,7 +93,7 @@
                     VerticalAlignment="Center"
                     FontSize="11"
                     Foreground="Gray"
-                    Text="切换Section将刷新基础参数" />
+                    Text="切换Section刷新基础参数" />
 
                 <Button
                     Grid.Column="3"

@@ -11,11 +11,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
 using System.Windows.Data;
 using System.Windows.Forms;
-using System.Windows.Media.Imaging;
 
 namespace AVS_Modules_Settings.ViewModels
 {
@@ -297,7 +295,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             var sections = Parameters
                 .Select(p => p.ModuleName)
-                .Where(s => s != "Global" && !string.IsNullOrEmpty(s))
+                .Where(s =>!string.IsNullOrEmpty(s) /*&& s != "Global"*/ )
                 .Distinct()
                 .OrderBy(s => s)
                 .ToList();

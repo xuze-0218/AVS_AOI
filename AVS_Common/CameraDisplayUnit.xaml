@@ -9,19 +9,108 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d">
+    <UserControl.Resources>
+        <Style x:Key="ToggleSwitchStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="50" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <!--  轨道背景  -->
+                            <Border
+                                x:Name="SwitchTrack"
+                                Background="#555"
+                                BorderBrush="#888"
+                                BorderThickness="1"
+                                CornerRadius="12" />
+                            <!--  圆形滑块，用 Margin 控制左右移动  -->
+                            <Ellipse
+                                x:Name="SwitchThumb"
+                                Width="18"
+                                Height="18"
+                                Margin="3,0,0,0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Fill="White" />
+                            <TextBlock
+                                x:Name="StateText"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontSize="10"
+                                Foreground="White"
+                                IsHitTestVisible="False"
+                                Text="渲染" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#4CAF50" />
+                                <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#2E7D32" />
+                                <Setter TargetName="SwitchThumb" Property="Margin" Value="27,0,0,0" />
+                                <Setter TargetName="StateText" Property="Text" Value="渲染" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="False">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#757575" />
+                                <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#9E9E9E" />
+                                <Setter TargetName="SwitchThumb" Property="Margin" Value="3,0,0,0" />
+                                <Setter TargetName="StateText" Property="Text" Value="原图" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="30" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  相机名称，如TopCam  -->
         <Border Background="#333">
-            <TextBlock
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Foreground="White"
-                Text="{Binding CameraRoleName}" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Column="0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Foreground="White"
+                    Text="{Binding CameraRoleName}" />
+
+                <!--  ToggleSwitch  -->
+                <ToggleButton
+                    Grid.Column="1"
+                    Margin="0,0,6,0"
+                    IsChecked="{Binding ShowProcessed, Mode=TwoWay}"
+                    Style="{StaticResource ToggleSwitchStyle}"
+                    ToolTip="切换显示原始图像/处理后图像"
+                    ToolTipService.BetweenShowDelay="1"
+                    ToolTipService.InitialShowDelay="1" />
+
+                <Button
+                    x:Name="TestButton"
+                    Grid.Column="2"
+                    Width="24"
+                    Height="24"
+                    Margin="0,0,6,0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="TestButton_Click"
+                    Content="🧪"
+                    Cursor="Hand"
+                    FontSize="12"
+                    ToolTip="离线测试" />
+            </Grid>
         </Border>
 
         <halcon:HSmartWindowControlWPF

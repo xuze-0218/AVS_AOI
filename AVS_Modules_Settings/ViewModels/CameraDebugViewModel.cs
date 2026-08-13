@@ -177,7 +177,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         }
 
-
         #region Commands
         public DelegateCommand SearchCommand { get; }
         public DelegateCommand InitCommand { get; }
@@ -189,7 +188,6 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand SetParamCommand { get; }
         public DelegateCommand<string> SaveImageCommand { get; }
         #endregion
-
 
         #region 执行逻辑
         private void ExecuteSearch()
@@ -259,7 +257,7 @@ namespace AVS_Modules_Settings.ViewModels
         private void ExecuteStopGrab()
         {
             if (_camera == null || !IsGrabbing) return;
-            _camera.StopCallback(null);          // 移除调试界面注册的回调
+            //_camera.StopCallback(null);          // 移除调试界面注册的回调
             // 退出抓图时，强制恢复为主程序需要的软触发状态
             _cameraConfigService.SetCameraAcquisitionMode(SelectedDevice, AcquisitionMode.SoftTrigger);
             IsGrabbing = false;

@@ -166,7 +166,7 @@ namespace AVS_Common
 
         /// <summary>
         /// 根据窗口实际尺寸和图像尺寸，计算等比例显示的 SetPart 区域，
-        /// 使图像始终等比例居中显示（类似双击 HSmartWindowControl 的效果）。
+        /// 使图像始终等比例居中显示
         /// </summary>
         private void SetPartKeepAspectRatio(HWindow hw, int imageWidth, int imageHeight)
         {
@@ -199,6 +199,23 @@ namespace AVS_Common
             }
 
             hw.SetPart((int)row1, (int)col1, (int)row2, (int)col2);
+        }
+
+        private void TestButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is CameraDisplayItem item)
+            {
+                var menu = new ContextMenu();
+
+                var inspectItem = new MenuItem { Header = "检测测试" };
+                inspectItem.Command = item.InspectTestCommand;
+                menu.Items.Add(inspectItem);
+                var calibItem = new MenuItem { Header = "标定测试" };
+                calibItem.Command = item.CalibTestCommand;
+                menu.Items.Add(calibItem);        
+                menu.PlacementTarget = TestButton;
+                menu.IsOpen = true;
+            }
         }
     }
 }

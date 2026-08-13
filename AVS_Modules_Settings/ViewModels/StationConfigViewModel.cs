@@ -92,6 +92,52 @@ namespace AVS_Modules_Settings.ViewModels
                 .ToList() ?? new List<string>();          
         }
 
+        /// <summary>
+        /// 新增section时候自动补全参数
+        /// </summary>
+        /// <param name="stationId"></param>
+        private void EnsureDefaultParamsForStation(string stationId)
+        {
+            if (_paramService.ConfigParams.Any(p => p.ModuleName == stationId))
+                return;
+
+            var defaultSnapshot = new StationParamsSnapshot(); // 每次创建新实例
+            var properties = typeof(StationParamsSnapshot).GetProperties();
+
+            foreach (var prop in properties)
+            {
+                if (!prop.CanRead) continue;
+
+                var value = prop.GetValue(defaultSnapshot);
+                string expression = value switch
+                {
+                    bool b => b ? "true" : "false",
+                    double d => d.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    int i => i.ToString(),
+                    string s => s ?? "",
+                    _ => value?.ToString() ?? ""
+                };
+
+                var type = value switch
+                {
+                    bool => ParamOutputType.BOOL,
+                    double or float => ParamOutputType.FLOAT,
+                    int or long or short => ParamOutputType.INT,
+                    _ => ParamOutputType.STRING
+                };
+
+                _paramService.ConfigParams.Add(new ParametersConfig
+                {
+                    ModuleName = stationId,
+                    Name = prop.Name,
+                    Expression = expression,
+                    InitValue = expression,
+                    Note = $"自动生成的默认参数（{stationId}）",
+                    OutputType = type
+                });
+            }
+        }
+
         private void OnAdd()
         {
             //刷新参数模块列表以确保最新
@@ -102,6 +148,7 @@ namespace AVS_Modules_Settings.ViewModels
                 CameraRole = "SelectRole",
             };
             Stations.Add(newStation);
+            EnsureDefaultParamsForStation(newStation.StationId);
         }
 
         private void OnDelete(StationConfig station)
@@ -142,11 +189,13 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 if (!Stations.Any(s => s.CameraRole == role))
                 {
-                    Stations.Add(new StationConfig
+                    var newStation = new StationConfig
                     {
-                        StationId = "role",  //CameraRole作为默认 StationId，保证唯一
+                        StationId = role,
                         CameraRole = role,
-                    });
+                    };
+                    Stations.Add(newStation);
+                    EnsureDefaultParamsForStation(newStation.StationId); 
                 }
             }
         }

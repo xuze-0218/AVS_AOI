@@ -418,7 +418,6 @@ namespace AVS_Core.Services
     /// </summary>
     internal class SessionState
     {
-        //public IVisionService visionService { get; set; }
         public IVisionProvider Provider { get; set; }
         public SessionWorkType WorkType { get; set; }
         public CancellationTokenSource Cts { get; set; }
