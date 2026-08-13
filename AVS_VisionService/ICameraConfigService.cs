@@ -146,13 +146,17 @@ namespace AVS_Service
                              _connectedCameras.Remove(setting.SerilalNum, out _);
                          }
 
-                         ICamera camera = CamFactory.CreatCamera((CameraBrand)setting.CameraType);
-
                          bool initSuccess = false;
+                         ICamera camera = null;
                          for (int retry = 0; retry < 3; retry++)
                          {
-                             if (camera.InitDevice(setting.SerilalNum))
+                             camera = CamFactory.CreatCamera((CameraBrand)setting.CameraType); // 每次都新建
+                             if (camera != null && camera.InitDevice(setting.SerilalNum))
                              {
+                                 _connectedCameras.TryAdd(setting.SerilalNum, camera);
+                                 CameraStatusChanged?.Invoke(setting.SerilalNum, true);
+                                 ApplySettingToDevice(setting.SerilalNum);
+                                 StartCameraGrabbing(setting.SerilalNum);
                                  initSuccess = true;
                                  break;
                              }
@@ -167,19 +171,18 @@ namespace AVS_Service
                              continue;
                          }
 
-                         _connectedCameras.TryAdd(setting.SerilalNum, camera);
-                         CameraStatusChanged?.Invoke(setting.SerilalNum, true);
-                         ApplySettingToDevice(setting.SerilalNum);
-                         StartCameraGrabbing(setting.SerilalNum);
-
-                         _logger.Information("相机 {SN} 初始化成功", setting.SerilalNum);
+                         //_connectedCameras.TryAdd(setting.SerilalNum, camera);
+                         //CameraStatusChanged?.Invoke(setting.SerilalNum, true);
+                         //ApplySettingToDevice(setting.SerilalNum);
+                         //StartCameraGrabbing(setting.SerilalNum);
+                         //_logger.Information("相机 {SN} 初始化成功", setting.SerilalNum);
                      }
                      catch (Exception ex)
                      {
                          _logger.Error(ex, "相机 {SN} 初始化异常", setting.SerilalNum);
                      }
 
-                     await Task.Delay(200); // 相机之间的间隔
+                     await Task.Delay(200); //相机之间的间隔
                  }
              });
 
@@ -232,7 +235,7 @@ namespace AVS_Service
                 }
                 catch (OperationCanceledException) { }
             }, ctx.Cts.Token);
-       
+
             if (setting.TriggerSource == TriggerSource.Software)
             {
                 camera.StartWith_SoftTriggerModel_SetCallback(ctx.GrabCallback);
@@ -343,6 +346,8 @@ namespace AVS_Service
                 existing.imgpath = setting.imgpath;
                 existing.SerilalNum = setting.SerilalNum;
                 existing.CameraRole = setting.CameraRole;
+                existing.TriggerMode = setting.TriggerMode;
+                existing.TriggerSource = setting.TriggerSource;
             }
             SaveSettings();
 

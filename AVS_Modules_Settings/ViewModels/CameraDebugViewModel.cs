@@ -26,6 +26,10 @@ namespace AVS_Modules_Settings.ViewModels
         private ICameraConfigService _cameraConfigService;
         private bool _isBorrowedCamera = false;
         private bool _isActiveView = false; // 标记当前页面是否处于激活显示状态
+        /// <summary>
+        /// oken for subscribing to image display events. Used to unsubscribe when the view is deactivated.
+        /// </summary>
+        private SubscriptionToken _imageSubToken;
 
         #region 状态控制属性
         private bool _isConnected = false;
@@ -63,6 +67,18 @@ namespace AVS_Modules_Settings.ViewModels
                     _currentConfig = _cameraConfigService.GetCameraSettingBySnOrIndex(value, idx);
                     SaveImagePath = _currentConfig.imgpath;
                     SyncConfigToUI();
+                    _camera = _cameraConfigService.GetCameraInstance(value);
+                    _isBorrowedCamera = _camera != null;
+                    IsConnected = _camera != null;
+                    if (IsConnected)
+                    {
+                        StatusMessage = $"已连接: {value}";
+                        ExecuteGetParam();
+                    }
+                    else
+                    {
+                        StatusMessage = "未连接，请点击初始化";
+                    }
                 }
             }
         }
@@ -160,7 +176,7 @@ namespace AVS_Modules_Settings.ViewModels
 
             _currentConfig = _cameraConfigService.GetCameraSettingBySnOrIndex(null, 0);
             SyncConfigToUI();
-            _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(payload =>
+            _imageSubToken = _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(payload =>
             {
                 //若界面不可见，则不订阅图像显示事件，避免后台占用过多资源
                 if (!_isActiveView) return;
@@ -343,6 +359,11 @@ namespace AVS_Modules_Settings.ViewModels
         public void OnNavigatedFrom(NavigationContext navigationContext)
         {
             _isActiveView = false; // 页面切出时停用
+            if (_imageSubToken != null)
+            {
+                _eventAggregator.GetEvent<HImageDisplayEvent>().Unsubscribe(_imageSubToken);
+                _imageSubToken = null;
+            }
         }
 
         private void SyncDeviceStatusFromService()

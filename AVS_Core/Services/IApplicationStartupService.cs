@@ -22,7 +22,6 @@ namespace AVS_Core.Services
         private readonly IStationSessionService _sessionService;
         private readonly IPlcMessageRouter _messageRouter;
         private readonly ICommunicationService _communicationService;
-        //private readonly IParametersConfigService _parametersConfigService;
         private readonly ICameraConfigService _cameraConfigService;
         private readonly IStationConfigService _stationConfigService;
         private readonly ILogger _logger;

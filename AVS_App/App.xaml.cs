@@ -131,7 +131,8 @@ namespace AVS_App
             {
                 var startupService = Container.Resolve<IApplicationStartupService>();
                 //startupService.ShutdownAsync().Wait();
-                startupService.ShutdownAsync();
+                //同步等待关闭相机
+                startupService.ShutdownAsync().GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {

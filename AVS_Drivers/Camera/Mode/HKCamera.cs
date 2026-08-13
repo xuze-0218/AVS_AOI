@@ -10,7 +10,7 @@ using static AVS_Drivers.Camera.Cameralibs.HKCamera.MVCameraCtrl;
 
 namespace AVS_Drivers.Camera.Mode
 {
-    internal class HKCamera : BaseCamera
+    internal class HKCamera : BaseCamera, IDisposable
     {
         public HKCamera() : base() { }
 
@@ -152,7 +152,7 @@ namespace AVS_Drivers.Camera.Mode
                     Debug.WriteLine("Set HeartBeatTimeout  failed!", nRet);
                 }
             }
-            _myCamera.MV_CC_SetEnumValue_NET("TriggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON); 
+            _myCamera.MV_CC_SetEnumValue_NET("TriggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON);
             _myCamera.MV_CC_SetEnumValue_NET("TriggerSource", (uint)MVCameraCtrl.MV_CAM_TRIGGER_SOURCE.MV_TRIGGER_SOURCE_LINE0);
             // ch:设置采集连续模式 | en:Set Continues Aquisition Mode
             //_myCamera.MV_CC_SetEnumValue_NET("AcquisitionMode", (uint)MVCameraCtrl.MV_CAM_ACQUISITION_MODE.MV_ACQ_MODE_CONTINUOUS);
@@ -212,16 +212,28 @@ namespace AVS_Drivers.Camera.Mode
 
         public override void CloseDevice()
         {
-            if (m_BufForDriver != IntPtr.Zero)
+            try
             {
-                Marshal.Release(m_BufForDriver);
+                if (IsGrabing)
+                {
+                    _myCamera.MV_CC_StopGrabbing_NET();
+                    IsGrabing = false;
+                }
+                _myCamera.MV_CC_ClearImageBuffer_NET();
+                var nRet = _myCamera.MV_CC_CloseDevice_NET();
+                if (MVCameraCtrl.MV_OK != nRet) return;
+                nRet = _myCamera.MV_CC_DestroyDevice_NET();
+                if (MVCameraCtrl.MV_OK != nRet) return;
             }
-            if (IsGrabing) { _myCamera.MV_CC_StopGrabbing_NET(); }
-            _myCamera.MV_CC_ClearImageBuffer_NET();
-            var nRet = _myCamera.MV_CC_CloseDevice_NET();
-            if (MVCameraCtrl.MV_OK != nRet) return;
-            nRet = _myCamera.MV_CC_DestroyDevice_NET();
-            if (MVCameraCtrl.MV_OK != nRet) return;
+            finally
+            {
+                if (m_BufForDriver != IntPtr.Zero)
+                {
+                    Marshal.Release(m_BufForDriver);
+                    m_BufForDriver = IntPtr.Zero;
+                }
+                _myCamera = null;//置null，下次重新创建
+            }
         }
         public override bool SoftTrigger()
         {
@@ -690,6 +702,11 @@ namespace AVS_Drivers.Camera.Mode
         }
         #endregion
 
+
+        public void Dispose()
+        {
+            CloseDevice();
+        }
     }
 }
 

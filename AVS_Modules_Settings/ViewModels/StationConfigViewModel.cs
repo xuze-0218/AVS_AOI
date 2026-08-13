@@ -136,6 +136,7 @@ namespace AVS_Modules_Settings.ViewModels
                     OutputType = type
                 });
             }
+            _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
         }
 
         private void OnAdd()

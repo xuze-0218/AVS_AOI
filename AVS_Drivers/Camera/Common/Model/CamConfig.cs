@@ -3,9 +3,9 @@ namespace AVS_Drivers.Camera.Common.Model
 {
     public class CamConfig
     {
-        public TriggerMode triggerMode { get; set; }
+        public TriggerMode triggerMode { get; set; } = TriggerMode.On;
 
-        public TriggerSource triggeSource { get; set; }
+        public TriggerSource triggeSource { get; set; } = TriggerSource.Line1;
 
         public TriggerPolarity triggerPolarity { get; set; }
 
