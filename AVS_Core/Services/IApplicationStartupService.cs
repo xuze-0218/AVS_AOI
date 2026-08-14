@@ -54,11 +54,6 @@ namespace AVS_Core.Services
             {
                 //加载通讯服务
                 await InitializeCommunicationAsync();
-                ///避免单例冲突和重复初始化
-                //foreach (var item in _stationConfigService.Stations)
-                //{
-                //    await _visionService.InitializeAsync(item.StationId);
-                //}
                 _imageEventToken = _eventAggregator.GetEvent<HImageDisplayEvent>()
                     .Subscribe(OnImageCaptured, ThreadOption.BackgroundThread, false);
                 _backgroundInitializationTask = Task.Run(async () =>
@@ -145,7 +140,6 @@ namespace AVS_Core.Services
                 _logger.Warning("通讯服务启动失败，但应用将继续运行");
             }
         }
-
 
         public async Task ShutdownAsync()
         {

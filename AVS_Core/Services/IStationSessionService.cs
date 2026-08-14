@@ -2,9 +2,11 @@
 using AVS_Service;
 using AVS_Service.Models;
 using HalconDotNet;
+using OpenCvSharp.Dnn;
 using Prism.Ioc;
 using Serilog;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace AVS_Core.Services
 {
@@ -264,10 +266,18 @@ namespace AVS_Core.Services
                                 string segModelPathsStr = _paramService.GetString(moduleName, "SegModelPaths", "");
                                 if (!string.IsNullOrEmpty(detModelPath))
                                     _aiDriveService.LoadDetModel(aiKey, new[] { detModelPath });
+                                else
+                                {
+                                    _logger.Error("工位 {StationId} AI 加载检测模型失败（键: {AiKey}）", station.StationId, aiKey);
+                                }
                                 if (!string.IsNullOrEmpty(segModelPathsStr))
                                 {
                                     var segPaths = segModelPathsStr.Split(';');
                                     _aiDriveService.LoadSegModel(aiKey, segPaths);
+                                }
+                                else
+                                {
+                                    _logger.Error("工位 {StationId} AI 加载分割模型失败（键: {AiKey}）", station.StationId, aiKey);
                                 }
                             }
                             _logger.Information("工位 {StationId} AI 模型加载完成（键: {AiKey}）", station.StationId, aiKey);

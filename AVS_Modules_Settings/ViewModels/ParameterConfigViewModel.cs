@@ -12,8 +12,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Windows;
 using System.Windows.Data;
-using System.Windows.Forms;
 
 namespace AVS_Modules_Settings.ViewModels
 {
@@ -54,6 +54,7 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand AddCommand { get; }
         public DelegateCommand<ParametersConfig> DeleteCommand { get; }
         public DelegateCommand SaveCommand { get; }
+        public DelegateCommand DeleteSectionCommand { get; }
         public DelegateCommand BrowseDetModelCommand { get; }
         public DelegateCommand BrowseSegModelCommand { get; }
         public DelegateCommand BrowseImageSaveDirCommand { get; }
@@ -79,7 +80,6 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        // ===== 公共参数：AI 模型路径（Global） =====
         public string DetModelPath
         {
             get => _configService.GetString(SelectedSection ?? "Global", "DetModelPath");
@@ -153,6 +153,10 @@ namespace AVS_Modules_Settings.ViewModels
             _eventAggregator = eventAggregator;
             _logger = logger;
 
+            _eventAggregator.GetEvent<SectionsChangedEvent>().Subscribe(() =>
+            {
+                RefreshSectionList();
+            });
             AddCommand = new DelegateCommand(() =>
             {
                 var newParam = new ParametersConfig
@@ -165,7 +169,6 @@ namespace AVS_Modules_Settings.ViewModels
                 RefreshSectionList();
                 _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
             });
-
             DeleteCommand = new DelegateCommand<ParametersConfig>(p =>
             {
 
@@ -173,7 +176,6 @@ namespace AVS_Modules_Settings.ViewModels
                 RefreshSectionList();
                 _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
             });
-
             SaveCommand = new DelegateCommand(() =>
             {
                 _configService.SaveConfig();
@@ -189,32 +191,71 @@ namespace AVS_Modules_Settings.ViewModels
                 _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
                 _logger.Information("参数配置已保存");
             });
+            DeleteSectionCommand = new DelegateCommand(() =>
+            {
+                if (string.IsNullOrEmpty(SelectedSection))
+                {
+                    MessageBox.Show("请先选择一个 Section。", "提示",
+                                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
+                // 确认删除
+                var confirm = MessageBox.Show(
+                    $"确定要删除 Section \"{SelectedSection}\" 及其所有参数吗？",
+                    "删除确认",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
 
+                if (confirm != MessageBoxResult.Yes)
+                    return;
+
+                // 删除该 ModuleName 下的所有参数
+                var paramsToDelete = Parameters
+                    .Where(p => p.ModuleName == SelectedSection)
+                    .ToList();
+
+                foreach (var p in paramsToDelete)
+                {
+                    Parameters.Remove(p);
+                }
+
+                // 持久化
+                _configService.SaveConfig();
+
+                // 刷新 Section 列表（内部会调用 ValidateSelectedSection，自动选择新的 Section）
+                RefreshSectionList();
+
+                // 通知其他模块（如 StationConfigViewModel）刷新
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+
+                _logger.Information("Section {Section} 已删除", SelectedSection);
+            });
             BrowseDetModelCommand = new DelegateCommand(() =>
             {
                 var dialog = new Microsoft.Win32.OpenFileDialog
                 {
-                    Filter = "模型文件 (*.onnx;*.xml)|*.onnx;*.xml|所有文件 (*.*)|*.*",
+                    Filter = "模型文件 (*.onnx;*.mm;*.xml)|*.onnx;*.mm;*.xml|所有文件 (*.*)|*.*",
                     Title = "选择检测模型路径"
                 };
                 if (dialog.ShowDialog() == true)
                 {
                     DetModelPath = dialog.FileName;
+                    RaisePropertyChanged(nameof(DetModelPath));
                 }
             });
-
             BrowseSegModelCommand = new DelegateCommand(() =>
             {
                 var dialog = new Microsoft.Win32.OpenFileDialog
                 {
-                    Filter = "模型文件 (*.onnx;*.xml)|*.onnx;*.xml|所有文件 (*.*)|*.*",
+                    Filter = "模型文件 (*.onnx;*.mm;*.xml)|*.onnx;*.mm;*.xml|所有文件 (*.*)|*.*",
                     Title = "选择分割模型路径",
                     Multiselect = true
                 };
                 if (dialog.ShowDialog() == true)
                 {
                     SegModelPaths = string.Join(";", dialog.FileNames);
+                    RaisePropertyChanged(nameof(SegModelPaths));
                 }
             });
             BrowseImageSaveDirCommand = new DelegateCommand(() =>
@@ -231,15 +272,11 @@ namespace AVS_Modules_Settings.ViewModels
                     ImageSaveDir = System.IO.Path.GetDirectoryName(dialog.FileName);
                 }
             });
-
             // 生成空网格
             GenerateGridCommand = new DelegateCommand(() =>
             {
                 GenerateEmptyGrid();
             });
-
-          
-
             // 清除当前行
             ClearRowCommand = new DelegateCommand(() =>
             {
@@ -251,14 +288,12 @@ namespace AVS_Modules_Settings.ViewModels
                     p.IsEndPoint = false;
                 }
             });
-
             // 保存到 InspectOrder
             SaveToConfigCommand = new DelegateCommand(() =>
             {
                 SaveToConfig();
                 _logger.Information("检测顺序已保存到配方 {Index}", RecipeIndex);
             });
-
             Initialize();
         }
 
@@ -295,7 +330,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             var sections = Parameters
                 .Select(p => p.ModuleName)
-                .Where(s =>!string.IsNullOrEmpty(s) /*&& s != "Global"*/ )
+                .Where(s => !string.IsNullOrEmpty(s) && s != "Recipe" /*&& s != "Global"*/ )
                 .Distinct()
                 .OrderBy(s => s)
                 .ToList();
@@ -426,14 +461,12 @@ namespace AVS_Modules_Settings.ViewModels
                     if (first != null) first.IsStartPoint = true;
                     if (last != null && last != first) last.IsEndPoint = true;
                 }
-
                 // 如果该行已有至少两个有效极柱号，自动填充
                 TryAutoFill(item.Row);
             }
             else
             {
-                MessageBox.Show("请输入有效的整数序号。", "输入无效",
-                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("请输入有效的整数序号。", "输入无效", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -523,8 +556,7 @@ namespace AVS_Modules_Settings.ViewModels
                     $"位置 {second.Col + 1}：{second.PoleNumber}\n\n" +
                     $"计算得到步长：{step:F3}",
                     "无法自动填充",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -542,8 +574,8 @@ namespace AVS_Modules_Settings.ViewModels
                         $"计算应为：{expectedNumber}\n\n" +
                         $"请检查已经输入的极柱号。",
                         "无法自动填充",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
 
                     return;
                 }

@@ -137,6 +137,8 @@ namespace AVS_Common
             HWindow hw;
             try
             {
+                if (HsmartWindow.HalconID==-1)
+                    return;
                 hw = HsmartWindow.HalconWindow;
                 if (hw == null) return;
             }

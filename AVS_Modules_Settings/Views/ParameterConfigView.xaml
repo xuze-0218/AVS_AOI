@@ -22,7 +22,7 @@
                             Background="#F2F2F2"
                             BorderBrush="#CCCCCC"
                             BorderThickness="0,0,0,1"
-                            IsExpanded="False">
+                            IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Margin="5,2" Orientation="Horizontal">
                                     <TextBlock
@@ -72,6 +72,7 @@
                     <ColumnDefinition Width="180" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock
@@ -97,6 +98,14 @@
 
                 <Button
                     Grid.Column="3"
+                    Width="100"
+                    Margin="5,0"
+                    Background="#FFF0F0"
+                    Command="{Binding DeleteSectionCommand}"
+                    Content="删除当前Section"
+                    Foreground="#D32F2F" />
+                <Button
+                    Grid.Column="4"
                     Margin="5"
                     Padding="10,5"
                     Background="#D4EDDA"
@@ -121,43 +130,66 @@
                         AutoGenerateColumns="False"
                         CanUserAddRows="False"
                         CanUserDeleteRows="False"
-                        ColumnWidth="120"
                         HeadersVisibility="Column"
                         ItemsSource="{Binding ParametersView}"
                         SelectedItem="{Binding SelectedParameter}"
                         SelectionMode="Single">
+
                         <DataGrid.GroupStyle>
                             <GroupStyle ContainerStyle="{StaticResource GroupItemStyle}" />
                         </DataGrid.GroupStyle>
+
                         <DataGrid.Columns>
+                            <!--  所属模块  -->
                             <DataGridTextColumn
-                                Width="120"
+                                Width="Auto"
+                                MinWidth="80"
                                 Binding="{Binding ModuleName}"
                                 Foreground="#007ACC"
                                 Header="所属模块" />
+
+                            <!--  名称  -->
                             <DataGridTextColumn
-                                Width="100"
+                                Width="Auto"
+                                MinWidth="80"
                                 Binding="{Binding Name}"
                                 Header="名称" />
+
+                            <!--  表达式  -->
                             <DataGridTextColumn
-                                Width="120"
+                                Width="Auto"
+                                MinWidth="100"
                                 Binding="{Binding Expression}"
                                 Header="表达式" />
+
+                            <!--  注释：设为 * 宽度，填满剩余空间  -->
                             <DataGridTextColumn
-                                Width="100"
+                                Width="*"
+                                MinWidth="80"
                                 Binding="{Binding Note}"
                                 Header="注释" />
+
+                            <!--  初始值  -->
                             <DataGridTextColumn
-                                Width="70"
+                                Width="Auto"
+                                MinWidth="60"
                                 Binding="{Binding InitValue}"
                                 Header="初始值" />
+
+                            <!--  输出类型  -->
                             <DataGridComboBoxColumn
-                                Width="90"
+                                Width="Auto"
+                                MinWidth="80"
                                 EditingElementStyle="{StaticResource EnumComboStyle}"
                                 ElementStyle="{StaticResource EnumComboStyle}"
                                 Header="输出类型"
                                 SelectedItemBinding="{Binding OutputType}" />
-                            <DataGridTemplateColumn Width="100">
+
+                            <!--  删除按钮列（最后一列）  -->
+                            <DataGridTemplateColumn
+                                Width="Auto"
+                                MinWidth="50"
+                                Header="操作">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button

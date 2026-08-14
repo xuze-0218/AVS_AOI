@@ -212,7 +212,7 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param)
         {
-         
+
             var p = _paramService.GetStationParams(_stationId);
             HTuple matchParam = new HTuple();
             HOperatorSet.TupleConcat(matchParam, p.AngleStart, out matchParam);
@@ -258,8 +258,8 @@ namespace AVS_Core.Services
             var p = _paramService.GetStationParams(_stationId);
 
             paramDir = p.IsSquareBarWeldMark
-                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamA.json")
-                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamA.json");
+                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamA.json")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CircProductParamA.json");
             //加载并执行 LoadParam
             var loadProc = new HDevProcedure("LoadParam");
             var loadCall = new HDevProcedureCall(loadProc);
@@ -267,7 +267,7 @@ namespace AVS_Core.Services
             loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
             loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
             //这里先注释，报错了
-            //loadCall.Execute();
+            loadCall.Execute();
             loadCall.Dispose();
             loadProc.Dispose();
             //初始化Crop2d
@@ -459,7 +459,7 @@ namespace AVS_Core.Services
             loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
             loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
             loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-            //loadCall.Execute();
+            loadCall.Execute();
             loadCall.Dispose();
             loadProc.Dispose();
             //初始化Crop3d

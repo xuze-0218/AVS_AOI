@@ -2,9 +2,6 @@
 using MMDeploy;
 using OpenCvSharp;
 using Serilog;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace AVS_Core.Services
@@ -63,7 +60,7 @@ namespace AVS_Core.Services
 
         private bool _disposed;
 
-        public AiDriveService(string deviceName = "cuda", int deviceId = 0, ILogger logger = null)
+        public AiDriveService(string deviceName ="cpu" /*"cuda"*/, int deviceId = 0, ILogger logger = null)
         {
             _deviceName = deviceName;
             _deviceId = deviceId;

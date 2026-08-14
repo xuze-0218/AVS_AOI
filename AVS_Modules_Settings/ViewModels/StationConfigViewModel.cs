@@ -25,7 +25,11 @@ namespace AVS_Modules_Settings.ViewModels
             VisionDimension.TwoD,
             VisionDimension.ThreeD
         };
- 
+        /// <summary>
+        /// 工位原始ID
+        /// </summary>
+        private readonly Dictionary<StationConfig, string> _originalStationIds = new();
+
         public ICommand MoveUpCommand { get; }
         public ICommand MoveDownCommand { get; }
         public ICommand DeleteCommand { get; }
@@ -61,8 +65,24 @@ namespace AVS_Modules_Settings.ViewModels
                 .ObservesProperty(() => SelectedStation);
             DeleteCommand = new DelegateCommand<StationConfig>(OnDelete);
             AddCommand = new DelegateCommand(OnAdd);
-            SaveCommand = new DelegateCommand(() => _stationConfigService.Save());
+            SaveCommand = new DelegateCommand(() =>
+            {
+                foreach (var station in _stationConfigService.Stations)
+                {
+                    if (_originalStationIds.TryGetValue(station, out var oldId))
+                    {
+                        if (oldId != station.StationId)
+                        {
+                            RenameParamSection(oldId, station.StationId);
+                        }
+                    }
+                }
+
+                _stationConfigService.Save();
+                InitializeOriginalIds();   // 保存后刷新原始ID记录
+            });
             LoadCommand = new DelegateCommand(SyncWithCameras);
+            InitializeOriginalIds();
             RefreshCameraRoles();
             RefreshProductSections();
         }
@@ -150,6 +170,7 @@ namespace AVS_Modules_Settings.ViewModels
             };
             Stations.Add(newStation);
             EnsureDefaultParamsForStation(newStation.StationId);
+            _originalStationIds[newStation] = newStation.StationId;   // 记录原始ID
         }
 
         private void OnDelete(StationConfig station)
@@ -196,8 +217,45 @@ namespace AVS_Modules_Settings.ViewModels
                         CameraRole = role,
                     };
                     Stations.Add(newStation);
-                    EnsureDefaultParamsForStation(newStation.StationId); 
+                    EnsureDefaultParamsForStation(newStation.StationId); // 自动补全参数
+                    _originalStationIds[newStation] = newStation.StationId; // 记录原始ID
                 }
+            }
+        }
+
+        /// <summary>
+        /// 初始化或刷新原始ID记录（调用时机：构造函数、加载后、新增/同步后）
+        /// </summary>
+        private void InitializeOriginalIds()
+        {
+            _originalStationIds.Clear();
+            foreach (var station in Stations)
+            {
+                _originalStationIds[station] = station.StationId;
+            }
+        }
+
+        /// <summary>
+        /// 重命名参数模块：将旧Section名改为新Section名
+        /// </summary>
+        private void RenameParamSection(string oldId, string newId)
+        {
+            if (string.IsNullOrEmpty(oldId) || string.IsNullOrEmpty(newId) || oldId == newId)
+                return;
+
+            var paramsToRename = _paramService.ConfigParams
+                .Where(p => p.ModuleName == oldId)
+                .ToList();
+
+            foreach (var param in paramsToRename)
+            {
+                param.ModuleName = newId;
+            }
+
+            if (paramsToRename.Count > 0)
+            {
+                _paramService.SaveConfig();
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
             }
         }
     }
