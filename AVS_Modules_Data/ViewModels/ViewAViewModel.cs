@@ -19,7 +19,7 @@ namespace AVS_Modules_Data.ViewModels
 
         public ViewAViewModel()
         {
-            Message = "View A from your Prism Module";
+            Message = "View A from  Prism Module";
         }
     }
 }

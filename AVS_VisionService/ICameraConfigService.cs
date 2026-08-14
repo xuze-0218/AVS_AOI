@@ -50,13 +50,10 @@ namespace AVS_Service
         private readonly string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CameraSettings.json");
         private Dictionary<string, ICamera> _connectedCameras = new Dictionary<string, ICamera>();
         private List<CameraSettingModel> _settingsCache = new List<CameraSettingModel>();
-
-
-
         private Dictionary<string, CameraGrabContext> _grabContexts = new Dictionary<string, CameraGrabContext>();
+
         public IReadOnlyDictionary<string, ICamera> ConnectedCameras => _connectedCameras;
         public List<CameraSettingModel> AllSettings => _settingsCache;
-
         public CameraConfigService(ILogger logger, IEventAggregator eventAggregator)
         {
             _logger = logger;
@@ -94,18 +91,56 @@ namespace AVS_Service
 
         public void DisconnectCamera(string sn)
         {
+            _logger.Information("[DisconnectCamera] 开始断开相机 {SN}", sn);
             if (_grabContexts.TryGetValue(sn, out var ctx))
             {
-                ctx.Cts?.Cancel();
-                ctx.PtrQueue?.CompleteAdding(); // 释放阻塞队列
-                _grabContexts.Remove(sn);
+                _logger.Debug("[DisconnectCamera] 相机 {SN} 存在抓取上下文，准备停止", sn);
+                try
+                {
+                    _logger.Debug("[DisconnectCamera] 取消令牌 {SN}", sn);
+                    ctx.Cts?.Cancel();
+                    _logger.Debug("[DisconnectCamera] 关闭队列 {SN}", sn);
+                    ctx.PtrQueue?.CompleteAdding();
+
+                    if (ctx.ProcessingTask != null && !ctx.ProcessingTask.IsCompleted)
+                    {
+                        _logger.Debug("[DisconnectCamera] 等待处理任务结束 {SN}（最多3秒）", sn);
+                        bool finished = ctx.ProcessingTask.Wait(TimeSpan.FromSeconds(3));
+                        if (!finished)
+                            _logger.Warning("[DisconnectCamera] 处理任务未在3秒内结束，继续关闭 {SN}", sn);
+                        else
+                            _logger.Debug("[DisconnectCamera] 处理任务已结束 {SN}", sn);
+                    }
+
+                    _grabContexts.Remove(sn);
+                    _logger.Debug("[DisconnectCamera] 抓取上下文已移除 {SN}", sn);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "[DisconnectCamera] 停止抓取上下文异常 {SN}", sn);
+                }
             }
+            else
+                _logger.Debug("[DisconnectCamera] 相机 {SN} 没有抓取上下文", sn);
             if (_connectedCameras.TryGetValue(sn, out var camera))
             {
-                camera.CloseDevice();
+                _logger.Debug("[DisconnectCamera] 关闭相机设备 {SN} ...", sn);
+                try
+                {
+                    camera.CloseDevice();
+                    _logger.Debug("[DisconnectCamera] 相机设备已关闭 {SN}", sn);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "[DisconnectCamera] 关闭相机设备异常 {SN}", sn);
+                }
                 _connectedCameras.Remove(sn);
                 CameraStatusChanged?.Invoke(sn, false);
+                _logger.Information("[DisconnectCamera] 相机 {SN} 已从连接字典移除", sn);
             }
+            else
+                _logger.Warning("[DisconnectCamera] 相机 {SN} 不在连接字典中", sn);
+            _logger.Information("[DisconnectCamera] 相机 {SN} 断开流程结束", sn);
         }
 
         public void LoadSettings()

@@ -1,12 +1,8 @@
 ﻿using AVS_Drivers.Camera.Common.Enum;
 using AVS_Drivers.Camera.Common.Model;
 using AVS_Drivers.CameraSDKHelper.Common.Enum;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Windows.Markup;
+
 
 namespace AVS_Drivers.Camera.Mode
 {

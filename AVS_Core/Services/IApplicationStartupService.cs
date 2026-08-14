@@ -151,36 +151,65 @@ namespace AVS_Core.Services
         {
             try
             {
+                //取消事件订阅
                 if (_imageEventToken != null)
                 {
+                    _logger.Debug("取消图像事件订阅");
                     _eventAggregator.GetEvent<HImageDisplayEvent>().Unsubscribe(_imageEventToken);
                     _imageEventToken = null;
+                    _logger.Debug("图像事件订阅已取消");
                 }
+                //等待后台初始化任务
                 if (_backgroundInitializationTask != null && !_backgroundInitializationTask.IsCompleted)
                 {
                     _logger.Debug("等待后台初始化任务完成...");
                     var timeoutTask = Task.Delay(5000);
-                    var completedTask = await Task.WhenAny(_backgroundInitializationTask, timeoutTask);
+                    var completedTask = await Task.WhenAny(_backgroundInitializationTask, timeoutTask).ConfigureAwait(false);
                     if (completedTask == timeoutTask)
                     {
                         _logger.Warning("后台初始化任务超时未完成，强制继续关闭流程");
                     }
+                    else
+                    {
+                        _logger.Debug("后台初始化任务已完成");
+                    }
                 }
+                //释放所有相机
                 _logger.Debug("开始释放所有相机资源...");
                 var connectedSNs = _cameraConfigService.ConnectedCameras.Keys.ToList();
+                _logger.Information("准备断开 {Count} 台相机: {SNs}", connectedSNs.Count, string.Join(", ", connectedSNs));
                 foreach (var sn in connectedSNs)
                 {
-                    _cameraConfigService.DisconnectCamera(sn);
-                    _logger.Information($"相机 {sn} 已断开连接");
+                    _logger.Information("开始断开相机 {SN} ...", sn);
+                    try
+                    {
+                        _cameraConfigService.DisconnectCamera(sn);
+                        _logger.Information("相机 {SN} 断开完成", sn);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "断开相机 {SN} 异常", sn);
+                    }
                 }
-
+                _logger.Information("所有相机断开流程结束");
+                //停止通讯服务
                 _logger.Debug("停止通讯服务");
                 foreach (var station in _stationConfigService.Stations)
                 {
-                    _communicationService?.Stop(station.StationId);
+                    _logger.Debug("停止工位 {StationId} 通讯", station.StationId);
+                    try
+                    {
+                        _communicationService?.Stop(station.StationId);
+                        _logger.Debug("工位 {StationId} 通讯已停止", station.StationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "停止工位 {StationId} 通讯异常", station.StationId);
+                    }
                 }
-
-                await Task.Delay(300);
+                _logger.Information("所有通讯服务已停止");
+                //延迟和GC
+                await Task.Delay(300).ConfigureAwait(false);
 
                 //确保Halcon非托管内存被回收
                 GC.Collect();

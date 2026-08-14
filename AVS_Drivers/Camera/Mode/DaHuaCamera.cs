@@ -1,9 +1,6 @@
 ﻿using AVS_Drivers.Camera.Common.Enum;
 using AVS_Drivers.CameraSDKHelper.Common.Enum;
-using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Threading;
 using ThridLibray;
 
 namespace AVS_Drivers.Camera.Mode
