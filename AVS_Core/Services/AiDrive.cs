@@ -60,7 +60,7 @@ namespace AVS_Core.Services
 
         private bool _disposed;
 
-        public AiDriveService(string deviceName ="cpu" /*"cuda"*/, int deviceId = 0, ILogger logger = null)
+        public AiDriveService(string deviceName = "cuda", int deviceId = 0, ILogger logger = null)
         {
             _deviceName = deviceName;
             _deviceId = deviceId;
@@ -318,7 +318,7 @@ namespace AVS_Core.Services
                     mats[0].Data = mat.DataPointer;
                     mats[0].Height = mat.Height;
                     mats[0].Width = mat.Width;
-                    mats[0].Channel = mat.Dims;
+                    mats[0].Channel = mat.Dims();
                     mats[0].Format = PixelFormat.Grayscale;
                     mats[0].Type = DataType.Int8;
                     mats[0].Device = null;
@@ -355,7 +355,7 @@ namespace AVS_Core.Services
                     mats[0].Data = mat.DataPointer;
                     mats[0].Height = mat.Height;
                     mats[0].Width = mat.Width;
-                    mats[0].Channel = mat.Dims;
+                    mats[0].Channel = mat.Dims();
                     mats[0].Format = PixelFormat.BGR;
                     mats[0].Type = DataType.Int8;
                     mats[0].Device = null;

@@ -3,15 +3,8 @@ using AVS_Core.Models;
 using AVS_Service;
 using AVS_Service.Models;
 using HalconDotNet;
-using OpenCvSharp.LineDescriptor;
 using Serilog;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AVS_Core.Services
 {

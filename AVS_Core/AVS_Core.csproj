@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -8,10 +8,6 @@
     <Platforms>AnyCPU;x64</Platforms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="OpenCvSharp4" Version="4.10.0.20241108" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
@@ -25,7 +21,10 @@
       <HintPath>..\AVS_Common\bin\Debug\net8.0-windows\hdevenginedotnet.dll</HintPath>
     </Reference>
     <Reference Include="MMDeployCSharp">
-      <HintPath>..\AVS_App\bin\x64\Debug\net8.0-windows\MMDeployCSharp.dll</HintPath>
+      <HintPath>bin\x64\Debug\net8.0-windows\MMDeployCSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenCvSharp">
+      <HintPath>bin\x64\Debug\net8.0-windows\OpenCvSharp.dll</HintPath>
     </Reference>
   </ItemGroup>
 
