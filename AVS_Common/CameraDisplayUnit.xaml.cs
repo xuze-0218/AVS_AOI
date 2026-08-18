@@ -76,28 +76,39 @@ namespace AVS_Common
         private void TryRegister()
         {
             if (_isRegistered) return;
-            if (DataContext is CameraDisplayItem item && !string.IsNullOrEmpty(item.CameraRoleName))
+
+            string roleName = CameraRoleName;
+            if (string.IsNullOrEmpty(roleName) && DataContext is CameraDisplayItem item)
             {
-                if (HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0)
-                    return;
-                try
+                roleName = item.CameraRoleName;
+            }
+
+            if (HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0)
+                return;
+
+            try
+            {
+                var hWindow = HsmartWindow.HalconWindow;
+                if (hWindow == null || !hWindow.IsInitialized()) return;
+
+                HalconWindow = hWindow;
+
+                // 只有角色名有效时才注册
+                if (!string.IsNullOrEmpty(roleName))
                 {
-                    var hWindow = HsmartWindow.HalconWindow;
-                    if (hWindow == null || !hWindow.IsInitialized()) return;
-                    HalconWindow = hWindow;
-                    WindowHandleEvent.RaiseHandleRegistered(item.CameraRoleName, hWindow);
-                    _isRegistered = true;
+                    WindowHandleEvent.RaiseHandleRegistered(roleName, hWindow);
+                    _isRegistered = true;  // 仅在注册成功后标记
                 }
-                catch (HalconException)
+                else
                 {
-                    // HALCON 窗口未就绪，标记未注册，下次事件触发时重试
+                    // 角色名为空时，仅缓存句柄，但不标记为已注册，以便后续角色名有效时再次尝试
                     _isRegistered = false;
                 }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"CameraDisplayUnit.TryRegister failed: {ex.Message}");
-                    _isRegistered = false;
-                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TryRegister failed: {ex.Message}");
+                _isRegistered = false;
             }
         }
 
@@ -121,6 +132,31 @@ namespace AVS_Common
             DependencyProperty.Register("DispRegion", typeof(HObject), typeof(CameraDisplayUnit),
                 new PropertyMetadata(null, OnHObjectChanged));
 
+        public string CameraRoleName
+        {
+            get => (string)GetValue(CameraRoleNameProperty);
+            set => SetValue(CameraRoleNameProperty, value);
+        }
+
+        public static readonly DependencyProperty CameraRoleNameProperty =
+    DependencyProperty.Register(
+        nameof(CameraRoleName),
+        typeof(string),
+        typeof(CameraDisplayUnit),
+        new PropertyMetadata(null, OnCameraRoleNameChanged));
+
+        private static void OnCameraRoleNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var control = (CameraDisplayUnit)d;
+            if (!string.IsNullOrEmpty(control.CameraRoleName) && control.IsLoaded &&
+                control.HsmartWindow.ActualWidth > 0 && control.HsmartWindow.ActualHeight > 0)
+            {
+                // 角色名已变化，重新注册窗口句柄
+                control._isRegistered = false;
+                control.TryRegister();
+            }
+        }
+
         private static void OnHObjectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var control = d as CameraDisplayUnit;
@@ -133,36 +169,37 @@ namespace AVS_Common
             // 会触发 HALCON 内部 HInitializeWindow → open_window，若 size=0 则抛出
             if (!IsLoaded || HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0)
                 return;
+            // 如果缓存句柄为空，尝试获取（内部会检查尺寸并安全获取）
+            if (HalconWindow == null)
+            {
+                TryRegister();
+            }
+            HWindow hw = HalconWindow;
+            if (hw == null || !hw.IsInitialized())
+                return;
 
-            HWindow hw;
             try
             {
-                if (HsmartWindow.HalconID==-1)
-                    return;
-                hw = HsmartWindow.HalconWindow;
-                if (hw == null) return;
-            }
-            catch (HalconException)
-            {
-                // HALCON 窗口初始化失败（如尺寸 0），延迟重试
-                return;
-            }
+                hw.ClearWindow();
 
-            hw.ClearWindow();
+                if (DispImage != null && DispImage.IsInitialized())
+                {
+                    HOperatorSet.GetImageSize(DispImage, out HTuple width, out HTuple height);
+                    SetPartKeepAspectRatio(hw, (int)width, (int)height);
+                    hw.DispObj(DispImage);
+                }
 
-            if (DispImage != null && DispImage.IsInitialized())
-            {
-                HOperatorSet.GetImageSize(DispImage, out HTuple width, out HTuple height);
-                SetPartKeepAspectRatio(hw, (int)width, (int)height);
-                hw.DispObj(DispImage);
+                if (DispRegion != null && DispRegion.IsInitialized() && DispRegion.CountObj() > 0)
+                {
+                    hw.SetColor("green");
+                    hw.SetLineWidth(2);
+                    hw.SetDraw("margin");
+                    hw.DispObj(DispRegion);
+                }
             }
-
-            if (DispRegion != null && DispRegion.IsInitialized() && DispRegion.CountObj() > 0)
+            catch (Exception ex)
             {
-                hw.SetColor("green");
-                hw.SetLineWidth(2);
-                hw.SetDraw("margin");
-                hw.DispObj(DispRegion);
+                System.Diagnostics.Debug.WriteLine($"UpdateDisplay failed: {ex.Message}");
             }
         }
 
@@ -214,7 +251,7 @@ namespace AVS_Common
                 menu.Items.Add(inspectItem);
                 var calibItem = new MenuItem { Header = "标定测试" };
                 calibItem.Command = item.CalibTestCommand;
-                menu.Items.Add(calibItem);        
+                menu.Items.Add(calibItem);
                 menu.PlacementTarget = TestButton;
                 menu.IsOpen = true;
             }

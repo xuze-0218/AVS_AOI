@@ -164,8 +164,19 @@ namespace AVS_App
                     MessageBoxImage.Warning);
                 return;
             }
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
 
             base.OnStartup(e);
+        }
+
+        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            if (e.Exception is NullReferenceException &&
+                e.Exception.Source == "halcondotnet")
+            {
+                e.Handled = true;
+                Environment.Exit(0);
+            }
         }
     }
 }

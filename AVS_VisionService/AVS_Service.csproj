@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <Reference Include="halcondotnet">
-      <HintPath>..\AVS_Common\bin\Debug\net8.0-windows\halcondotnet.dll</HintPath>
+      <HintPath>..\AVS_Common\bin\x64\Debug\net8.0-windows\halcondotnet.dll</HintPath>
     </Reference>
   </ItemGroup>
 

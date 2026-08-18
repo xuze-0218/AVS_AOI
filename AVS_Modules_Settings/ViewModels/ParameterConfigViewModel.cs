@@ -76,6 +76,10 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     _lastModuleName = value ?? _lastModuleName;
                     RefreshFilter();
+
+                    // 关键：通知依赖属性已变化
+                    RaisePropertyChanged(nameof(DetModelPath));
+                    RaisePropertyChanged(nameof(SegModelPaths));
                 }
             }
         }
