@@ -7,15 +7,15 @@ using AVS_Drivers.CameraSDKHelper.Common.Enum;
 
 namespace AVS_Drivers.Camera.Mode
 {
-    public class Hik3DCamera : BaseCamera, IDisposable
+    internal class Hik3DCamera : BaseCamera, IDisposable
     {
         private IntPtr _handle = IntPtr.Zero;
         private ImageDataCallBackHandle _imageCallback;
         private bool _isGrabbing = false;
 
         // 缓冲区
-        private byte[] _depthBuffer = new byte[1024 * 1024 * 30]; // 默认30MB
-        private byte[] _intensityBuffer = new byte[1024 * 1024 * 30];
+        private byte[] _depthBuffer = new byte[1024 * 1024 * 50]; // 默认50MB
+        private byte[] _intensityBuffer = new byte[1024 * 1024 * 50];
         private readonly object _bufferLock = new object();
 
         // 图像模式枚举（对应SDK）

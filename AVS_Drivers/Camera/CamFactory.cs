@@ -34,6 +34,9 @@ namespace AVS_Drivers.Camera
                 case CameraBrand.HIK3D:
                     camera = new Hik3DCamera();
                     break;
+                case CameraBrand.LMI3D:
+                    camera = new Lmi3DCamera();
+                    break;
                 default: break;
             }
             return camera?.GetListEnum();

@@ -6,6 +6,8 @@
         HIK,
 
         HIK3D,
+
+        LMI3D,
         /// <summary>
         /// 大恒相机
         /// </summary>

@@ -6,6 +6,7 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x64</Platforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,8 +20,17 @@
     <Reference Include="DVPCameraCS64">
       <HintPath>Camera\Comlib\DVPCameraCS64.dll</HintPath>
     </Reference>
+    <Reference Include="GoSdkNet">
+      <HintPath>bin\x64\Debug\net8.0-windows\GoSdkNet.dll</HintPath>
+    </Reference>
     <Reference Include="GxIAPINET">
       <HintPath>Camera\Comlib\GxIAPINET.dll</HintPath>
+    </Reference>
+    <Reference Include="kApiNet">
+      <HintPath>bin\x64\Debug\net8.0-windows\kApiNet.dll</HintPath>
+    </Reference>
+    <Reference Include="kglib.NET">
+      <HintPath>bin\x64\Debug\net8.0-windows\kglib.NET.dll</HintPath>
     </Reference>
     <Reference Include="Mv3dLpNet">
       <HintPath>bin\x64\Debug\net8.0-windows\Mv3dLpNet.dll</HintPath>
