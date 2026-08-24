@@ -1,12 +1,14 @@
 ﻿using AVS_Drivers.Camera.Common.Enum;
 using AVS_Drivers.Camera.Common.Model;
 using AVS_Drivers.CameraSDKHelper.Common.Enum;
+using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
-
+using System.Threading;
 
 namespace AVS_Drivers.Camera.Mode
 {
-    internal abstract class BaseCamera : ICamera
+    public abstract class BaseCamera : ICamera
     {
         protected BaseCamera()
         {
@@ -24,6 +26,11 @@ namespace AVS_Drivers.Camera.Mode
         protected Action<IntPtr> ActionGetImage { get; set; }
 
         protected AutoResetEvent ResetGetImageSignal = new AutoResetEvent(false);
+
+        /// <summary>
+        /// 获取亮度图像数据(3D)
+        /// </summary>
+        public event Action<IntPtr> IntensityImageReceived;
         protected IntPtr CallBaclImg { get; set; }
 
         private readonly CameraInfoModel _imageInfo = new CameraInfoModel();
@@ -251,6 +258,11 @@ namespace AVS_Drivers.Camera.Mode
         /// <returns></returns>
         protected abstract bool StopGrabbing();
 
+
+        protected void OnIntensityImageReceived(IntPtr data)
+        {
+            IntensityImageReceived?.Invoke(data);
+        }
         private void ResetActionImageSignal(IntPtr data)
         {
             CallBaclImg = data;

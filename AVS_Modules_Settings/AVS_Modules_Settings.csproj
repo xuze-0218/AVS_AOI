@@ -4,6 +4,7 @@
     <UseWPF>true</UseWPF>
 	  <UseWindowsForms>true</UseWindowsForms>
     <Platforms>AnyCPU;x64</Platforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="ViewModels\PreviousTempAndCaliDebugViewModel.cs" />

@@ -1,6 +1,7 @@
 ﻿using AVS_Common.Events;
 using AVS_Drivers.Camera;
 using AVS_Drivers.Camera.Common.Enum;
+using AVS_Drivers.Camera.Mode;
 using AVS_Service.Models;
 using HalconDotNet;
 using Newtonsoft.Json;
@@ -51,6 +52,7 @@ namespace AVS_Service
         private Dictionary<string, ICamera> _connectedCameras = new Dictionary<string, ICamera>();
         private List<CameraSettingModel> _settingsCache = new List<CameraSettingModel>();
         private Dictionary<string, CameraGrabContext> _grabContexts = new Dictionary<string, CameraGrabContext>();
+        private Dictionary<string, Action<IntPtr>> _intensityHandlers = new Dictionary<string, Action<IntPtr>>();
 
         public IReadOnlyDictionary<string, ICamera> ConnectedCameras => _connectedCameras;
         public List<CameraSettingModel> AllSettings => _settingsCache;
@@ -127,6 +129,14 @@ namespace AVS_Service
                 _logger.Debug("[DisconnectCamera] 关闭相机设备 {SN} ...", sn);
                 try
                 {
+                    if (camera is Hik3DCamera hikCamera)
+                    {
+                        if (_intensityHandlers.TryGetValue(sn, out var handler))
+                        {
+                            hikCamera.IntensityImageReceived -= handler;
+                            _intensityHandlers.Remove(sn);
+                        }
+                    }
                     camera.CloseDevice();
                     _logger.Debug("[DisconnectCamera] 相机设备已关闭 {SN}", sn);
                 }
@@ -259,6 +269,14 @@ namespace AVS_Service
             };
 
             _grabContexts[sn] = ctx;
+
+            if (camera is Hik3DCamera hikCamera)
+            {
+                Action<IntPtr> handler = ptr => { /* 处理亮度图，可放入队列或直接发布 */ };
+                _intensityHandlers[sn] = handler;
+                hikCamera.IntensityImageReceived += handler;
+            }
+
             ctx.ProcessingTask = Task.Run(() =>
             {
                 try
@@ -298,17 +316,24 @@ namespace AVS_Service
                     img = ConvertToImage8(ptr, info.Width, info.Height);
                 else if (info.PixelFormat == CamPixelFormat.Rgb8)
                     img = ConvertToImage24(ptr, info.Width, info.Height);
+                else if (info.PixelFormat == CamPixelFormat.Depth)
+                    img = ConvertToImageDepth(ptr, info.Width, info.Height);
                 if (img != null && img.IsInitialized())
                 {
+                    _logger.Information("相机 {SN} 回调产生图像，准备发布", camera.SN);
                     _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
                     {
                         CameraSN = camera.SN,
-                        Image = img.Clone()//发布副本，避免Halcon对象被Dispose后引用失效
+                        Image = img
                     });
                 }
             }
-            catch (Exception ex) { _logger.Error(ex, "图像解析失败"); }
-            finally { img?.Dispose(); }
+            catch (Exception ex) { _logger.Error(ex, "图像解析失败"); img?.Dispose(); }
+            finally
+            {
+                img.Dispose();
+                img = null;
+            }
         }
 
         public void SetCameraAcquisitionMode(string sn, AcquisitionMode mode)
@@ -446,6 +471,12 @@ namespace AVS_Service
             //HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
             HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, -1, "byte", 0, 0, 0, 0, -1, 0);
             return colorImage;
+        }
+
+        private HObject ConvertToImageDepth(IntPtr pImageBuf, int nWidth, int nHeight)
+        {
+            HOperatorSet.GenImage1(out HObject image, "int2", nWidth, nHeight, pImageBuf);
+            return image;
         }
 
     }

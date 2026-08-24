@@ -13,7 +13,10 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace AVS_Modules_Settings.ViewModels
 {
@@ -148,9 +151,22 @@ namespace AVS_Modules_Settings.ViewModels
                     _currentDebugImage.Dispose();
                 }
                 SetProperty(ref _currentDebugImage, value?.Clone());
+
+                // 当收到新图像时，自动转为 WPF 的 BitmapSource
+                if (_currentDebugImage != null && _currentDebugImage.IsInitialized())
+                {
+                    DisplayBitmapSource = HObjectToBitmapSource(_currentDebugImage);
+                }
             }
         }
 
+
+        private BitmapSource _displayBitmapSource;
+        public BitmapSource DisplayBitmapSource
+        {
+            get => _displayBitmapSource;
+            set => SetProperty(ref _displayBitmapSource, value);
+        }
         #endregion
 
 
@@ -168,7 +184,6 @@ namespace AVS_Modules_Settings.ViewModels
             SoftTriggerCommand = new DelegateCommand(ExecuteSoftTrigger).ObservesCanExecute(() => CanSoftTrigger);
             GetParamCommand = new DelegateCommand(ExecuteGetParam).ObservesCanExecute(() => IsConnected);
             SetParamCommand = new DelegateCommand(ExecuteSetParam).ObservesCanExecute(() => IsConnected);
-            SaveImageCommand = new DelegateCommand<string>(ExecuteSaveImage).ObservesCanExecute(() => IsConnected);
 
             TriggerSources = new List<TriggerSource>((TriggerSource[])Enum.GetValues(typeof(TriggerSource)));
             SelectedTriggerSource = TriggerSource.Software;
@@ -178,19 +193,30 @@ namespace AVS_Modules_Settings.ViewModels
             SyncConfigToUI();
             _imageSubToken = _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(payload =>
             {
-                //若界面不可见，则不订阅图像显示事件，避免后台占用过多资源
                 if (!_isActiveView) return;
-                //如果是PLC触发拍照，调试界面不刷新
                 if (!this.IsGrabbing) return;
-                Application.Current.Dispatcher.Invoke(() =>
+                if (payload.CameraSN != SelectedDevice)
+                    return;
+                var image = payload.Image?.Clone();
+                if (image == null || !image.IsInitialized())
                 {
-                    if (payload.CameraSN == SelectedDevice)
+                    image?.Dispose();
+                    return;
+                }
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
-                        CurrentDebugImage = payload.Image;
-                    }
-                });
+                        CurrentDebugImage = image;
+                        image = null;
+                    });
+                }
+                finally
+                {
+                    // Dispatcher执行失败时释放
+                    image?.Dispose();
+                }
             });
-
         }
 
         #region Commands
@@ -216,7 +242,6 @@ namespace AVS_Modules_Settings.ViewModels
             }
             catch (Exception ex) { StatusMessage = $"搜索异常: {ex.Message}"; }
         }
-
         private void ExecuteInit()
         {
             _logger.Information("初始化相机");
@@ -245,7 +270,6 @@ namespace AVS_Modules_Settings.ViewModels
             StatusMessage = $"相机已连接: {realSn}";
             ExecuteGetParam();
         }
-
         private void ExecuteClose()
         {
             if (_camera != null)
@@ -260,7 +284,6 @@ namespace AVS_Modules_Settings.ViewModels
                 StatusMessage = "调试连接已断开";
             }
         }
-
         private void ExecuteStartGrab()
         {
             // 委托服务切换模式
@@ -269,7 +292,6 @@ namespace AVS_Modules_Settings.ViewModels
             IsGrabbing = true;
             StatusMessage = IsContinuousMode ? "连续采图中..." : "等待触发中...";
         }
-
         private void ExecuteStopGrab()
         {
             if (_camera == null || !IsGrabbing) return;
@@ -279,7 +301,6 @@ namespace AVS_Modules_Settings.ViewModels
             IsGrabbing = false;
             StatusMessage = "采集已停止，已恢复软触发";
         }
-
         private void ExecuteSoftTrigger()
         {
             if (!IsGrabbing) return;
@@ -295,7 +316,6 @@ namespace AVS_Modules_Settings.ViewModels
                 if (config != null) { ExposureTime = (short)config.ExpouseTime; Gain = config.Gain; StatusMessage = "参数读取成功"; }
             }
         }
-
         private void ExecuteSetParam()
         {
             if (_camera != null && IsConnected)
@@ -320,11 +340,6 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        private void ExecuteSaveImage(string format)
-        {
-            StatusMessage = "调试模式暂不支持直接保存，请通过主程序保存";
-        }
-
         private void SyncConfigToUI()
         {
             if (_currentConfig == null) return;
@@ -347,25 +362,16 @@ namespace AVS_Modules_Settings.ViewModels
             }
             SelectedTriggerSource = _currentConfig.TriggerSource;
         }
-
         public void OnNavigatedTo(NavigationContext navigationContext)
         {
             _isActiveView = true; // 页面切入时激活
             SyncDeviceStatusFromService();
         }
-
         public bool IsNavigationTarget(NavigationContext navigationContext) => true;
-
         public void OnNavigatedFrom(NavigationContext navigationContext)
         {
-            _isActiveView = false; // 页面切出时停用
-            if (_imageSubToken != null)
-            {
-                _eventAggregator.GetEvent<HImageDisplayEvent>().Unsubscribe(_imageSubToken);
-                _imageSubToken = null;
-            }
+            _isActiveView = false;
         }
-
         private void SyncDeviceStatusFromService()
         {
             if (_cameraConfigService.ConnectedCameras.Count > 0)
@@ -387,6 +393,64 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
         #endregion
+        private BitmapSource HObjectToBitmapSource(HObject ho_image)
+        {
+            HObject ho_byteImage = null;
+            try
+            {
+                HOperatorSet.ConvertImageType(ho_image, out ho_byteImage, "byte");
+                HOperatorSet.CountChannels(ho_byteImage, out HTuple channels);
+                HOperatorSet.GetImageSize(ho_byteImage, out HTuple width, out HTuple height);
 
+                int w = width.I;
+                int h = height.I;
+                BitmapSource bitmapSource = null;
+
+                if (channels.I == 1)
+                {
+                    HOperatorSet.GetImagePointer1(ho_byteImage, out HTuple pointer, out HTuple type, out width, out height);
+                    bitmapSource = BitmapSource.Create(w, h, 96, 96, PixelFormats.Gray8, null, pointer.IP, w * h, w);
+                }
+                else if (channels.I >= 3)
+                {
+                    HOperatorSet.GetImagePointer3(ho_byteImage, out HTuple red, out HTuple green, out HTuple blue, out HTuple type, out width, out height);
+                    bitmapSource = ConvertRgbImage(red, green, blue, w, h);
+                }
+
+                bitmapSource?.Freeze(); // 跨线程安全冻结
+                return bitmapSource;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "HObjectToBitmapSource 转换异常");
+                return null;
+            }
+            finally
+            {
+                ho_byteImage?.Dispose();
+            }
+        }
+        private BitmapSource ConvertRgbImage(IntPtr red, IntPtr green, IntPtr blue, int width, int height)
+        {
+            int stride = width * 3;
+            byte[] rgbData = new byte[stride * height];
+
+            unsafe
+            {
+                byte* pR = (byte*)red.ToPointer();
+                byte* pG = (byte*)green.ToPointer();
+                byte* pB = (byte*)blue.ToPointer();
+                byte* pDest = (byte*)Marshal.UnsafeAddrOfPinnedArrayElement(rgbData, 0).ToPointer();
+
+                for (int i = 0; i < width * height; i++)
+                {
+                    pDest[i * 3 + 2] = pR[i];
+                    pDest[i * 3 + 1] = pG[i];
+                    pDest[i * 3 + 0] = pB[i];
+                }
+            }
+
+            return BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr24, null, rgbData, stride);
+        }
     }
 }

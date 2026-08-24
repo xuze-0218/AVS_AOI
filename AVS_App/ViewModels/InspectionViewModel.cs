@@ -7,13 +7,16 @@ using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using Prism.Regions;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 
 
 namespace AVS_App.ViewModels
 {
-    public class InspectionViewModel : BindableBase, INavigationAware
+    public class InspectionViewModel : BindableBase
     {
         /// <summary>
         /// 导航日志，记录页面内的导航历史，支持前进后退
@@ -37,7 +40,6 @@ namespace AVS_App.ViewModels
 
         public InspectionViewModel(
             IEventAggregator eventAggregator,
-            ICameraConfigService cameraService,
             IStationConfigService stationConfigService,
             ICameraConfigService cameraConfigService,
             ILocalTestService localTestService)
@@ -49,23 +51,26 @@ namespace AVS_App.ViewModels
             CameraDisplayList = new ObservableCollection<CameraDisplayItem>();
 
             //根据配置加载相机窗体数量
-            InitializeLayout(cameraService.AllSettings);
-            _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageReceived,ThreadOption.UIThread);
+            InitializeLayout(_cameraConfigService.AllSettings);
+            _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageReceived, ThreadOption.PublisherThread);
         }
 
         private void OnImageReceived(CameraImagePayload payload)
         {
             var targetCam = CameraDisplayList.FirstOrDefault(x => x.PhysicalSN == payload.CameraSN);
-            if (targetCam != null)
+            if (targetCam == null)
+                return;
+
+            if (payload.Image == null || !payload.Image.IsInitialized())
+                return;
+            var image = payload.Image.Clone();
+            if (payload.ImageType == CameraImageType.Processed)
             {
-                if (payload.ImageType == CameraImageType.Processed)
-                    targetCam.ProcessedImage = payload.Image;
-                else
-                    targetCam.RawImage = payload.Image;
+                targetCam.ProcessedImage = image;
             }
             else
             {
-                payload.Image?.Dispose();                    // 没用到就释放
+                targetCam.RawImage = image;
             }
         }
 
@@ -122,17 +127,17 @@ namespace AVS_App.ViewModels
 
         }
 
-        public void OnNavigatedTo(NavigationContext navigationContext)
-        {
-            //获取导航日志
-            _journal = navigationContext.NavigationService.Journal;
-            //刷新命令的状态
-            GoBackCommand.RaiseCanExecuteChanged();
-        }
+        //public void OnNavigatedTo(NavigationContext navigationContext)
+        //{
+        //    //获取导航日志
+        //    _journal = navigationContext.NavigationService.Journal;
+        //    //刷新命令的状态
+        //    GoBackCommand.RaiseCanExecuteChanged();
+        //}
 
-        public bool IsNavigationTarget(NavigationContext navigationContext) => true;
+        //public bool IsNavigationTarget(NavigationContext navigationContext) => true;
 
-        public void OnNavigatedFrom(NavigationContext navigationContext) { }
+        //public void OnNavigatedFrom(NavigationContext navigationContext) { }
 
     }
 }

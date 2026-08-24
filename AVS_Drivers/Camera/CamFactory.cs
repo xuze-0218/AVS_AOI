@@ -31,6 +31,9 @@ namespace AVS_Drivers.Camera
                     break;
                 case CameraBrand.Basler:
                     break;
+                case CameraBrand.HIK3D:
+                    camera = new Hik3DCamera();
+                    break;
                 default: break;
             }
             return camera?.GetListEnum();

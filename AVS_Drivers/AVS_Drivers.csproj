@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -21,6 +21,9 @@
     </Reference>
     <Reference Include="GxIAPINET">
       <HintPath>Camera\Comlib\GxIAPINET.dll</HintPath>
+    </Reference>
+    <Reference Include="Mv3dLpNet">
+      <HintPath>bin\x64\Debug\net8.0-windows\Mv3dLpNet.dll</HintPath>
     </Reference>
     <Reference Include="MvCamCtrl.Net">
       <HintPath>Camera\Comlib\MvCamCtrl.Net.dll</HintPath>

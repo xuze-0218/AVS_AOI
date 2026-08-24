@@ -57,8 +57,13 @@
             BorderThickness="1"
             CornerRadius="3">
             <Grid>
-                <comm:CameraDisplayUnit DispImage="{Binding CurrentDebugImage}" />
-
+                <!--<comm:CameraDisplayUnit MinHeight="300" MinWidth="400" DispImage="{Binding CurrentDebugImage}" CameraRoleName="{Binding CameraRoleName}"  />-->
+                <!--<halcon:HSmartWindowControlWPF x:Name="DebugHWindow" HInitWindow="DebugHWindow_HInitWindow"    HKeepAspectRatio="True" />-->
+                <Image
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Source="{Binding DisplayBitmapSource}"
+                    Stretch="Uniform" />
                 <TextBlock
                     Margin="10"
                     HorizontalAlignment="Left"

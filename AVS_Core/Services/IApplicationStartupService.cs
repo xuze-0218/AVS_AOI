@@ -82,27 +82,29 @@ namespace AVS_Core.Services
         {
             try
             {
-                var camSetting = _cameraConfigService.AllSettings
-                    .FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
-
+                _logger.Information("收到相机图像事件: SN={SN}", payload.CameraSN);
+                var camSetting = _cameraConfigService.AllSettings.FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
                 if (camSetting == null)
                 {
                     _logger.Warning("未配置的相机SN: {SN}，图像丢弃", payload.CameraSN);
                     return;
                 }
-
                 var station = _stationConfigService.GetStationByCameraRole(camSetting.CameraRole);
                 if (station == null || string.IsNullOrEmpty(station.StationId))
                 {
                     _logger.Warning("未找到相机角色 {Role} 对应的工位", camSetting.CameraRole);
                     return;
                 }
-
+                //var imageForQueue = payload.Image?.Clone();
+                //if (imageForQueue != null)
+                //{
+                //    _sessionService.EnqueueImage(station.StationId, imageForQueue);
+                //    imageForQueue.Dispose(); // EnqueueImage 内部会再次克隆，这个临时克隆可以释放
+                //}
                 _sessionService.EnqueueImage(station.StationId, payload.Image);
             }
             finally
             {
-                payload.Image?.Dispose();  // 无论是否匹配成功，都释放
             }
         }
 

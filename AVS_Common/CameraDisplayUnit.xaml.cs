@@ -159,6 +159,7 @@ namespace AVS_Common
 
         private static void OnHObjectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
+            
             var control = d as CameraDisplayUnit;
             control.UpdateDisplay();
         }

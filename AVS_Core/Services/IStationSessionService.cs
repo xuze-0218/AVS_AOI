@@ -142,6 +142,8 @@ namespace AVS_Core.Services
             {
                 if (_sessions.TryGetValue(stationId, out var state) && state.IsActive)
                 {
+                    _logger.Information("EnqueueImage: 工位={StationId}, 时间={Time}, 当前队列长度={QueueLength}, 已接收={Received}/{Total}",
+               stationId, DateTime.Now.ToString("HH:mm:ss.fff"), state.ImageQueue.Count, state.ReceivedCount, state.PoleOrder?.Length ?? -1);
                     if (state.WorkType == SessionWorkType.Inspect)
                     {
                         if (state.ReceivedCount >= state.PoleOrder.Length)
@@ -159,7 +161,7 @@ namespace AVS_Core.Services
             }
             finally
             {
-                image.Dispose();
+                //image.Dispose();
             }
         }
 

@@ -1,4 +1,8 @@
-﻿namespace AVS_Drivers.Camera.Common.Enum
+﻿using System.Reflection.Metadata;
+using System.Threading;
+using System.Windows.Xps.Packaging;
+
+namespace AVS_Drivers.Camera.Common.Enum
 {
     public enum TriggerSource
     {
@@ -11,5 +15,9 @@
         Line5,
     }
 }
+
+
+
+
 
 

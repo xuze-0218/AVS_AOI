@@ -4,6 +4,8 @@
     {
     
         HIK,
+
+        HIK3D,
         /// <summary>
         /// 大恒相机
         /// </summary>
@@ -24,7 +26,8 @@
     {
         Mono8,
         Rgb8,
-        BayerRG8
+        BayerRG8,
+        Depth
     }
 }
 

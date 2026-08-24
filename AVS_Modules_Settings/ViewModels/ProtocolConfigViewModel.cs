@@ -299,7 +299,8 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void LoadFieldsToUI(List<ProtocolField> inputs, List<ProtocolField> outputs)
         {
-            //InputFields = new ObservableCollection<ProtocolField>(CloneFields(inputs));
+            //InputFields = new ObservableCollection<ProtocolField>(
+            //Fields(inputs));
             //OutputFields = new ObservableCollection<ProtocolField>(CloneFields(outputs));
 
             //InputFields.CollectionChanged += (s, e) =>
