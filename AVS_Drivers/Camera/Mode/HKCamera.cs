@@ -12,7 +12,7 @@ using static AVS_Drivers.Camera.Cameralibs.HKCamera.MVCameraCtrl;
 
 namespace AVS_Drivers.Camera.Mode
 {
-    internal class HKCamera : BaseCamera, IDisposable
+    public class HKCamera : BaseCamera, IDisposable
     {
         public HKCamera() : base() { }
 
@@ -245,7 +245,7 @@ namespace AVS_Drivers.Camera.Mode
                 nRet = _myCamera.MV_CC_ClearImageBuffer_NET();
                 nRet = _myCamera.MV_CC_SetEnumValue_NET("TriggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_ON);
                 nRet = _myCamera.MV_CC_SetEnumValue_NET("TriggerSource", (uint)MVCameraCtrl.MV_CAM_TRIGGER_SOURCE.MV_TRIGGER_SOURCE_SOFTWARE);
-                IsGrabing = StartGrabbing();
+                IsGrabing = StartGrabbingCore();
             }
             nRet = _myCamera.MV_CC_SetCommandValue_NET("TriggerSoftware");
             return MVCameraCtrl.MV_OK == nRet;
@@ -477,7 +477,7 @@ namespace AVS_Drivers.Camera.Mode
 
         #region helper 
 
-        protected override bool StartGrabbing()
+        protected override bool StartGrabbingCore()
         {
             // Set default state after grabbing starts
             // Turn off real-time mode which is default
@@ -490,7 +490,7 @@ namespace AVS_Drivers.Camera.Mode
             return success;
         }
 
-        protected override bool StopGrabbing()
+        protected override bool StopGrabbingCore()
         {
             var success = _myCamera.MV_CC_StopGrabbing_NET() == 0;
             if (!success) Debug.WriteLine("Grab stop failed");
@@ -709,6 +709,7 @@ namespace AVS_Drivers.Camera.Mode
         {
             CloseDevice();
         }
+    
     }
 }
 

@@ -18,7 +18,6 @@ namespace AVS_Drivers.Camera
         /// </summary>
         /// <returns></returns>
         List<string> GetListEnum();
-
         /// <summary>
         /// 初始化相机
         /// </summary>
@@ -30,49 +29,6 @@ namespace AVS_Drivers.Camera
         /// 注销相机
         /// </summary>
         void CloseDevice();
-
-        /// <summary>
-        /// 回调 + 循环采图 启动相机
-        /// </summary>
-        /// <param name="callbackfunc"></param>
-        /// <returns></returns>
-        bool StartWith_Continue_SetCallback(Action<IntPtr> callbackfunc);
-
-        /// <summary>
-        /// 软触发模式 启动相机
-        /// </summary>
-        /// <returns></returns>
-        bool StartWith_SoftTriggerModel();
-
-        /// <summary>
-        /// 硬触发模式 启动相机
-        /// </summary>
-        /// <param name="hardtriggeritem"></param>
-        /// <returns></returns>
-        bool StartWith_HardTriggerModel(TriggerSource hardtriggeritem);
-
-        /// <summary>
-        /// 硬触发 + 回调 启动相机
-        /// </summary>
-        /// <param name="hardtriggeritem"></param>
-        /// <param name="callbackfunc"></param>
-        /// <returns></returns>
-        bool StartWith_HardTriggerModel_SetCallback(TriggerSource hardtriggeritem, Action<IntPtr> callbackfunc);
-
-        /// <summary>
-        /// 软触发 + 回调 启动相机
-        /// </summary>
-        /// <param name="callbackfunc"></param>
-        /// <returns></returns>
-        bool StartWith_SoftTriggerModel_SetCallback(Action<IntPtr> callbackfunc);
-
-        ///<summary>
-        /// 停止回调取图
-        /// </summary>
-        /// <param name="callbackfunc"></param>
-        /// <returns></returns>
-        bool StopCallback(Action<IntPtr> callbackfunc);
-
         /// <summary>
         /// 等待硬触发获取图像
         /// </summary>
@@ -88,15 +44,26 @@ namespace AVS_Drivers.Camera
         /// <param name="outtime"></param>
         /// <returns></returns>
         bool GetImageWithSoftTrigger(out IntPtr data, int outtime = 3000);
-
         /// <summary>
         /// 软触发
         /// </summary>
         /// <returns></returns>
         bool SoftTrigger();
 
-        #endregion
+        /// <summary>
+        /// 启动采集并绑定图像回调。触发模式需调用方已通过 SetTriggerMode 设置。
+        /// </summary>
+        /// <param name="callbackfunc">图像回调，接收图像数据指针</param>
+        /// <returns>是否启动成功</returns>
+        bool StartGrabbing(Action<IntPtr> callbackfunc);
 
+        /// <summary>
+        /// 停止采集。可选移除指定回调。
+        /// </summary>
+        /// <param name="callbackfunc">要移除的回调，可为 null 表示只停止不移除</param>
+        /// <returns>是否停止成功</returns>
+        bool StopGrabbing(Action<IntPtr> callbackfunc = null);
+        #endregion
 
         #region SettingConfig
         /// <summary>

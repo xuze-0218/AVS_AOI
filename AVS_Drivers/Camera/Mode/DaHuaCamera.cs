@@ -91,7 +91,7 @@ namespace AVS_Drivers.Camera.Mode
                     res = enumParameter.SetValue("Continuous");
                 }
                 res = SetTriggerMode(TriggerMode.On, TriggerSource.Software);
-                res = StartGrabbing();
+                res = StartGrabbingCore();
             }
             res = m_dev.ExecuteSoftwareTrigger();//执行软触发         
             return res;
@@ -486,7 +486,7 @@ namespace AVS_Drivers.Camera.Mode
 
 
         #region helper
-        protected override bool StartGrabbing()
+        protected override bool StartGrabbingCore()
         {
             // Set default state after grabbing starts
             // Turn off real-time mode which is default
@@ -501,7 +501,7 @@ namespace AVS_Drivers.Camera.Mode
             }
             return true;
         }
-        protected override bool StopGrabbing()
+        protected override bool StopGrabbingCore()
         {
             var res = m_dev.ShutdownGrab();
             return res;//取消码流

@@ -155,8 +155,6 @@ namespace AVS_Core.Services
             {
                 if (_sessions.TryGetValue(stationId, out var state) && state.IsActive)
                 {
-                    _logger.Information("EnqueueImage: 工位={StationId}, 时间={Time}, 当前队列长度={QueueLength}, 已接收={Received}/{Total}",
-               stationId, DateTime.Now.ToString("HH:mm:ss.fff"), state.ImageQueue.Count, state.ReceivedCount, state.PoleOrder?.Length ?? -1);
                     if (state.WorkType == SessionWorkType.Inspect)
                     {
                         if (state.ReceivedCount >= state.PoleOrder.Length)
@@ -167,14 +165,20 @@ namespace AVS_Core.Services
                         }
                         state.ReceivedCount++;
                     }
-                    state.ImageQueue.Add(image.Clone());
+                    state.ImageQueue.Add(image);
+                    _logger.Information("EnqueueImage: 工位={StationId}, 队列长度={QueueLength}", stationId, state.ImageQueue.Count);
                 }
                 else
+                {
+                    image.Dispose();
                     _logger.Warning("没有激活的{StationId}对话", stationId);
+                }
             }
-            finally
+            catch
             {
-                //image.Dispose();
+                // 添加失败时释放，避免泄漏
+                image?.Dispose();
+                throw;
             }
         }
 

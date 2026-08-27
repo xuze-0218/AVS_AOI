@@ -48,58 +48,6 @@ namespace AVS_Drivers.Camera.Mode
 
         public abstract bool InitDevice(string CamSN);
 
-        public bool StartWith_Continue_SetCallback(Action<IntPtr> callbackfunc)
-        {
-            try
-            {
-                SetTriggerMode(TriggerMode.Off, TriggerSource.Software);
-                if (callbackfunc != null) ActionGetImage += callbackfunc;
-                return StartGrabbing();
-            }
-            catch { return false; }
-        }
-        public bool StartWith_SoftTriggerModel()
-        {
-            try
-            {
-                SetTriggerMode(TriggerMode.On, TriggerSource.Software);
-                return StartGrabbing();
-            }
-            catch { return false; }
-        }
-        public bool StartWith_HardTriggerModel(TriggerSource hardtriggeritem)
-        {
-            if (hardtriggeritem == TriggerSource.Software) hardtriggeritem = TriggerSource.Line0;
-            SetTriggerMode(TriggerMode.On, hardtriggeritem);
-            return StartGrabbing();
-        }
-
-        public bool StartWith_HardTriggerModel_SetCallback(TriggerSource hardtriggeritem, Action<IntPtr> callbackfunc)
-        {
-            if (hardtriggeritem == TriggerSource.Software) hardtriggeritem = TriggerSource.Line0;
-            SetTriggerMode(TriggerMode.On, hardtriggeritem);
-            if (callbackfunc != null) ActionGetImage += callbackfunc;
-            return StartGrabbing();
-        }
-
-        public bool StartWith_SoftTriggerModel_SetCallback(Action<IntPtr> callbackfunc)
-        {
-            try
-            {
-                //Continue_SoftTrigger();
-                SetTriggerMode(TriggerMode.On, TriggerSource.Software);
-                if (callbackfunc != null) ActionGetImage += callbackfunc;
-                return StartGrabbing();
-            }
-            catch { return false; }
-        }
-        public bool StopCallback(Action<IntPtr> callbackfunc)
-        {
-            if (callbackfunc != null)
-                ActionGetImage -= callbackfunc;
-            return StopGrabbing();
-        }
-
         /// <summary>
         /// 等待硬触发获取图像
         /// </summary>
@@ -147,6 +95,29 @@ namespace AVS_Drivers.Camera.Mode
         /// <returns></returns>
         public abstract bool Continue_SoftTrigger();
 
+        public bool StartGrabbing(Action<IntPtr> callbackfunc)
+        {
+            if (callbackfunc != null)
+                ActionGetImage += callbackfunc;
+            return StartGrabbingCore(); // 调用 protected abstract 方法
+        }
+
+        public bool StopGrabbing(Action<IntPtr> callbackfunc = null)
+        {
+            if (callbackfunc != null)
+                ActionGetImage -= callbackfunc;
+            return StopGrabbingCore(); // 调用 protected abstract 方法
+        }
+
+        /// <summary>
+        /// 启动相机采集（由子类实现，不处理回调）
+        /// </summary>
+        protected abstract bool StartGrabbingCore();
+
+        /// <summary>
+        /// 停止相机采集（由子类实现，不处理回调）
+        /// </summary>
+        protected abstract bool StopGrabbingCore();
         #endregion
 
 
@@ -244,21 +215,6 @@ namespace AVS_Drivers.Camera.Mode
 
 
         #region  protected abstract
-
-
-        /// <summary>
-        /// 开始采图
-        /// </summary>
-        /// <returns></returns>
-        protected abstract bool StartGrabbing();
-
-        /// <summary>
-        /// 停止采图
-        /// </summary>
-        /// <returns></returns>
-        protected abstract bool StopGrabbing();
-
-
         protected void OnIntensityImageReceived(IntPtr data)
         {
             IntensityImageReceived?.Invoke(data);
@@ -270,9 +226,6 @@ namespace AVS_Drivers.Camera.Mode
         }
         public void Dispose()
         {
-
-            Marshal.FreeHGlobal(CallBaclImg);
-
         }
         #endregion
     }

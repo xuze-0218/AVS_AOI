@@ -495,7 +495,7 @@ namespace AVS_Drivers.Camera.Mode
 
         #region helper 
 
-        protected override bool StartGrabbing()
+        protected override bool StartGrabbingCore()
         {
             if (IsValidHandle(m_handle))
             {
@@ -521,7 +521,7 @@ namespace AVS_Drivers.Camera.Mode
             }
         }
 
-        protected override bool StopGrabbing()
+        protected override bool StopGrabbingCore()
         {
             try
             {

@@ -24,7 +24,7 @@ namespace AVS_Service
         List<CameraSettingModel> AllSettings { get; }
         event Action<string, bool> CameraStatusChanged;
         bool IsCameraGrabbing(string sn);
-        event Action<string, bool> CameraGrabbingStatusChanged; 
+        event Action<string, bool> CameraGrabbingStatusChanged;
         //event Action<string, HObject> OnImageCaptured;
         void SaveSettings();
         void LoadSettings();
@@ -211,14 +211,12 @@ namespace AVS_Service
                         {
                             _logger.Error("相机 {SN} 初始化失败，已重试3次", setting.SerilalNum);
                             continue;
-                        }                   
+                        }
                     }
                     catch (Exception ex)
                     {
                         _logger.Error(ex, "相机 {SN} 初始化异常", setting.SerilalNum);
                     }
-
-                    await Task.Delay(200); //相机之间的间隔
                 }
             });
 
@@ -243,38 +241,38 @@ namespace AVS_Service
                 return;
             }
 
-            // 设置触发模式
+            //统一设置触发模式（只设置一次）
+            bool triggerSetOk = false;
             if (mode.HasValue)
             {
                 if (mode.Value == AcquisitionMode.Continuous)
                 {
                     // 连续模式：关闭触发
-                    camera.SetTriggerMode(TriggerMode.Off, TriggerSource.Software);
+                    triggerSetOk = camera.SetTriggerMode(TriggerMode.Off, TriggerSource.Software);
                 }
                 else if (mode.Value == AcquisitionMode.SoftTrigger)
                 {
                     // 软触发模式：开启触发，触发源为软件
-                    camera.SetTriggerMode(TriggerMode.On, TriggerSource.Software);
+                    triggerSetOk = camera.SetTriggerMode(TriggerMode.On, TriggerSource.Software);
                 }
-                // 可扩展其他模式
             }
             else
             {
                 // 使用本地配置的触发源
-                bool triggerSetOk = camera.SetTriggerMode(TriggerMode.On, setting.TriggerSource);
+                triggerSetOk = camera.SetTriggerMode(TriggerMode.On, setting.TriggerSource);
                 if (!triggerSetOk)
                 {
                     _logger.Warning("相机 {SN} 设置触发模式({Source})失败，回退为软触发", sn, setting.TriggerSource);
-                    bool fallbackOk = camera.SetTriggerMode(TriggerMode.On, TriggerSource.Software);
-                    if (!fallbackOk)
-                    {
-                        _logger.Error("相机 {SN} 回退软触发也失败，放弃启动采集", sn);
-                        return;
-                    }
-                    setting.TriggerSource = TriggerSource.Software;
+                    triggerSetOk = camera.SetTriggerMode(TriggerMode.On, TriggerSource.Software);
+                    if (triggerSetOk)
+                        setting.TriggerSource = TriggerSource.Software;
                 }
             }
-
+            if (!triggerSetOk)
+            {
+                _logger.Error("相机 {SN} 触发模式设置失败，放弃启动采集", sn);
+                return;
+            }
             // 创建抓取上下文
             var ctx = new CameraGrabContext { Cts = new CancellationTokenSource() };
             ctx.GrabCallback = ptr =>
@@ -313,33 +311,14 @@ namespace AVS_Service
                 catch (OperationCanceledException) { }
             }, ctx.Cts.Token);
 
-            // 根据模式启动相机回调
-            if (mode.HasValue && mode.Value == AcquisitionMode.Continuous)
+            bool startOk = camera.StartGrabbing(ctx.GrabCallback);
+            if (!startOk)
             {
-                // 连续模式启动（假设 ICamera 有该方法，若无需另寻方案）
-                
-                camera.StartWith_Continue_SetCallback(ctx.GrabCallback);
-                _logger.Information("相机 {SN} 连续模式启动", sn);
+                _logger.Error("相机 {SN} 启动采集失败", sn);
+                return;
             }
-            else if (mode.HasValue && mode.Value == AcquisitionMode.SoftTrigger)
-            {
-                camera.StartWith_SoftTriggerModel_SetCallback(ctx.GrabCallback);
-                _logger.Information("相机 {SN} 软触发模式启动", sn);
-            }
-            else
-            {
-                // 使用配置的触发源启动
-                if (setting.TriggerSource == TriggerSource.Software)
-                {
-                    camera.StartWith_SoftTriggerModel_SetCallback(ctx.GrabCallback);
-                    _logger.Information("相机 {SN} 软触发模式启动", sn);
-                }
-                else
-                {
-                    camera.StartWith_HardTriggerModel_SetCallback(setting.TriggerSource, ctx.GrabCallback);
-                    _logger.Information("相机 {SN} 硬触发模式启动，触发源: {Source}", sn, setting.TriggerSource);
-                }
-            }
+
+            _logger.Information("相机 {SN} 采集启动成功", sn);
         }
         public void StopCameraGrabbing(string sn)
         {
@@ -356,6 +335,11 @@ namespace AVS_Service
                         if (!finished)
                             _logger.Warning("[StopCameraGrabbing] 处理任务未在3秒内结束 {SN}", sn);
                     }
+                    if (_connectedCameras.TryGetValue(sn, out var camera))
+                    {
+                        // 调用新的 StopGrabbing 方法，它会移除回调并调用核心停止逻辑
+                        camera.StopGrabbing(ctx.GrabCallback);
+                    }
                     _grabContexts.Remove(sn);
                     if (_grabbingCameras.Remove(sn))
                     {
@@ -366,9 +350,9 @@ namespace AVS_Service
             }
 
             // 若相机支持移除回调，这里可以移除（比如 Hik3DCamera 的 IntensityImageReceived）
-            if (_connectedCameras.TryGetValue(sn, out var camera))
+            if (_connectedCameras.TryGetValue(sn, out var camera2))
             {
-                if (camera is Hik3DCamera hikCamera)
+                if (camera2 is Hik3DCamera hikCamera)
                 {
                     if (_intensityHandlers.TryGetValue(sn, out var handler))
                     {

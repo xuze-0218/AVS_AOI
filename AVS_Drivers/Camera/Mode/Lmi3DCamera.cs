@@ -131,7 +131,7 @@ namespace AVS_Drivers.Camera.Mode
         {
             try
             {
-                if (_isGrabbing) StopGrabbing();
+                if (_isGrabbing) StopGrabbingCore();
 
                 if (_sensor != null)
                 {
@@ -157,7 +157,7 @@ namespace AVS_Drivers.Camera.Mode
 
         #region 采集控制与参数设置
 
-        protected override bool StartGrabbing()
+        protected override bool StartGrabbingCore()
         {
             try
             {
@@ -172,7 +172,7 @@ namespace AVS_Drivers.Camera.Mode
             }
         }
 
-        protected override bool StopGrabbing()
+        protected override bool StopGrabbingCore()
         {
             try
             {

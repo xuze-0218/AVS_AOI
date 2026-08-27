@@ -123,7 +123,7 @@ namespace AVS_Drivers.Camera.Mode
             {
                 if (_isGrabbing)
                 {
-                    StopGrabbing();
+                    StopGrabbingCore();
                 }
 
                 if (_imageCallback != null && _handle != IntPtr.Zero)
@@ -146,7 +146,7 @@ namespace AVS_Drivers.Camera.Mode
         }
         #endregion
         #region 采集控制
-        protected override bool StartGrabbing()
+        protected override bool StartGrabbingCore()
         {
             if (_handle == IntPtr.Zero)
                 return false;
@@ -160,7 +160,7 @@ namespace AVS_Drivers.Camera.Mode
             _isGrabbing = true;
             return true;
         }
-        protected override bool StopGrabbing()
+        protected override bool StopGrabbingCore()
         {
             if (_handle == IntPtr.Zero)
                 return false;

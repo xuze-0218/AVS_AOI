@@ -99,16 +99,19 @@ namespace AVS_Core.Services
                     _logger.Warning("未找到相机角色 {Role} 对应的工位", camSetting.CameraRole);
                     return;
                 }
-                //var imageForQueue = payload.Image?.Clone();
-                //if (imageForQueue != null)
-                //{
-                //    _sessionService.EnqueueImage(station.StationId, imageForQueue);
-                //    imageForQueue.Dispose(); // EnqueueImage 内部会再次克隆，这个临时克隆可以释放
-                //}
-                _sessionService.EnqueueImage(station.StationId, payload.Image);
+                var clonedImage = payload.Image?.Clone();
+                if (clonedImage != null && clonedImage.IsInitialized())
+                {
+                    _sessionService.EnqueueImage(station.StationId, clonedImage);
+                }
+                else
+                {
+                    clonedImage?.Dispose();
+                }
             }
-            finally
+            catch (Exception ex)
             {
+                _logger.Error(ex, "处理图像事件异常");
             }
         }
 
@@ -208,6 +211,19 @@ namespace AVS_Core.Services
                     catch (Exception ex)
                     {
                         _logger.Error(ex, "停止工位 {StationId} 通讯异常", station.StationId);
+                    }
+                }
+                // 清理所有会话队列，释放残留图像
+                foreach (var station in _stationConfigService.Stations)
+                {
+                    try
+                    {
+                        _sessionService.Reset(station.StationId);
+                        _logger.Information("工位 {StationId} 会话已重置", station.StationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "重置工位 {StationId} 会话失败", station.StationId);
                     }
                 }
                 _logger.Information("所有通讯服务已停止");

@@ -1,10 +1,11 @@
 ﻿using HalconDotNet;
 using Prism.Mvvm;
+using System;
 using System.Windows.Input;
 
 namespace AVS_Common.Model
 {
-    public class CameraDisplayItem : BindableBase
+    public class CameraDisplayItem : BindableBase,IDisposable
     {
         public string CameraRoleName { get; set; }
         public string PhysicalSN { get; set; }
@@ -88,5 +89,11 @@ namespace AVS_Common.Model
         /// 标定测试命令
         /// </summary>
         public ICommand CalibTestCommand { get; set; }
+
+        public void Dispose()
+        {
+            RawImage?.Dispose();
+            ProcessedImage?.Dispose();
+        }
     }
 }

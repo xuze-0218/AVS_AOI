@@ -184,9 +184,7 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     _currentDebugImage.Dispose();
                 }
-                SetProperty(ref _currentDebugImage, value?.Clone());
-
-                // 核心：当收到新图像时，自动转为 WPF 的 BitmapSource
+                SetProperty(ref _currentDebugImage, value);
                 if (_currentDebugImage != null && _currentDebugImage.IsInitialized())
                 {
                     DisplayBitmapSource = HObjectToBitmapSource(_currentDebugImage);
@@ -255,11 +253,11 @@ namespace AVS_Modules_Settings.ViewModels
                         Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                 {
                                     CurrentDebugImage = image;
-                                    image = null;
                                 }));
                     }
                     catch (Exception ex)
                     {
+                        image?.Dispose();
                         _logger.Error(ex, "更新调试图像异常");
                     }
                     //finally

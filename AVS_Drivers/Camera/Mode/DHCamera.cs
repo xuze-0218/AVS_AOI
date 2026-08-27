@@ -397,7 +397,7 @@ namespace AVS_Drivers.Camera.Mode
 
         #region private  
 
-        protected override bool StartGrabbing()
+        protected override bool StartGrabbingCore()
         {
             try
             {
@@ -440,7 +440,7 @@ namespace AVS_Drivers.Camera.Mode
             }
         }
 
-        protected override bool StopGrabbing()
+        protected override bool StopGrabbingCore()
         {
             try
             {
