@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+ 
+    <UseWPF>true</UseWPF>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Modules\**" />
+    <EmbeddedResource Remove="Modules\**" />
+    <None Remove="Modules\**" />
+    <Page Remove="Modules\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Prism.Core" Version="8.1.97" />
+    <PackageReference Include="Prism.DryIoc" Version="8.1.97" />
+    <PackageReference Include="Prism.Wpf" Version="8.1.97" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AVS_Common\AVS_Common.csproj" />
+    <ProjectReference Include="..\AVS_Core\AVS_Core.csproj" />
+    <ProjectReference Include="..\AVS_Modules_Data\AVS_Modules_Data.csproj" />
+    <ProjectReference Include="..\AVS_Modules_Settings\AVS_Modules_Settings.csproj" />
+    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="halcondotnet">
+      <HintPath>..\AVS_Common\bin\Debug\net48\halcondotnet.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

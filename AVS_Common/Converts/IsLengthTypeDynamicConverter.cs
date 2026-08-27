@@ -1,0 +1,28 @@
+﻿using AVS_Common.Model;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Windows.Data;
+
+namespace AVS_Common.Converts
+{
+    /// <summary>
+    /// 当长度类型为 Dynamic 时启用输入框
+    /// </summary>
+    public class IsLengthTypeDynamicConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is LengthType lengthType)
+            {
+                return lengthType == LengthType.Dynamic;
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}

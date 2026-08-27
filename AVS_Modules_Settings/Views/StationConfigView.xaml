@@ -1,0 +1,164 @@
+﻿<UserControl
+    x:Class="AVS_Modules_Settings.Views.StationConfigView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:model="clr-namespace:AVS_Service.Models;assembly=AVS_Service"
+    xmlns:prism="http://prismlibrary.com/"
+    d:DesignHeight="450"
+    d:DesignWidth="1000"
+    prism:ViewModelLocator.AutoWireViewModel="True"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <x:Array x:Key="ProtocolList" Type="model:CommProtocol">
+            <model:CommProtocol>TCP</model:CommProtocol>
+            <model:CommProtocol>UDP</model:CommProtocol>
+        </x:Array>
+        <x:Array x:Key="RoleList" Type="model:CommRole">
+            <model:CommRole>Server</model:CommRole>
+            <model:CommRole>Client</model:CommRole>
+        </x:Array>
+    </UserControl.Resources>
+
+    <Grid Margin="10" Background="AliceBlue">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  工具栏  -->
+        <StackPanel Margin="5" Orientation="Horizontal">
+            <Button
+                Margin="5"
+                Padding="10,5"
+                Command="{Binding LoadCommand}"
+                Content="从相机导入" />
+            <Button
+                Margin="5"
+                Padding="10,5"
+                Command="{Binding AddCommand}"
+                Content="增加行" />
+            <Button
+                Margin="5"
+                Padding="10,5"
+                Command="{Binding MoveUpCommand}"
+                Content="上移" />
+            <Button
+                Margin="5"
+                Padding="10,5"
+                Command="{Binding MoveDownCommand}"
+                Content="下移" />
+            <Button
+                Margin="5"
+                Padding="10,5"
+                Background="#CCFFCC"
+                Command="{Binding SaveCommand}"
+                Content="保存" />
+        </StackPanel>
+
+        <!--  工位配置表格  -->
+        <DataGrid
+            Grid.Row="1"
+            Margin="5"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            ItemsSource="{Binding Stations}"
+            SelectedItem="{Binding SelectedStation}">
+            <DataGrid.Columns>
+                <!--  工位ID  -->
+                <DataGridTextColumn
+                    Width="100"
+                    Binding="{Binding StationId}"
+                    Header="工位ID" />
+
+                <!--  相机角色（下拉选择）  -->
+                <DataGridTemplateColumn Width="150" Header="相机角色">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock
+                                Margin="5,0"
+                                VerticalAlignment="Center"
+                                Text="{Binding CameraRole}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <ComboBox
+                                IsSynchronizedWithCurrentItem="False"
+                                ItemsSource="{Binding DataContext.AvailableCameraRoles, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                SelectedItem="{Binding CameraRole, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
+
+                <!--  IP  -->
+                <DataGridTextColumn
+                    Width="120"
+                    Binding="{Binding IP}"
+                    Header="IP" />
+                <!--  Port  -->
+                <DataGridTextColumn
+                    Width="80"
+                    Binding="{Binding Port}"
+                    Header="Port" />
+                <!--  协议  -->
+                <DataGridComboBoxColumn
+                    Width="80"
+                    Header="协议"
+                    ItemsSource="{StaticResource ProtocolList}"
+                    SelectedItemBinding="{Binding Protocol}" />
+                <!--  角色  -->
+                <DataGridComboBoxColumn
+                    Width="80"
+                    Header="模式"
+                    ItemsSource="{StaticResource RoleList}"
+                    SelectedItemBinding="{Binding Role}" />
+
+                <!--  ========== 视觉配置列 ==========  -->
+                <DataGridTemplateColumn Width="100" Header="相机类型">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock VerticalAlignment="Center" Text="{Binding Dimension}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <ComboBox ItemsSource="{Binding DataContext.AvailableDimensions, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItem="{Binding Dimension, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="100" Header="模型共享ID标识">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock
+                                Text="{Binding AiModelStationId}"
+                                ToolTip="留空则使用工位ID独立加载模型；多个工位填写相同标识可共享模型，节省显存"
+                                ToolTipService.BetweenShowDelay="1"
+                                ToolTipService.InitialShowDelay="1" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <TextBox Text="{Binding AiModelStationId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="留空则使用工位ID独立加载模型；多个工位填写相同标识可共享模型，节省显存。" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button
+                                Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                CommandParameter="{Binding}"
+                                Content="删除" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

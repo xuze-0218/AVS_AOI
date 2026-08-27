@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+ 
+    <UseWPF>true</UseWPF>
+   
+    <Platforms>AnyCPU;x64</Platforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="halcondotnet">
+      <HintPath>..\AVS_Common\bin\Debug\net48\halcondotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="hdevenginedotnet">
+      <HintPath>..\AVS_Common\bin\Debug\net48\hdevenginedotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="MMDeployCSharp">
+      <HintPath>bin\x64\Debug\net48\MMDeployCSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenCvSharp">
+      <HintPath>bin\x64\Debug\net48\OpenCvSharp.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,195 @@
+﻿<UserControl
+    x:Class="AVS_Modules_Settings.Views.TempAndCaliDebugView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:common="clr-namespace:AVS_Common;assembly=AVS_Common"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:Height="1000"
+    d:Width="1600"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Background="#F8F9FA">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  工具栏  -->
+        <ToolBar
+            Grid.Row="0"
+            Padding="2"
+            Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <Button
+                Margin="2"
+                Command="{Binding LoadImageCommand}"
+                Content="📁 加载图像"
+                ToolTip="选择图像文件" />
+            <Separator />
+            <Button
+                Margin="2"
+                Command="{Binding RunCommand}"
+                Content="▶ 执行"
+                FontWeight="Bold"
+                ToolTip="运行所有检测流程" />
+            <Separator />
+            <ToggleButton
+                Margin="2"
+                Content="👁 ROI"
+                IsChecked="{Binding IsRoiVisible}"
+                ToolTip="显示/隐藏绿色 ROI 区域" />
+            <Separator />
+            <Button
+                Margin="2"
+                Command="{Binding SaveRoiCommand}"
+                Content="💾 保存ROI"
+                ToolTip="保存ROI区域到文件" />
+            <Button
+                Margin="2"
+                Command="{Binding LoadRoiCommand}"
+                Content="📂 加载ROI"
+                ToolTip="从文件加载ROI" />
+            <Button
+                Margin="2"
+                Command="{Binding ClearRoiCommand}"
+                Content="🗑 清除ROI"
+                ToolTip="删除当前ROI" />
+            <Separator />
+            <Button
+                Margin="2"
+                Command="{Binding ConfirmRoiCommand}"
+                Content="✔ 确认ROI"
+                ToolTip="将可拖动红色框转为绿色固定区域" />
+            <!--<Button
+                Margin="2"
+                Command="{Binding SetMetroRefCommand}"
+                Content="📌 设置参考位姿"
+                ToolTip="将当前模板匹配位置设为计量模型参考" />-->
+        </ToolBar>
+
+        <!--  主内容区  -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+
+            <!--  图像显示区（含右键菜单）  -->
+            <common:CameraDisplayUnit
+                x:Name="CameraDisplay"
+                Grid.Column="0"
+                DispImage="{Binding CurrentImage}"
+                DispRegion="{Binding CurrentRegionDisplay}"
+                Loaded="CameraDisplay_Loaded">
+                <common:CameraDisplayUnit.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem
+                            Command="{Binding DrawRect1Command}"
+                            Header="矩形1 (Rectangle1)"
+                            ToolTip="轴向对齐矩形" />
+                        <MenuItem
+                            Command="{Binding DrawRect2Command}"
+                            Header="矩形2 (Rectangle2)"
+                            ToolTip="可旋转矩形 → 卡尺测量" />
+                        <MenuItem Command="{Binding DrawCircleCommand}" Header="圆形 (Circle)" />
+                        <MenuItem Command="{Binding DrawEllipseCommand}" Header="椭圆 (Ellipse)" />
+                        <MenuItem Command="{Binding DrawLineCommand}" Header="直线 (Line)" />
+                        <MenuItem Command="{Binding DrawPolygonCommand}" Header="多边形 (Polygon)" />
+                        <Separator />
+                        <MenuItem Command="{Binding ClearDrawingCommand}" Header="清除绘制" />
+                    </ContextMenu>
+                </common:CameraDisplayUnit.ContextMenu>
+            </common:CameraDisplayUnit>
+
+            <GridSplitter
+                Grid.Column="1"
+                Width="5"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch" />
+
+            <!--  右侧参数面板  -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="8">
+                    <!--  模板匹配分组  -->
+                    <GroupBox
+                        Margin="0,0,0,8"
+                        Padding="6"
+                        Background="#EBF5FB"
+                        BorderBrush="#2196F3"
+                        Header="📐 模板匹配">
+                        <local:TemplateMatchingView DataContext="{Binding TemplateMatchingVM}" />
+                    </GroupBox>
+
+                    <!--  卡尺测量分组  -->
+                    <GroupBox
+                        Margin="0,0,0,8"
+                        Padding="6"
+                        Background="#EBF9F1"
+                        BorderBrush="#4CAF50"
+                        Header="📏 卡尺测量">
+                        <local:MetrologyView DataContext="{Binding MetrologyVM}" />
+                    </GroupBox>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!--  状态栏  -->
+        <StatusBar Grid.Row="2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <StatusBarItem Width="Auto">
+                <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem Width="100">
+                <TextBlock Text="{Binding RunTime, StringFormat='耗时: {0}'}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem Width="80">
+                <TextBlock>
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPass}" Value="True">
+                                    <Setter Property="Foreground" Value="Green" />
+                                    <Setter Property="Text" Value="PASS" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsPass}" Value="False">
+                                    <Setter Property="Foreground" Value="Red" />
+                                    <Setter Property="Text" Value="FAIL" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem Width="Auto">
+                <TextBlock Text="{Binding RunResult, StringFormat='结果: {0}'}" />
+            </StatusBarItem>
+            <StatusBarItem Margin="0,0,5,0" HorizontalAlignment="Right">
+                <TextBlock VerticalAlignment="Center" Text="行:" />
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock
+                    Width="60"
+                    VerticalAlignment="Center"
+                    Text="{Binding CurrentMouseRow, StringFormat=F1}" />
+            </StatusBarItem>
+            <StatusBarItem Margin="0,0,5,0">
+                <TextBlock VerticalAlignment="Center" Text="列:" />
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock
+                    Width="60"
+                    VerticalAlignment="Center"
+                    Text="{Binding CurrentMouseCol, StringFormat=F1}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>
