@@ -2,6 +2,7 @@
 using AVS_Common;
 using AVS_Common.Events;
 using AVS_Common.Services;
+using AVS_Core.Models;
 using AVS_Core.Services;
 using AVS_Modules_Settings.ViewModels;
 using AVS_Modules_Settings.Views;
@@ -30,9 +31,15 @@ namespace AVS_App
     {
         private static Mutex _singleInstanceMutex;
         private const string MutexName = "aoi_common_mutex";
+        public static UserRole CurrentUserRole { get; private set; } = UserRole.Operator;
         protected override Window CreateShell()
         {
             return Container.Resolve<MainWindow>();
+        }
+
+        protected override void InitializeShell(Window shell)
+        {
+           
         }
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
@@ -80,20 +87,21 @@ namespace AVS_App
 
         protected override async void OnInitialized()
         {
-            base.OnInitialized();
-            //注册窗口句柄事件
-            WindowHandleEvent.HandleRegistered += (rn, handle) => Container.Resolve<IWindowHandleRegistry>().Register(rn, handle);
-            WindowHandleEvent.HandleUnregistered += (rn) => Container.Resolve<IWindowHandleRegistry>().Unregister(rn);
-            //导航到InspectionView
-            var regionManager = Container.Resolve<IRegionManager>();
-            regionManager.RequestNavigate("MainContentRegion", "InspectionView");
-            // 等待 InspectionView 完全加载并注册所有窗口句柄
-            await WaitForCameraHandlesAsync();
-            //预加载所有工位的视觉服务
-            var stationSessionService = Container.Resolve<IStationSessionService>();
-            await stationSessionService.PreloadAllStationsAsync();  // 等待预加载完成
             try
             {
+                base.OnInitialized();
+                //注册窗口句柄事件
+                WindowHandleEvent.HandleRegistered += (rn, handle) => Container.Resolve<IWindowHandleRegistry>().Register(rn, handle);
+                WindowHandleEvent.HandleUnregistered += (rn) => Container.Resolve<IWindowHandleRegistry>().Unregister(rn);
+                //导航到InspectionView
+                var regionManager = Container.Resolve<IRegionManager>();
+                regionManager.RequestNavigate("MainContentRegion", "InspectionView");
+                // 等待 InspectionView 完全加载并注册所有窗口句柄
+                await WaitForCameraHandlesAsync();
+                //预加载所有工位的视觉服务
+                var stationSessionService = Container.Resolve<IStationSessionService>();
+                await stationSessionService.PreloadAllStationsAsync();  // 等待预加载完成
+
                 var startupService = Container.Resolve<IApplicationStartupService>();
                 await startupService.InitializeAsync();
             }
@@ -165,8 +173,19 @@ namespace AVS_App
                 return;
             }
             DispatcherUnhandledException += App_DispatcherUnhandledException;
-
             base.OnStartup(e);
+            var shell = this.MainWindow;
+            var loginWindow = new LoginWindow();
+            loginWindow.ShowDialog();
+
+            if (!loginWindow.LoginSuccess)
+            {
+                Shutdown();
+                return;
+            }
+            CurrentUserRole = loginWindow.SelectedRole;
+            shell.Show();
+
         }
 
         private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
