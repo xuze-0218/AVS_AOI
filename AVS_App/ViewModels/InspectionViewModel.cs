@@ -7,6 +7,7 @@ using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using Prism.Regions;
+using Serilog;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -26,6 +27,7 @@ namespace AVS_App.ViewModels
         private readonly ICameraConfigService _cameraConfigService;
         private readonly IStationConfigService _stationConfigService;
         private readonly ILocalTestService _localTestService;
+        private readonly ILogger _logger;
         private int _layoutColumns = 2;
         public int LayoutColumns { get => _layoutColumns; set => SetProperty(ref _layoutColumns, value); }
         //相机数据集合
@@ -42,12 +44,14 @@ namespace AVS_App.ViewModels
             IEventAggregator eventAggregator,
             IStationConfigService stationConfigService,
             ICameraConfigService cameraConfigService,
-            ILocalTestService localTestService)
+            ILocalTestService localTestService,
+            ILogger logger)
         {
             _eventAggregator = eventAggregator;
             _cameraConfigService = cameraConfigService;
             _stationConfigService = stationConfigService;
             _localTestService = localTestService;
+            _logger = logger;
             CameraDisplayList = new ObservableCollection<CameraDisplayItem>();
 
             //根据配置加载相机窗体数量
@@ -104,9 +108,7 @@ namespace AVS_App.ViewModels
             var station = _stationConfigService.GetStationByCameraRole(item.CameraRoleName);
             if (station == null)
             {
-                MessageBox.Show(
-                    $"未找到相机角色 {item.CameraRoleName} 对应的工位配置。",
-                    "离线测试", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _logger.Warning("未找到相机角色 {Role} 对应的工位配置", item.CameraRoleName);
                 return;
             }
 
@@ -122,8 +124,16 @@ namespace AVS_App.ViewModels
                 LocalTestResult result = isCalib
                     ? await _localTestService.RunCalibrationTestAsync(station.StationId, paths)
                     : await _localTestService.RunInspectTestAsync(station.StationId, paths);
-
-                MessageBox.Show(result.Message, "本地测试");
+                if (result.Success)
+                {
+                    _logger.Information("本地测试成功：工位={StationId}, 类型={Type}, 消息={Message}, 结果数据={ResultData}",
+                        station.StationId, isCalib ? "标定" : "检测", result.Message, result.ResultData ?? "无");
+                }
+                else
+                {
+                    _logger.Warning("本地测试失败：工位={StationId}, 类型={Type}, 消息={Message}",
+                        station.StationId, isCalib ? "标定" : "检测", result.Message);
+                }
             }
 
         }

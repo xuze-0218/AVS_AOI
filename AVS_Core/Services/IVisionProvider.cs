@@ -231,6 +231,7 @@ namespace AVS_Core.Services
             //    Image = processedImage,
             //    ImageType = CameraImageType.Processed
             //});
+            _logger.Information("[2D检测] 工位={StationId} 极柱={Pole} 检测结果: {Result}", _stationId, poleNum, measureResults);
             return Task.FromResult(measureResults);
 
         }
@@ -493,6 +494,7 @@ namespace AVS_Core.Services
                         + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
                 }
             }
+            _logger.Information("[3D检测] 工位={StationId} 极柱={Pole} 检测结果: {Result}", _stationId, poleNum, measureResults);
             return Task.FromResult(measureResults);
         }
 

@@ -261,7 +261,7 @@ namespace AVS_Service
             else
             {
                 // 使用本地配置的触发源
-                triggerSetOk = camera.SetTriggerMode(TriggerMode.On, setting.TriggerSource);
+                triggerSetOk = camera.SetTriggerMode(setting.TriggerMode, setting.TriggerSource);
                 if (!triggerSetOk)
                 {
                     _logger.Warning("相机 {SN} 设置触发模式({Source})失败，回退为软触发", sn, setting.TriggerSource);

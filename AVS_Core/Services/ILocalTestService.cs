@@ -71,8 +71,6 @@ namespace AVS_Core.Services
                     HOperatorSet.GenEmptyObj(out img);
                     HOperatorSet.ReadImage(out img, file);
                     _sessionService.EnqueueImage(stationId, img);
-                    // 可以加小延迟模拟真实节拍
-                    //await Task.Delay(100, ct);
                 }
 
                 _logger.Information("本地检测测试已提交 {Count} 张图片", imagePaths.Count);

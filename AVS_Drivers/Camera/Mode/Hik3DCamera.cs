@@ -188,19 +188,18 @@ namespace AVS_Drivers.Camera.Mode
         }
         #endregion
         #region 参数设置
+        /// <summary>
+        /// 不操作，使用相机内部设置
+        /// </summary>
+        /// <param name="mode"></param>
+        /// <param name="triggerEnum"></param>
+        /// <returns></returns>
         public override bool SetTriggerMode(TriggerMode mode, TriggerSource triggerEnum = TriggerSource.Line0)
         {
-          
-            if (mode == TriggerMode.On && triggerEnum == TriggerSource.Software)
-            {
-                return true;
-            }
-            return false;
+            return true;
         }
         public override bool GetTriggerMode(out TriggerMode mode, out TriggerSource hardTriggerModel)
         {
-
-            // 默认返回软触发
             mode = TriggerMode.On;
             hardTriggerModel = TriggerSource.Software;
             return true;
