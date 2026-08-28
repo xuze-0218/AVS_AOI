@@ -99,6 +99,7 @@ namespace AVS_Core.Services
                     _logger.Warning("未找到相机角色 {Role} 对应的工位", camSetting.CameraRole);
                     return;
                 }
+                // 发布者发布后即 Dispose 原始 HObject，必须同步 Clone 后再入队
                 var clonedImage = payload.Image?.Clone();
                 if (clonedImage != null && clonedImage.IsInitialized())
                 {

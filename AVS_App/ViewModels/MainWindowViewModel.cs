@@ -173,7 +173,6 @@ namespace AVS_App.ViewModels
                     {
                         _cameraConfigService.StopAllCameras();
                     }
-                    // 启动所有相机（应用配置、设置触发模式、启动采集）
                     _cameraConfigService.StartAllCameras();
                 });
 

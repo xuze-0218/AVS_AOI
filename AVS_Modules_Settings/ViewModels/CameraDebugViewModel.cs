@@ -245,6 +245,7 @@ namespace AVS_Modules_Settings.ViewModels
                     if (!_isActiveView || !IsCurrentCameraGrabbing || payload.CameraSN != SelectedDevice)
                         return;
 
+                    // 发布者发布后即 Dispose 原始 HObject，必须同步 Clone 后再跨线程使用
                     var image = payload.Image?.Clone();
                     if (image == null || !image.IsInitialized()) return;
 
@@ -505,13 +506,15 @@ namespace AVS_Modules_Settings.ViewModels
                 byte* pR = (byte*)red.ToPointer();
                 byte* pG = (byte*)green.ToPointer();
                 byte* pB = (byte*)blue.ToPointer();
-                byte* pDest = (byte*)Marshal.UnsafeAddrOfPinnedArrayElement(rgbData, 0).ToPointer();
 
-                for (int i = 0; i < width * height; i++)
+                fixed (byte* pDest = rgbData)
                 {
-                    pDest[i * 3 + 2] = pR[i];
-                    pDest[i * 3 + 1] = pG[i];
-                    pDest[i * 3 + 0] = pB[i];
+                    for (int i = 0; i < width * height; i++)
+                    {
+                        pDest[i * 3 + 2] = pR[i];
+                        pDest[i * 3 + 1] = pG[i];
+                        pDest[i * 3 + 0] = pB[i];
+                    }
                 }
             }
 

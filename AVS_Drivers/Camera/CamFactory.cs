@@ -96,7 +96,7 @@ namespace AVS_Drivers.Camera
                 default:
                     break;
             }
-            CameraList.Add(returncamera);
+            if (returncamera != null) CameraList.Add(returncamera);
             return returncamera;
         }
 
@@ -115,7 +115,7 @@ namespace AVS_Drivers.Camera
                 Type t = ass.GetType(CamClass);
                 //创建类的实例对象
                 ICamera returncamera = (ICamera)Activator.CreateInstance(t);
-                CameraList.Add(returncamera);
+                if (returncamera != null) CameraList.Add(returncamera);
                 return returncamera;
             }
             catch { return null; }

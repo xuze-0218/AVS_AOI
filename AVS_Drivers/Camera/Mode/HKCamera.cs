@@ -160,9 +160,9 @@ namespace AVS_Drivers.Camera.Mode
             //_myCamera.MV_CC_SetEnumValue_NET("AcquisitionMode", (uint)MVCameraCtrl.MV_CAM_ACQUISITION_MODE.MV_ACQ_MODE_CONTINUOUS);
             // _myCamera.MV_CC_SetEnumValue_NET("triggerMode", (uint)MVCameraCtrl.MV_CAM_TRIGGER_MODE.MV_TRIGGER_MODE_OFF);
 
-            // Reserve buffer
-            _buffer = new byte[_bufferSize];
-            _bufForSaveImage = new byte[_buffSizeForSaveImage];
+            // P1-1：不再按固定 3072*2048 分辨率预分配大缓冲（约 330MB）。
+            // 当前采集链路（ImageCallback → ActionGetImage）无需这些缓冲；
+            // 旧版 ParseRawImageDatacallback 已停用，如需启用请改为按实际分辨率动态分配。
             UpdateImageInfo();
             SN = CamSN;
             return true;
@@ -234,6 +234,9 @@ namespace AVS_Drivers.Camera.Mode
                     Marshal.Release(m_BufForDriver);
                     m_BufForDriver = IntPtr.Zero;
                 }
+                // P1-1：释放可能分配的大缓冲（托管数组置 null 交由 GC 回收）
+                _buffer = null;
+                _bufForSaveImage = null;
                 _myCamera = null;//置null，下次重新创建
             }
         }

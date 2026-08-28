@@ -101,6 +101,8 @@ namespace AVS_Service
                     _logger.Information("相机 {SN} 连接成功（未启动采集）", sn);
                     return true;
                 }
+                // 初始化失败：销毁相机实例，避免其残留在 CamFactory 静态 CameraList 中
+                CamFactory.DestroyCamera(camera);
             }
             catch (Exception ex) { _logger.Error(ex, "相机 {SN} 连接失败", sn); }
             return false;
@@ -113,7 +115,7 @@ namespace AVS_Service
             {
                 try
                 {
-                    camera.CloseDevice();
+                    CamFactory.DestroyCamera(camera); // 从静态 CameraList 移除并关闭设备
                     _logger.Debug("[DisconnectCamera] 相机设备已关闭 {SN}", sn);
                 }
                 catch (Exception ex) { _logger.Error(ex, "[DisconnectCamera] 关闭相机设备异常 {SN}", sn); }
@@ -185,7 +187,7 @@ namespace AVS_Service
                         // 先确保没连上
                         if (_connectedCameras.TryGetValue(setting.SerilalNum, out var existing))
                         {
-                            existing.CloseDevice();
+                            CamFactory.DestroyCamera(existing);
                             _connectedCameras.Remove(setting.SerilalNum);
                         }
 
@@ -203,7 +205,7 @@ namespace AVS_Service
                                 break;
                             }
                             _logger.Warning("相机 {SN} 初始化失败，第 {Retry} 次重试", setting.SerilalNum, retry + 1);
-                            camera.CloseDevice();
+                            CamFactory.DestroyCamera(camera); // 失败实例从静态列表移除，避免重试堆叠泄漏
                             await Task.Delay(500);
                         }
 
@@ -277,10 +279,51 @@ namespace AVS_Service
             var ctx = new CameraGrabContext { Cts = new CancellationTokenSource() };
             ctx.GrabCallback = ptr =>
             {
-                if (ptr != IntPtr.Zero && !ctx.PtrQueue.IsAddingCompleted)
+                if (ptr == IntPtr.Zero || ctx.PtrQueue.IsAddingCompleted)
+                    return;
+
+                // P0-1：在 SDK 回调线程内同步拷贝，此时 ptr 仍有效（pin 未释放），
+                // 拷贝完成后即与 SDK 缓冲区解耦，避免指针悬垂/释放后使用。
+                var info = camera.ImageInfo; // 快照宽高与像素格式
+                HObject tempImage = null;
+                HObject imageCopy = null;
+                try
                 {
-                    if (ctx.PtrQueue.Count >= 5) ctx.PtrQueue.TryTake(out _);
-                    ctx.PtrQueue.Add(ptr);
+                    if (info.PixelFormat == CamPixelFormat.Mono8)
+                    {
+                        HOperatorSet.GenImage1(out tempImage, "byte", info.Width, info.Height, ptr);
+                    }
+                    else if (info.PixelFormat == CamPixelFormat.Rgb8)
+                    {
+                        HOperatorSet.GenImageInterleaved(out tempImage, ptr, "rgb", info.Width, info.Height, -1, "byte", 0, 0, 0, 0, -1, 0);
+                    }
+                    else if (info.PixelFormat == CamPixelFormat.Depth)
+                    {
+                        HOperatorSet.GenImage1(out tempImage, "int2", info.Width, info.Height, ptr);
+                    }
+
+                    if (tempImage != null && tempImage.IsInitialized())
+                    {
+                        HOperatorSet.CopyImage(tempImage, out imageCopy); // 独立副本
+
+                        // 队列满时丢弃最旧帧，防止队列阻塞/内存无界增长
+                        if (ctx.PtrQueue.Count >= 5 && ctx.PtrQueue.TryTake(out var dropped))
+                            dropped?.Dispose();
+                        if (!ctx.PtrQueue.TryAdd(imageCopy))
+                        {
+                            imageCopy?.Dispose(); // 极端竞争下仍满，丢弃新帧
+                        }
+                        imageCopy = null; // 所有权已移交队列，避免 finally 二次释放
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "相机 {SN} 回调图像拷贝失败", sn);
+                }
+                finally
+                {
+                    tempImage?.Dispose();
+                    imageCopy?.Dispose();
                 }
             };
 
@@ -303,9 +346,9 @@ namespace AVS_Service
             {
                 try
                 {
-                    foreach (var ptr in ctx.PtrQueue.GetConsumingEnumerable(ctx.Cts.Token))
+                    foreach (var image in ctx.PtrQueue.GetConsumingEnumerable(ctx.Cts.Token))
                     {
-                        ProcessImagePointer(camera, ptr);
+                        ProcessImagePointer(camera, image);
                     }
                 }
                 catch (OperationCanceledException) { }
@@ -340,6 +383,12 @@ namespace AVS_Service
                         // 调用新的 StopGrabbing 方法，它会移除回调并调用核心停止逻辑
                         camera.StopGrabbing(ctx.GrabCallback);
                     }
+                    // P0-1：清理队列中残留的 HObject，避免停止时非托管图像资源泄漏
+                    if (ctx.PtrQueue != null)
+                    {
+                        while (ctx.PtrQueue.TryTake(out var leftover))
+                            leftover?.Dispose();
+                    }
                     _grabContexts.Remove(sn);
                     if (_grabbingCameras.Remove(sn))
                     {
@@ -364,43 +413,37 @@ namespace AVS_Service
             }
         }
         /// <summary>
-        /// 处理图像指针，转为HObject格式
+        /// 处理图像（HObject 副本），发布事件后释放。
+        /// 注意：发布后即 Dispose，订阅者必须在 PublisherThread 上同步 Clone 后再使用。
         /// </summary>
         /// <param name="camera"></param>
-        /// <param name="ptr"></param>
-        private void ProcessImagePointer(ICamera camera, IntPtr ptr)
+        /// <param name="img"></param>
+        private void ProcessImagePointer(ICamera camera, HObject img)
         {
-            var info = camera.ImageInfo;
-            HObject img = null;
+            if (img == null || !img.IsInitialized())
+            {
+                img?.Dispose();
+                return;
+            }
+
             try
             {
-                if (info.PixelFormat == CamPixelFormat.Mono8)
-                    img = ConvertToImage8(ptr, info.Width, info.Height);
-                else if (info.PixelFormat == CamPixelFormat.Rgb8)
-                    img = ConvertToImage24(ptr, info.Width, info.Height);
-                else if (info.PixelFormat == CamPixelFormat.Depth)
-                    img = ConvertToImageDepth(ptr, info.Width, info.Height);
-                if (img != null && img.IsInitialized())
+                _logger.Information("相机 {SN} 回调产生图像，准备发布", camera.SN);
+                _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
                 {
-                    _logger.Information("相机 {SN} 回调产生图像，准备发布", camera.SN);
-                    _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
-                    {
-                        CameraSN = camera.SN,
-                        Image = img
-                    });
-                }
+                    CameraSN = camera.SN,
+                    Image = img
+                });
             }
-            catch (Exception ex) { _logger.Error(ex, "图像解析失败"); img?.Dispose(); }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "图像发布失败");
+            }
             finally
             {
-                img.Dispose();
+                img?.Dispose();
                 img = null;
             }
-        }
-        private HObject ConvertToImageDepth(IntPtr pImageBuf, int nWidth, int nHeight)
-        {
-            HOperatorSet.GenImage1(out HObject image, "int2", nWidth, nHeight, pImageBuf);
-            return image;
         }
         public void SetCameraAcquisitionMode(string sn, AcquisitionMode mode)
         {
@@ -510,26 +553,12 @@ namespace AVS_Service
 
             return setting;
         }
-        private HObject ConvertToImage8(IntPtr pImageBuf, int nWidth, int nHeight)
-        {
-            HOperatorSet.GenImage1(out HObject image, "byte", nWidth, nHeight, pImageBuf);
-            return image;
-        }
-        private HObject ConvertToImage24(IntPtr pImageBuf, int nWidth, int nHeight)
-        {
-
-            HObject colorImage;
-            //HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "bgr", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
-            //HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
-            HOperatorSet.GenImageInterleaved(out colorImage, pImageBuf, "rgb", nWidth, nHeight, -1, "byte", 0, 0, 0, 0, -1, 0);
-            return colorImage;
-        }
     }
 
     //管理每台相机的取图队列和任务
     public class CameraGrabContext
     {
-        public BlockingCollection<IntPtr> PtrQueue = new BlockingCollection<IntPtr>(5);
+        public BlockingCollection<HObject> PtrQueue = new BlockingCollection<HObject>(5);
         public CancellationTokenSource Cts;
         public Task ProcessingTask;
         public Action<IntPtr> GrabCallback;

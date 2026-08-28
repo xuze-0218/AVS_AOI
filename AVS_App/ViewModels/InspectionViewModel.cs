@@ -63,6 +63,7 @@ namespace AVS_App.ViewModels
 
             if (payload.Image == null || !payload.Image.IsInitialized())
                 return;
+            // 发布者(ICameraConfigService)发布后即 Dispose 原始 HObject，必须同步 Clone 后再使用
             var image = payload.Image.Clone();
             if (payload.ImageType == CameraImageType.Processed)
             {
@@ -126,18 +127,5 @@ namespace AVS_App.ViewModels
             }
 
         }
-
-        //public void OnNavigatedTo(NavigationContext navigationContext)
-        //{
-        //    //获取导航日志
-        //    _journal = navigationContext.NavigationService.Journal;
-        //    //刷新命令的状态
-        //    GoBackCommand.RaiseCanExecuteChanged();
-        //}
-
-        //public bool IsNavigationTarget(NavigationContext navigationContext) => true;
-
-        //public void OnNavigatedFrom(NavigationContext navigationContext) { }
-
     }
 }

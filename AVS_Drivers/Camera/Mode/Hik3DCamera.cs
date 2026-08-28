@@ -11,7 +11,7 @@ namespace AVS_Drivers.Camera.Mode
     {
         private IntPtr _handle = IntPtr.Zero;
         private ImageDataCallBackHandle _imageCallback;
-        private bool _isGrabbing = false;
+        private volatile bool _isGrabbing = false;
         // 缓冲区
         private byte[] _depthBuffer = new byte[1024 * 1024 * 20]; // 默认20MB
         private byte[] _intensityBuffer = new byte[1024 * 1024 * 20];
@@ -327,6 +327,9 @@ namespace AVS_Drivers.Camera.Mode
                 if (pstImageData == null || !_camera._isGrabbing)
                     return;
 
+                if (pstImageData.bValid == 0)
+                    return;
+
                 try
                 {
                     // 更新图像信息（根据实际数据类型动态调整）
@@ -335,37 +338,13 @@ namespace AVS_Drivers.Camera.Mode
                     // 处理深度数据并传递
                     if (pstImageData.pData != IntPtr.Zero && pstImageData.nDataLen > 0)
                     {
-                        // 复制深度数据到内部缓冲区，并固定内存
-                        byte[] depthBuf = _camera.GetDepthBuffer((int)pstImageData.nDataLen);
-                        Marshal.Copy(pstImageData.pData, depthBuf, 0, (int)pstImageData.nDataLen);
-                        GCHandle depthHandle = GCHandle.Alloc(depthBuf, GCHandleType.Pinned);
-                        try
-                        {
-                            IntPtr depthPtr = depthHandle.AddrOfPinnedObject();
-                            // 调用上层回调
-                            _camera.ActionGetImage?.Invoke(depthPtr);
-                        }
-                        finally
-                        {
-                            depthHandle.Free();
-                        }
+                        _camera.ProcessDepthImage(pstImageData.pData, (int)pstImageData.nDataLen);
                     }
 
                     // 可选：处理亮度数据（暂存，后续可扩展事件）
                     if (pstImageData.pIntensityData != IntPtr.Zero && pstImageData.nIntensityDataLen > 0)
                     {
-                        byte[] intensityBuf = _camera.GetIntensityBuffer((int)pstImageData.nIntensityDataLen);
-                        Marshal.Copy(pstImageData.pIntensityData, intensityBuf, 0, (int)pstImageData.nIntensityDataLen);
-                        GCHandle intensityHandle = GCHandle.Alloc(intensityBuf, GCHandleType.Pinned);
-                        try
-                        {
-                            IntPtr intensityPtr = intensityHandle.AddrOfPinnedObject();
-                            _camera.OnIntensityImageReceived(intensityPtr);
-                        }
-                        finally
-                        {
-                            intensityHandle.Free();
-                        }
+                        _camera.ProcessIntensityImage(pstImageData.pIntensityData, (int)pstImageData.nIntensityDataLen);
                     }
                 }
                 catch (Exception ex)
@@ -402,23 +381,41 @@ namespace AVS_Drivers.Camera.Mode
             }
         }
 
-        private byte[] GetDepthBuffer(int requiredSize)
+        private void ProcessDepthImage(IntPtr pData, int dataLen)
         {
             lock (_bufferLock)
             {
-                if (_depthBuffer.Length < requiredSize)
-                    _depthBuffer = new byte[requiredSize];
-                return _depthBuffer;
+                if (_depthBuffer.Length < dataLen)
+                    _depthBuffer = new byte[dataLen];
+                Marshal.Copy(pData, _depthBuffer, 0, dataLen);
+                GCHandle handle = GCHandle.Alloc(_depthBuffer, GCHandleType.Pinned);
+                try
+                {
+                    ActionGetImage?.Invoke(handle.AddrOfPinnedObject());
+                }
+                finally
+                {
+                    handle.Free();
+                }
             }
         }
 
-        private byte[] GetIntensityBuffer(int requiredSize)
+        private void ProcessIntensityImage(IntPtr pData, int dataLen)
         {
             lock (_bufferLock)
             {
-                if (_intensityBuffer.Length < requiredSize)
-                    _intensityBuffer = new byte[requiredSize];
-                return _intensityBuffer;
+                if (_intensityBuffer.Length < dataLen)
+                    _intensityBuffer = new byte[dataLen];
+                Marshal.Copy(pData, _intensityBuffer, 0, dataLen);
+                GCHandle handle = GCHandle.Alloc(_intensityBuffer, GCHandleType.Pinned);
+                try
+                {
+                    OnIntensityImageReceived(handle.AddrOfPinnedObject());
+                }
+                finally
+                {
+                    handle.Free();
+                }
             }
         }
 
