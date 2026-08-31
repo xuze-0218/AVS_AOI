@@ -1,46 +1,35 @@
-﻿using AVS_Common;
+﻿using AVS_App.ViewModels;
+using AVS_Common;
 using AVS_Core.Models;
 using System.Windows;
+using System.Windows.Input;
 
 namespace AVS_App.Views
 {
     public partial class LoginWindow : Window
     {
-        public UserRole SelectedRole { get; private set; } = UserRole.Operator;
-        public bool LoginSuccess { get; private set; } = false;
-
         public LoginWindow()
         {
             InitializeComponent();
+
+            Loaded += OnLoaded;
         }
 
-        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        private async void OnLoaded(object sender, RoutedEventArgs e)
         {
-            string username = TxtUsername.Text.Trim();
-            string password = TxtPassword.Password;
-
-            if (username == "engineer" && password == "123")
+            if (DataContext is LoginWindowViewModel vm)
             {
-                SelectedRole = UserRole.Engineer;
-                LoginSuccess = true;
-                Close();
-            }
-            else if (username == "operator" && password == "1")
-            {
-                SelectedRole = UserRole.Operator;
-                LoginSuccess = true;
-                Close();
-            }
-            else
-            {
-                MessageBox.Show("用户名或密码错误", "登录失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                vm.CloseAction = Close;
+                await vm.AutoLoginAsync();
             }
         }
 
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        private void DragWindow_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            LoginSuccess = false;
-            Close();
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                DragMove();
+            }
         }
     }
 }

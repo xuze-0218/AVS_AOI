@@ -1,4 +1,5 @@
-﻿using AVS_App.Views;
+﻿using AVS_App.ViewModels;
+using AVS_App.Views;
 using AVS_Common;
 using AVS_Common.Events;
 using AVS_Common.Services;
@@ -7,6 +8,7 @@ using AVS_Core.Services;
 using AVS_Modules_Settings.ViewModels;
 using AVS_Modules_Settings.Views;
 using AVS_Service;
+using AVS_Service.Models;
 using DryIoc;
 using Prism.DryIoc;
 using Prism.Ioc;
@@ -31,6 +33,7 @@ namespace AVS_App
     {
         private static Mutex _singleInstanceMutex;
         private const string MutexName = "aoi_common_mutex";
+
         public static UserRole CurrentUserRole { get; private set; } = UserRole.Operator;
         protected override Window CreateShell()
         {
@@ -39,7 +42,7 @@ namespace AVS_App
 
         protected override void InitializeShell(Window shell)
         {
-           
+
         }
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
@@ -71,6 +74,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
             containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
             containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
+            containerRegistry.RegisterSingleton<ILoginCredentialService, LoginCredentialService>();
             containerRegistry.RegisterSingleton<ILocalTestService, LocalTestService>();
             //containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
             containerRegistry.RegisterSingleton<IMetrologyService, MetrologyService>();
@@ -89,21 +93,30 @@ namespace AVS_App
         {
             try
             {
-                base.OnInitialized();
-                //注册窗口句柄事件
-                WindowHandleEvent.HandleRegistered += (rn, handle) => Container.Resolve<IWindowHandleRegistry>().Register(rn, handle);
-                WindowHandleEvent.HandleUnregistered += (rn) => Container.Resolve<IWindowHandleRegistry>().Unregister(rn);
-                //导航到InspectionView
-                var regionManager = Container.Resolve<IRegionManager>();
-                regionManager.RequestNavigate("MainContentRegion", "InspectionView");
-                // 等待 InspectionView 完全加载并注册所有窗口句柄
-                await WaitForCameraHandlesAsync();
-                //预加载所有工位的视觉服务
-                var stationSessionService = Container.Resolve<IStationSessionService>();
-                await stationSessionService.PreloadAllStationsAsync();  // 等待预加载完成
+                var loginWindow = new LoginWindow();
+                loginWindow.ShowDialog();
+                if (loginWindow.DataContext is LoginWindowViewModel vm && vm.LoginSuccess)
+                {
+                    base.OnInitialized();
+                    //注册窗口句柄事件
+                    WindowHandleEvent.HandleRegistered += (rn, handle) => Container.Resolve<IWindowHandleRegistry>().Register(rn, handle);
+                    WindowHandleEvent.HandleUnregistered += (rn) => Container.Resolve<IWindowHandleRegistry>().Unregister(rn);
+                    //导航到InspectionView
+                    var regionManager = Container.Resolve<IRegionManager>();
+                    regionManager.RequestNavigate("MainContentRegion", "InspectionView");
+                    // 等待 InspectionView 完全加载并注册所有窗口句柄
+                    await WaitForCameraHandlesAsync();
+                    //预加载所有工位的视觉服务
+                    var stationSessionService = Container.Resolve<IStationSessionService>();
+                    await stationSessionService.PreloadAllStationsAsync();  // 等待预加载完成
 
-                var startupService = Container.Resolve<IApplicationStartupService>();
-                await startupService.InitializeAsync();
+                    var startupService = Container.Resolve<IApplicationStartupService>();
+                    await startupService.InitializeAsync();
+                }
+                else
+                {
+                    Application.Current.Shutdown();
+                }
             }
             catch (Exception ex)
             {
@@ -167,24 +180,28 @@ namespace AVS_App
             if (!isNewInstance)
             {
                 MessageBox.Show("应用已在运行，无法启动新实例！",
-                    "警告",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+             "警告",
+             MessageBoxButton.OK,
+             MessageBoxImage.Warning);
+                Environment.Exit(0);
                 return;
             }
             DispatcherUnhandledException += App_DispatcherUnhandledException;
             base.OnStartup(e);
-            var shell = this.MainWindow;
-            var loginWindow = new LoginWindow();
-            loginWindow.ShowDialog();
+            //var shell = this.MainWindow;
+            //var loginWindow = new LoginWindow();
+            //loginWindow.ShowDialog();
 
-            if (!loginWindow.LoginSuccess)
-            {
-                Shutdown();
-                return;
-            }
-            CurrentUserRole = loginWindow.SelectedRole;
-            shell.Show();
+            //if (loginWindow.DataContext is LoginWindowViewModel vm && vm.LoginSuccess)
+            //{
+            //    CurrentUserRole = vm.SelectedRole;
+            //    shell.Show();
+            //}
+            //else
+            //{
+            //    Shutdown();
+            //    return;
+            //}
 
         }
 
