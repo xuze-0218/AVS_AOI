@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Data;
@@ -25,10 +26,203 @@ namespace AVS_Modules_Settings.ViewModels
         private bool _isInitialized = false;
         private string _lastModuleName = "未分类模块";
 
-        // ===== 数据源 =====
+        // ===== 构造函数 =====
+        public ParameterConfigViewModel(IParametersConfigService configService, IEventAggregator eventAggregator, ILogger logger)
+        {
+            _configService = configService;
+            _eventAggregator = eventAggregator;
+            _logger = logger;
+
+            // ---------- 基础参数命令 ----------
+            AddCommand = new DelegateCommand(() =>
+            {
+                var newParam = new ParametersConfig
+                {
+                    Name = "New_Param",
+                    ModuleName = SelectedSection ?? _lastModuleName
+                };
+                newParam.PropertyChanged += OnParameterPropertyChanged;
+                Parameters.Add(newParam);
+                RefreshSectionList();
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+            });
+
+            DeleteCommand = new DelegateCommand<ParametersConfig>(p =>
+            {
+                Parameters.Remove(p);
+                RefreshSectionList();
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+            });
+
+            SaveCommand = new DelegateCommand(() =>
+            {
+                _configService.SaveConfig();
+                if (SectionList.Count == 0)
+                {
+                    SelectedSection = null;
+                }
+                else if (!SectionList.Contains(SelectedSection))
+                {
+                    SelectedSection = SectionList[0];
+                }
+                IsBaseParamModify = false;
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+                _logger.Information("参数配置已保存");
+            });
+
+            DeleteSectionCommand = new DelegateCommand(() =>
+            {
+                if (string.IsNullOrEmpty(SelectedSection))
+                {
+                    MessageBox.Show("请先选择一个 Section。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var confirm = MessageBox.Show(
+                    $"确定要删除 Section \"{SelectedSection}\" 及其所有参数吗？",
+                    "删除确认",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirm != MessageBoxResult.Yes)
+                    return;
+
+                var paramsToDelete = Parameters.Where(p => p.ModuleName == SelectedSection).ToList();
+                foreach (var p in paramsToDelete)
+                    Parameters.Remove(p);
+
+                _configService.SaveConfig();
+                RefreshSectionList();
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+                _logger.Information("Section {Section} 已删除", SelectedSection);
+            });
+
+            // ---------- AI模型路径命令 ----------
+            BrowseDetModelCommand = new DelegateCommand(() =>
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "模型文件 (*.onnx;*.mm;*.xml)|*.onnx;*.mm;*.xml|所有文件 (*.*)|*.*",
+                    Title = "选择检测模型路径"
+                };
+                if (dialog.ShowDialog() == true)
+                {
+                    DetModelPath = dialog.FileName;
+                    RaisePropertyChanged(nameof(DetModelPath));
+                }
+            });
+
+            BrowseSegModelCommand = new DelegateCommand(() =>
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "模型文件 (*.onnx;*.mm;*.xml)|*.onnx;*.mm;*.xml|所有文件 (*.*)|*.*",
+                    Title = "选择分割模型路径",
+                    Multiselect = true
+                };
+                if (dialog.ShowDialog() == true)
+                {
+                    SegModelPaths = string.Join(";", dialog.FileNames);
+                    RaisePropertyChanged(nameof(SegModelPaths));
+                }
+            });
+
+            // ---------- 图像保存命令 ----------
+            BrowseImageSaveDirCommand = new DelegateCommand(() =>
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    CheckFileExists = false,
+                    CheckPathExists = true,
+                    FileName = "选择文件夹",
+                    Title = "选择图像保存文件夹"
+                };
+                if (dialog.ShowDialog() == true)
+                {
+                    ImageSaveDir = System.IO.Path.GetDirectoryName(dialog.FileName);
+                }
+            });
+
+            // ---------- 检测顺序命令 ----------
+            GenerateGridCommand = new DelegateCommand(() => GenerateEmptyGrid());
+
+            ClearRowCommand = new DelegateCommand(() =>
+            {
+                if (SelectedPole == null) return;
+                foreach (var p in PoleItems.Where(p => p.Row == SelectedPole.Row))
+                {
+                    p.PoleNumber = null;
+                    p.IsStartPoint = false;
+                    p.IsEndPoint = false;
+                }
+            });
+
+            SaveToConfigCommand = new DelegateCommand(() =>
+            {
+                SaveToConfig();
+                _logger.Information("检测顺序已保存到配方 {Index}", RecipeIndex);
+            });
+
+            // ---------- 产品参数命令 ----------
+            AddProductCommand = new DelegateCommand(() =>
+            {
+                ProductParameters.Add(new ProductParameter
+                {
+                    Category = "WeldBeadParam",
+                    Name = "NewParam",
+                    Description = "",
+                    Value = "0"
+                });
+            });
+
+            DeleteProductCommand = new DelegateCommand<ProductParameter>(p =>
+            {
+                if (p != null)
+                    ProductParameters.Remove(p);
+            });
+
+            SaveProductCommand = new DelegateCommand(() => SaveProductParameters());
+
+            // 订阅基础参数集合变化
+            Parameters.CollectionChanged += (s, e) =>
+            {
+                IsBaseParamModify = true;
+                if (e.NewItems != null)
+                    foreach (ParametersConfig p in e.NewItems)
+                        p.PropertyChanged += OnParameterPropertyChanged;
+                if (e.OldItems != null)
+                    foreach (ParametersConfig p in e.OldItems)
+                        p.PropertyChanged -= OnParameterPropertyChanged;
+            };
+
+            Initialize();
+        }
+
+        private void Initialize()
+        {
+            if (_isInitialized) return;
+            _isInitialized = true;
+
+            RecipeList = new ObservableCollection<int>(Enumerable.Range(1, 20));
+            ParametersView = new ListCollectionView(Parameters);
+            ParametersView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ParametersConfig.ModuleName)));
+            ParametersView.SortDescriptions.Add(new SortDescription(nameof(ParametersConfig.ModuleName), ListSortDirection.Ascending));
+            ParametersView.SortDescriptions.Add(new SortDescription(nameof(ParametersConfig.Name), ListSortDirection.Ascending));
+
+            ProductParameters = new ObservableCollection<ProductParameter>();
+            ProductParametersView = new ListCollectionView(ProductParameters);
+
+            RefreshSectionList();
+            if (SectionList.Count > 0)
+                SelectedSection = SectionList[0];
+
+            LoadPoleGrid();
+            LoadProductParameters();
+        }
+
+        #region 基础参数
         public ObservableCollection<ParametersConfig> Parameters => _configService.ConfigParams;
 
-        // ===== 基础参数 DataGrid =====
         private ICollectionView _parametersView;
         public ICollectionView ParametersView
         {
@@ -50,36 +244,17 @@ namespace AVS_Modules_Settings.ViewModels
         public IEnumerable<ParamOutputType> DataTypeValues =>
             Enum.GetValues(typeof(ParamOutputType)).Cast<ParamOutputType>();
 
-        // ===== 命令 =====
         public DelegateCommand AddCommand { get; }
         public DelegateCommand<ParametersConfig> DeleteCommand { get; }
         public DelegateCommand SaveCommand { get; }
         public DelegateCommand DeleteSectionCommand { get; }
 
-        public DelegateCommand BrowseImageSaveDirCommand { get; }
-        // ===== Section 切换 =====
         private ObservableCollection<string> _sectionList;
         public ObservableCollection<string> SectionList
         {
             get => _sectionList;
             set => SetProperty(ref _sectionList, value);
         }
-
-
-        #region Tabitem AI检测模型
-        public string DetModelPath
-        {
-            get => _configService.GetString(SelectedSection ?? "Global", "DetModelPath");
-            set => _configService.UpdateParam(SelectedSection ?? "Global", "DetModelPath", value);
-        }
-        public string SegModelPaths
-        {
-            get => _configService.GetString(SelectedSection ?? "Global", "SegModelPaths");
-            set => _configService.UpdateParam(SelectedSection ?? "Global", "SegModelPaths", value);
-        }
-        public DelegateCommand BrowseDetModelCommand { get; }
-        public DelegateCommand BrowseSegModelCommand { get; }
-        #endregion
 
         private string _selectedSection;
         public string SelectedSection
@@ -92,92 +267,86 @@ namespace AVS_Modules_Settings.ViewModels
                     _lastModuleName = value ?? _lastModuleName;
                     RefreshFilter();
 
-                    // 关键：通知依赖属性已变化
                     RaisePropertyChanged(nameof(DetModelPath));
                     RaisePropertyChanged(nameof(SegModelPaths));
+
+                    LoadProductParameters(); // 工位切换，重新加载产品参数
                 }
             }
         }
 
-
-        #region Tabitem 图像保存
-        // 2D 原始图像
-        public bool IsSave2DOriginal
+        private bool _isBaseParamModify;
+        public bool IsBaseParamModify
         {
-            get => _configService.GetBool("Global", "IsSave2DOriginal");
-            set { _configService.UpdateParam("Global", "IsSave2DOriginal", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+            get => _isBaseParamModify;
+            private set => SetProperty(ref _isBaseParamModify, value);
         }
 
-        public string Format2DOriginal
+        private void OnParameterPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            get => _configService.GetString("Global", "Format2DOriginal", "bmp");
-            set { _configService.UpdateParam("Global", "Format2DOriginal", value); RaisePropertyChanged(); }
+            IsBaseParamModify = true;
+            if (e.PropertyName == nameof(ParametersConfig.ModuleName) && sender is ParametersConfig)
+            {
+                RefreshSectionList();
+                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+            }
         }
 
-        // 2D OK 结果图像
-        public bool IsSave2DOkResult
+        private void RefreshSectionList()
         {
-            get => _configService.GetBool("Global", "IsSave2DOkResult");
-            set { _configService.UpdateParam("Global", "IsSave2DOkResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+            var sections = Parameters
+                .Select(p => p.ModuleName)
+                .Where(s => !string.IsNullOrEmpty(s) && s != "Recipe")
+                .Distinct()
+                .OrderBy(s => s)
+                .ToList();
+
+            SectionList = new ObservableCollection<string>(sections);
+            ValidateSelectedSection();
         }
 
-        public string Format2DOkResult
+        private void ValidateSelectedSection()
         {
-            get => _configService.GetString("Global", "Format2DOkResult", "bmp");
-            set { _configService.UpdateParam("Global", "Format2DOkResult", value); RaisePropertyChanged(); }
+            if (SectionList.Count == 0)
+            {
+                SelectedSection = null;
+            }
+            else if (SelectedSection == null || !SectionList.Contains(SelectedSection))
+            {
+                SelectedSection = SectionList[0];
+            }
         }
 
-        // 2D NG 结果图像
-        public bool IsSave2DNgResult
+        private void RefreshFilter()
         {
-            get => _configService.GetBool("Global", "IsSave2DNgResult");
-            set { _configService.UpdateParam("Global", "IsSave2DNgResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+            if (ParametersView == null) return;
+            if (string.IsNullOrEmpty(SelectedSection))
+                ParametersView.Filter = null;
+            else
+                ParametersView.Filter = obj => obj is ParametersConfig p && p.ModuleName == SelectedSection;
+            ParametersView.Refresh();
+        }
+        #endregion
+
+        #region AI检测模型
+        public string DetModelPath
+        {
+            get => _configService.GetString(SelectedSection ?? "Global", "DetModelPath");
+            set => _configService.UpdateParam(SelectedSection ?? "Global", "DetModelPath", value);
         }
 
-        public string Format2DNgResult
+        public string SegModelPaths
         {
-            get => _configService.GetString("Global", "Format2DNgResult", "bmp");
-            set { _configService.UpdateParam("Global", "Format2DNgResult", value); RaisePropertyChanged(); }
+            get => _configService.GetString(SelectedSection ?? "Global", "SegModelPaths");
+            set => _configService.UpdateParam(SelectedSection ?? "Global", "SegModelPaths", value);
         }
 
-        // 3D 深度图（原始）
-        public bool IsSave3DDepth
-        {
-            get => _configService.GetBool("Global", "IsSave3DDepth");
-            set { _configService.UpdateParam("Global", "IsSave3DDepth", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
-        }
+        public DelegateCommand BrowseDetModelCommand { get; }
+        public DelegateCommand BrowseSegModelCommand { get; }
+        #endregion
 
-        public string Format3DDepth
-        {
-            get => _configService.GetString("Global", "Format3DDepth", "tiff");
-            set { _configService.UpdateParam("Global", "Format3DDepth", value); RaisePropertyChanged(); }
-        }
-
-        // 3D 亮度图（原始）
-        public bool IsSave3DIntensity
-        {
-            get => _configService.GetBool("Global", "IsSave3DIntensity");
-            set { _configService.UpdateParam("Global", "IsSave3DIntensity", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
-        }
-
-        public string Format3DIntensity
-        {
-            get => _configService.GetString("Global", "Format3DIntensity", "bmp");
-            set { _configService.UpdateParam("Global", "Format3DIntensity", value); RaisePropertyChanged(); }
-        }
-
-        public int SaveOrnImgDays
-        {
-            get => _configService.GetInt("Global", "SaveOrnImgDays", 30);
-            set => _configService.UpdateParam("Global", "SaveOrnImgDays", value.ToString());
-        }
-
-        public int SaveRenImgDays
-        {
-            get => _configService.GetInt("Global", "SaveRenImgDays", 30);
-            set => _configService.UpdateParam("Global", "SaveRenImgDays", value.ToString());
-        }
-
+        #region 图像保存
+        // ===== 通用 =====
         public string ImageSaveDir
         {
             get => _configService.GetString("Global", "ImageSaveDir");
@@ -191,233 +360,135 @@ namespace AVS_Modules_Settings.ViewModels
         public int ImageCompressRatio
         {
             get => _configService.GetInt("Global", "ImageCompressRatio", 100);
-            set => _configService.UpdateParam("Global", "ImageCompressRatio", value.ToString());
+            set { _configService.UpdateParam("Global", "ImageCompressRatio", value.ToString()); RaisePropertyChanged(); }
+        }
+
+        public int SaveOrnImgDays
+        {
+            get => _configService.GetInt("Global", "SaveOrnImgDays", 30);
+            set { _configService.UpdateParam("Global", "SaveOrnImgDays", value.ToString()); RaisePropertyChanged(); }
+        }
+
+        public int SaveRenImgDays
+        {
+            get => _configService.GetInt("Global", "SaveRenImgDays", 30);
+            set { _configService.UpdateParam("Global", "SaveRenImgDays", value.ToString()); RaisePropertyChanged(); }
+        }
+
+        public DelegateCommand BrowseImageSaveDirCommand { get; }
+
+        // ===== 2D 相机 =====
+        // 保存原始图像（与 IsSave2DNGOriginal 互斥）
+        public bool IsSave2DOriginal
+        {
+            get => _configService.GetBool("Global", "IsSave2DOriginal");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave2DOriginal", value.ToString(), ParamOutputType.BOOL);
+                RaisePropertyChanged();
+            }
+        }
+
+        public bool IsSave2DNGOnly
+        {
+            get => _configService.GetBool("Global", "IsSave2DNGOnly");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave2DNGOnly", value.ToString(), ParamOutputType.BOOL);
+                RaisePropertyChanged();
+            }
+        }
+
+        public string Format2DOriginal
+        {
+            get => _configService.GetString("Global", "Format2DOriginal", "bmp");
+            set { _configService.UpdateParam("Global", "Format2DOriginal", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave2DResult
+        {
+            get => _configService.GetBool("Global", "IsSave2DResult");
+            set { _configService.UpdateParam("Global", "IsSave2DResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+        }
+
+        public string Format2DResult
+        {
+            get => _configService.GetString("Global", "Format2DResult", "bmp");
+            set { _configService.UpdateParam("Global", "Format2DResult", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave2DMask
+        {
+            get => _configService.GetBool("Global", "IsSave2DMask");
+            set { _configService.UpdateParam("Global", "IsSave2DMask", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+        }
+
+        // ===== 3D 相机 =====
+        // 仅保存NG样本的开关（过滤器）
+        public bool IsSave3DNGOnly
+        {
+            get => _configService.GetBool("Global", "IsSave3DNGOnly");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave3DNGOnly", value.ToString(), ParamOutputType.BOOL);
+                RaisePropertyChanged();
+            }
+        }
+
+        public bool IsSave3DDepth
+        {
+            get => _configService.GetBool("Global", "IsSave3DDepth");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave3DDepth", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged();
+            }
+        }
+
+        public string Format3DDepth
+        {
+            get => _configService.GetString("Global", "Format3DDepth", "tiff");
+            set { _configService.UpdateParam("Global", "Format3DDepth", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave3DIntensity
+        {
+            get => _configService.GetBool("Global", "IsSave3DIntensity");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave3DIntensity", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); if (value)
+                {
+                    IsSave3DNGOnly = false;
+                }
+            }
+        }
+
+        public string Format3DIntensity
+        {
+            get => _configService.GetString("Global", "Format3DIntensity", "bmp");
+            set { _configService.UpdateParam("Global", "Format3DIntensity", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave3DResult
+        {
+            get => _configService.GetBool("Global", "IsSave3DResult");
+            set { _configService.UpdateParam("Global", "IsSave3DResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+        }
+
+        public string Format3DResult
+        {
+            get => _configService.GetString("Global", "Format3DResult", "bmp");
+            set { _configService.UpdateParam("Global", "Format3DResult", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave3DMask
+        {
+            get => _configService.GetBool("Global", "IsSave3DMask");
+            set { _configService.UpdateParam("Global", "IsSave3DMask", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
         }
 
         #endregion
 
-
-        // ===== 构造函数 =====
-        public ParameterConfigViewModel(IParametersConfigService configService, IEventAggregator eventAggregator, ILogger logger)
-        {
-
-            _configService = configService;
-            _eventAggregator = eventAggregator;
-            _logger = logger;
-
-            _eventAggregator.GetEvent<SectionsChangedEvent>().Subscribe(() =>
-            {
-                RefreshSectionList();
-            });
-            AddCommand = new DelegateCommand(() =>
-            {
-                var newParam = new ParametersConfig
-                {
-                    Name = "New_Param",
-                    ModuleName = SelectedSection ?? _lastModuleName
-                };
-                newParam.PropertyChanged += OnParameterPropertyChanged;
-                Parameters.Add(newParam);
-                RefreshSectionList();
-                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
-            });
-            DeleteCommand = new DelegateCommand<ParametersConfig>(p =>
-            {
-
-                Parameters.Remove(p);
-                RefreshSectionList();
-                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
-            });
-            SaveCommand = new DelegateCommand(() =>
-            {
-                _configService.SaveConfig();
-                // 如果删空了当前 Section，重置选中项
-                if (SectionList.Count == 0)
-                {
-                    SelectedSection = null;
-                }
-                else if (!SectionList.Contains(SelectedSection))
-                {
-                    SelectedSection = SectionList[0];
-                }
-                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
-                _logger.Information("参数配置已保存");
-            });
-            DeleteSectionCommand = new DelegateCommand(() =>
-            {
-                if (string.IsNullOrEmpty(SelectedSection))
-                {
-                    MessageBox.Show("请先选择一个 Section。", "提示",
-                                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                // 确认删除
-                var confirm = MessageBox.Show(
-                    $"确定要删除 Section \"{SelectedSection}\" 及其所有参数吗？",
-                    "删除确认",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-
-                if (confirm != MessageBoxResult.Yes)
-                    return;
-
-                // 删除该 ModuleName 下的所有参数
-                var paramsToDelete = Parameters
-                    .Where(p => p.ModuleName == SelectedSection)
-                    .ToList();
-
-                foreach (var p in paramsToDelete)
-                {
-                    Parameters.Remove(p);
-                }
-
-                // 持久化
-                _configService.SaveConfig();
-
-                // 刷新 Section 列表（内部会调用 ValidateSelectedSection，自动选择新的 Section）
-                RefreshSectionList();
-
-                // 通知其他模块（如 StationConfigViewModel）刷新
-                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
-
-                _logger.Information("Section {Section} 已删除", SelectedSection);
-            });
-            BrowseDetModelCommand = new DelegateCommand(() =>
-            {
-                var dialog = new Microsoft.Win32.OpenFileDialog
-                {
-                    Filter = "模型文件 (*.onnx;*.mm;*.xml)|*.onnx;*.mm;*.xml|所有文件 (*.*)|*.*",
-                    Title = "选择检测模型路径"
-                };
-                if (dialog.ShowDialog() == true)
-                {
-                    DetModelPath = dialog.FileName;
-                    RaisePropertyChanged(nameof(DetModelPath));
-                }
-            });
-            BrowseSegModelCommand = new DelegateCommand(() =>
-            {
-                var dialog = new Microsoft.Win32.OpenFileDialog
-                {
-                    Filter = "模型文件 (*.onnx;*.mm;*.xml)|*.onnx;*.mm;*.xml|所有文件 (*.*)|*.*",
-                    Title = "选择分割模型路径",
-                    Multiselect = true
-                };
-                if (dialog.ShowDialog() == true)
-                {
-                    SegModelPaths = string.Join(";", dialog.FileNames);
-                    RaisePropertyChanged(nameof(SegModelPaths));
-                }
-            });
-            BrowseImageSaveDirCommand = new DelegateCommand(() =>
-            {
-                var dialog = new Microsoft.Win32.OpenFileDialog
-                {
-                    CheckFileExists = false,
-                    CheckPathExists = true,
-                    FileName = "选择文件夹",
-                    Title = "选择图像保存文件夹"
-                };
-                if (dialog.ShowDialog() == true)
-                {
-                    ImageSaveDir = System.IO.Path.GetDirectoryName(dialog.FileName);
-                }
-            });
-            // 生成空网格
-            GenerateGridCommand = new DelegateCommand(() =>
-            {
-                GenerateEmptyGrid();
-            });
-            // 清除当前行
-            ClearRowCommand = new DelegateCommand(() =>
-            {
-                if (SelectedPole == null) return;
-                foreach (var p in PoleItems.Where(p => p.Row == SelectedPole.Row))
-                {
-                    p.PoleNumber = null;
-                    p.IsStartPoint = false;
-                    p.IsEndPoint = false;
-                }
-            });
-            // 保存到 InspectOrder
-            SaveToConfigCommand = new DelegateCommand(() =>
-            {
-                SaveToConfig();
-                _logger.Information("检测顺序已保存到配方 {Index}", RecipeIndex);
-            });
-            Initialize();
-        }
-
-        private void Initialize()
-        {
-            if (_isInitialized) return;
-            _isInitialized = true;
-            RecipeList = new ObservableCollection<int>(Enumerable.Range(1, 20));
-            ParametersView = new ListCollectionView(Parameters);
-            ParametersView.GroupDescriptions.Add(
-                new PropertyGroupDescription(nameof(ParametersConfig.ModuleName)));
-            ParametersView.SortDescriptions.Add(
-                new SortDescription(nameof(ParametersConfig.ModuleName), ListSortDirection.Ascending));
-            ParametersView.SortDescriptions.Add(
-                new SortDescription(nameof(ParametersConfig.Name), ListSortDirection.Ascending));
-            RefreshSectionList();
-            if (SectionList.Count > 0)
-                SelectedSection = SectionList[0];
-            LoadPoleGrid();
-        }
-        private void OnParameterPropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(ParametersConfig.ModuleName) && sender is ParametersConfig)
-            {
-                RefreshSectionList();
-                _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
-            }
-        }
-        private void RefreshSectionList()
-        {
-            var sections = Parameters
-                .Select(p => p.ModuleName)
-                .Where(s => !string.IsNullOrEmpty(s) && s != "Recipe" /*&& s != "Global"*/ )
-                .Distinct()
-                .OrderBy(s => s)
-                .ToList();
-
-            SectionList = new ObservableCollection<string>(sections);
-            ValidateSelectedSection();
-        }
-        private void ValidateSelectedSection()
-        {
-            if (SectionList.Count == 0)
-            {
-                SelectedSection = null;
-            }
-            else if (SelectedSection == null || !SectionList.Contains(SelectedSection))
-            {
-                SelectedSection = SectionList[0];
-            }
-        }
-        private void RefreshFilter()
-        {
-            if (ParametersView == null) return;
-
-            if (string.IsNullOrEmpty(SelectedSection))
-            {
-                ParametersView.Filter = null;
-            }
-            else
-            {
-                ParametersView.Filter = obj =>
-                {
-                    if (obj is ParametersConfig p)
-                        return p.ModuleName == SelectedSection;
-                    return false;
-                };
-            }
-            ParametersView.Refresh();
-        }
-
-        #region TabItem检测顺序 
+        #region 检测顺序
         private ObservableCollection<PoleCircleItem> _poleItems;
         public ObservableCollection<PoleCircleItem> PoleItems
         {
@@ -443,9 +514,6 @@ namespace AVS_Modules_Settings.ViewModels
         public int GridCols { get => _gridCols; set => SetProperty(ref _gridCols, value); }
 
         private ObservableCollection<int> _recipeList;
-        /// <summary>
-        /// 配方
-        /// </summary>
         public ObservableCollection<int> RecipeList
         {
             get => _recipeList;
@@ -466,11 +534,15 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
+        public DelegateCommand GenerateGridCommand { get; }
+        public DelegateCommand ClearRowCommand { get; }
+        public DelegateCommand SaveToConfigCommand { get; }
+        public DelegateCommand<PoleCircleItem> SelectPoleCommand { get; }
+
         public void BeginEditPole(PoleCircleItem item)
         {
             if (item == null) return;
 
-            // 关闭之前正在编辑的项
             var editingItem = PoleItems?.FirstOrDefault(p => p.IsEditing);
             if (editingItem != null && editingItem != item)
             {
@@ -491,7 +563,6 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 item.PoleNumber = num;
 
-                // 自动标记该行的起点和终点
                 var rowItems = PoleItems.Where(p => p.Row == item.Row)
                                         .OrderBy(p => p.Col)
                                         .ToList();
@@ -508,7 +579,6 @@ namespace AVS_Modules_Settings.ViewModels
                     if (first != null) first.IsStartPoint = true;
                     if (last != null && last != first) last.IsEndPoint = true;
                 }
-                // 如果该行已有至少两个有效极柱号，自动填充
                 TryAutoFill(item.Row);
             }
             else
@@ -522,13 +592,7 @@ namespace AVS_Modules_Settings.ViewModels
             if (item == null) return;
             item.IsEditing = false;
         }
-        // 命令
-        public DelegateCommand GenerateGridCommand { get; }
-        public DelegateCommand ClearRowCommand { get; }
-        public DelegateCommand SaveToConfigCommand { get; }
-        public DelegateCommand<PoleCircleItem> SelectPoleCommand { get; }
 
-        // 生成空网格
         private void GenerateEmptyGrid()
         {
             var items = new ObservableCollection<PoleCircleItem>();
@@ -538,7 +602,6 @@ namespace AVS_Modules_Settings.ViewModels
             PoleItems = items;
         }
 
-        // 从配置加载已有数据
         private void LoadPoleGrid()
         {
             if (GridRows <= 0 || GridCols <= 0) return;
@@ -575,23 +638,22 @@ namespace AVS_Modules_Settings.ViewModels
                 }
             }
         }
+
         private void TryAutoFill(int row)
         {
-            if (PoleItems == null)
-                return;
+            if (PoleItems == null) return;
 
             var rowItems = PoleItems.Where(p => p.Row == row).OrderBy(p => p.Col).ToList();
-            if (rowItems.Count < 2)
-                return;
-            // 找出这一行已经填写极柱号的位置
+            if (rowItems.Count < 2) return;
+
             var knownItems = rowItems.Where(p => p.PoleNumber.HasValue).ToList();
-            // 至少需要两个已知点
             if (knownItems.Count < 2) return;
+
             var first = knownItems[0];
             var second = knownItems[1];
             if (first.Col == second.Col) return;
+
             double step = (double)(second.PoleNumber.Value - first.PoleNumber.Value) / (second.Col - first.Col);
-            // 极柱编号必须是整数，因此步长也必须是整数
             if (step != Math.Round(step))
             {
                 MessageBox.Show(
@@ -620,25 +682,23 @@ namespace AVS_Modules_Settings.ViewModels
                         "无法自动填充",
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
-
                     return;
                 }
             }
+
             foreach (var item in rowItems)
             {
                 int offset = item.Col - first.Col;
                 item.PoleNumber = first.PoleNumber.Value + intStep * offset;
             }
         }
+
         private void SaveToConfig()
         {
             if (PoleItems == null || PoleItems.Count == 0) return;
             if (GridRows <= 0 || GridCols <= 0) return;
 
-            // 从配置读取现有的 InspectOrders 数组（如果有）
             InspectOrder[] orders = LoadInspectOrdersFromConfig();
-
-            // 确保数组足够大
             if (orders == null) orders = new InspectOrder[Math.Max(RecipeIndex + 1, 20)];
             if (RecipeIndex >= orders.Length)
             {
@@ -647,7 +707,6 @@ namespace AVS_Modules_Settings.ViewModels
                 orders = newOrders;
             }
 
-            // 构建当前配方的 InspectOrder
             var order = new InspectOrder
             {
                 Row = GridRows,
@@ -676,7 +735,6 @@ namespace AVS_Modules_Settings.ViewModels
 
             orders[RecipeIndex] = order;
 
-            // 序列化并保存到 ConfigParams 中
             string json = JsonConvert.SerializeObject(orders, Formatting.Indented);
             _configService.UpdateParam("Recipe", "InspectOrders", json);
             _configService.SaveConfig();
@@ -684,7 +742,6 @@ namespace AVS_Modules_Settings.ViewModels
             _logger.Information("配方 {Index} 的检测顺序已保存到 'Recipe' Section", RecipeIndex);
         }
 
-        //从配置加载 InspectOrders 数组
         private InspectOrder[] LoadInspectOrdersFromConfig()
         {
             string json = _configService.GetString("Recipe", "InspectOrders", "");
@@ -701,5 +758,97 @@ namespace AVS_Modules_Settings.ViewModels
         }
         #endregion
 
+        #region 产品参数
+        public ObservableCollection<ProductParameter> ProductParameters { get; private set; }
+        public ICollectionView ProductParametersView { get; private set; }
+
+        private ProductParameter _selectedProductParameter;
+        public ProductParameter SelectedProductParameter
+        {
+            get => _selectedProductParameter;
+            set => SetProperty(ref _selectedProductParameter, value);
+        }
+
+        public DelegateCommand AddProductCommand { get; private set; }
+        public DelegateCommand<ProductParameter> DeleteProductCommand { get; private set; }
+        public DelegateCommand SaveProductCommand { get; private set; }
+
+        private string _productParamFilePath;
+
+        private void SaveProductParameters()
+        {
+            try
+            {
+                string json = JsonConvert.SerializeObject(ProductParameters, Formatting.Indented);
+                File.WriteAllText(_productParamFilePath, json);
+                _logger.Information("产品参数已保存到 {Path}", _productParamFilePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "保存产品参数失败");
+                MessageBox.Show("保存产品参数失败：" + ex.Message);
+            }
+        }
+
+        private void LoadProductParameters()
+        {
+            ProductParameters.Clear();
+            string section = SelectedSection;
+            if (string.IsNullOrEmpty(section))
+                return;
+
+            bool isSquareBar = _configService.GetBool(section, "IsSquareBarWeldMark", false);
+            string productType = isSquareBar ? "SB" : "Circ";
+            string fileName = $"{productType}ProductParam{section}.json";
+            _productParamFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", fileName);
+
+            if (!File.Exists(_productParamFilePath))
+            {
+                _logger.Warning("产品参数文件不存在: {Path}", _productParamFilePath);
+                return;
+            }
+
+            try
+            {
+                string json = File.ReadAllText(_productParamFilePath);
+                var list = JsonConvert.DeserializeObject<ObservableCollection<ProductParameter>>(json);
+                if (list != null)
+                    foreach (var item in list)
+                        ProductParameters.Add(item);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "加载产品参数失败");
+                MessageBox.Show("产品参数加载失败：" + ex.Message);
+            }
+        }
+
+        public void OnProductParamTabActivated()
+        {
+            if (IsBaseParamModify)
+            {
+                var result = MessageBox.Show(
+                    "基础参数有未保存的修改，是否保存并刷新产品参数？",
+                    "确认",
+                    MessageBoxButton.YesNoCancel,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    _configService.SaveConfig();
+                    IsBaseParamModify = false;
+                    LoadProductParameters();
+                }
+                else if (result == MessageBoxResult.Cancel)
+                {
+                    // 可选：取消切换事件
+                }
+            }
+            else
+            {
+                LoadProductParameters();
+            }
+        }
+        #endregion
     }
 }

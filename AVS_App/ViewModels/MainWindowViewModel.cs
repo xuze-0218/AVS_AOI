@@ -1,7 +1,11 @@
-﻿using AVS_Common;
+﻿using AVS_App.Views;
+using AVS_Common;
+using AVS_Common.Events;
 using AVS_Common.Model;
 using AVS_Service;
+using AVS_Service.Models;
 using Prism.Commands;
+using Prism.Events;
 using Prism.Mvvm;
 using Prism.Regions;
 using System;
@@ -15,9 +19,26 @@ namespace AVS_App.ViewModels
     public class MainWindowViewModel : BindableBase
     {
         private readonly IRegionManager _regionManager;
+        private readonly IEventAggregator _eventAggregator;
         private readonly ICommunicationService _communicationService;
         private readonly IStationConfigService _stationConfigService;
         private readonly ICameraConfigService _cameraConfigService;
+        private readonly ILoginCredentialService _loginCredentialService;
+
+
+        private bool _isEngineer;
+        public bool IsEngineer
+        {
+            get => _isEngineer;
+            private set => SetProperty(ref _isEngineer, value);
+        }
+
+        private string _currentUser = "未登录";
+        public string CurrentUser
+        {
+            get => _currentUser;
+            set => SetProperty(ref _currentUser, value);
+        }
 
         private bool _isAnyCameraGrabbing;
         public bool IsAnyCameraGrabbing
@@ -82,22 +103,29 @@ namespace AVS_App.ViewModels
         public DelegateCommand StartAllCommand { get; set; }
         public DelegateCommand StopAllCommand { get; set; }
 
+        public DelegateCommand LoginCommand { get; set; }
+
         public ObservableCollection<LogEventModel> LogSource => UiLogSink.LogCollection;
 
         public MainWindowViewModel(IRegionManager regionManager,
-            ICommunicationService communicationService,
+             IEventAggregator eventAggregator,
+        ICommunicationService communicationService,
             IStationConfigService stationConfigService,
-            ICameraConfigService cameraConfigService)
+            ICameraConfigService cameraConfigService,
+            ILoginCredentialService loginCredentialService)
         {
             _regionManager = regionManager;
+            _eventAggregator = eventAggregator;
             _cameraConfigService = cameraConfigService;
             _communicationService = communicationService;
             _stationConfigService = stationConfigService;
+            _loginCredentialService = loginCredentialService;
 
+            _eventAggregator.GetEvent<LoginSuccessEvent>().Subscribe(OnLoginSuccess);
             NavigateCommand = new DelegateCommand<string>(Navigate);
             StartAllCommand = new DelegateCommand(async () => await ExecuteStartAllAsync(), CanStartAll);
             StopAllCommand = new DelegateCommand(async () => await ExecuteStopAllAsync(), CanStopAll);
-
+            LoginCommand = new DelegateCommand(ShowLoginWindow);
             RefreshPlcStatus();
             _communicationService.ConnectionStatusChanged += (id, connected) =>
             {
@@ -173,6 +201,7 @@ namespace AVS_App.ViewModels
                     {
                         _cameraConfigService.StopAllCameras();
                     }
+                    // 启动所有相机（应用配置、设置触发模式、启动采集）
                     _cameraConfigService.StartAllCameras();
                 });
 
@@ -207,6 +236,33 @@ namespace AVS_App.ViewModels
             {
                 IsBusy = false;
                 RefreshCameraGrabbingStatus();
+            }
+        }
+
+        private void OnLoginSuccess(LoginSuccessInfo info)
+        {
+            CurrentUser = info.CurrentUser;
+            IsEngineer = info.IsEngineer;
+        }
+
+        private void ShowLoginWindow()
+        {
+            var loginWindow = new LoginWindow();
+            var loginViewModel = new LoginWindowViewModel(_loginCredentialService, _eventAggregator);
+            loginWindow.DataContext = loginViewModel;
+            loginViewModel.CloseAction = () => loginWindow.Close();
+            loginWindow.ShowDialog();
+
+            if (loginViewModel.LoginSuccess)
+            {
+                MessageBox.Show($"登录成功: {loginViewModel.LoginParams.UserName}, 角色: {loginViewModel.SelectedRole}");
+                string roleText = loginViewModel.SelectedRole == UserRole.Operator ? "操作员" : "工程师";
+                CurrentUser = $"{loginViewModel.LoginParams.UserName}（{roleText}）";
+                IsEngineer = loginViewModel.SelectedRole == UserRole.Engineer;
+            }
+            else
+            {
+                MessageBox.Show("登录失败或取消");
             }
         }
     }

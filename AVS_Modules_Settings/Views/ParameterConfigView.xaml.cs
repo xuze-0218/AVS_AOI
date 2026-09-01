@@ -85,5 +85,18 @@ namespace AVS_Modules_Settings.Views
                 }
             }
         }
+
+        private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.Source is TabControl tabControl)
+            {
+                // 判断当前选中的是否是产品参数 Tab（根据 Header 或索引）
+                if (tabControl.SelectedItem is TabItem tabItem && tabItem.Header?.ToString() == "产品参数")
+                {
+                    var vm = DataContext as ParameterConfigViewModel;
+                    vm?.OnProductParamTabActivated();
+                }
+            }
+        }
     }
 }

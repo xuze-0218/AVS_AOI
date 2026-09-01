@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
     Title="AOI 视觉系统"
     Width="1200"
     Height="700"
@@ -13,113 +14,6 @@
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
 
-    <Window.Resources>
-        <!--  顶部导航按钮样式（RadioButton）  -->
-        <Style x:Key="TopNavButtonStyle" TargetType="RadioButton">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#CCCCCC" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Height" Value="36" />
-            <Setter Property="Padding" Value="16,0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border
-                            x:Name="border"
-                            Padding="{TemplateBinding Padding}"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="0,0,0,2">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#333337" />
-                                <Setter Property="Foreground" Value="White" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
-                                <Setter Property="Foreground" Value="White" />
-                                <Setter TargetName="border" Property="Background" Value="#2A2A2E" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!--  日志表格行样式  -->
-        <Style TargetType="DataGridRow">
-            <Setter Property="Background" Value="#252526" />
-            <Setter Property="Foreground" Value="#D4D4D4" />
-            <Setter Property="BorderBrush" Value="#333" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#2E2E32" />
-                </Trigger>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#094771" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style TargetType="DataGridCell">
-            <Setter Property="BorderBrush" Value="#333" />
-            <Setter Property="Padding" Value="6,4" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DataGridCell">
-                        <Border
-                            Padding="{TemplateBinding Padding}"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="0,0,0,1">
-                            <ContentPresenter VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#2D2D30" />
-            <Setter Property="Foreground" Value="#E0E0E0" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="BorderBrush" Value="#444" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="Padding" Value="6,6" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DataGridColumnHeader">
-                        <Border
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="CameraControlButton" TargetType="Button">
-            <Setter Property="Margin" Value="5,0"/>
-            <Setter Property="Padding" Value="10,4"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AAAAAA"/>
-                    <Setter Property="Foreground" Value="#666666"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -175,14 +69,14 @@
                 </ItemsControl>
 
                 <StackPanel
-    Grid.Column="1"
-    VerticalAlignment="Center"
-    Orientation="Horizontal">
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal">
 
                     <Ellipse
-        Width="12"
-        Height="12"
-        Margin="10,0,8,0">
+                        Width="12"
+                        Height="12"
+                        Margin="10,0,8,0">
                         <Ellipse.Style>
                             <Style TargetType="Ellipse">
                                 <Setter Property="Fill" Value="#FF4C4C" />
@@ -195,16 +89,16 @@
                         </Ellipse.Style>
                     </Ellipse>
                     <TextBlock
-        Margin="0,0,5,0"
-        VerticalAlignment="Center"
-        FontSize="12"
-        Foreground="#AAA"
-        Text="CAM" />
+                        Margin="0,0,5,0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="#AAA"
+                        Text="CAM" />
 
                     <Ellipse
-        Width="12"
-        Height="12"
-        Margin="0,0,8,0">
+                        Width="12"
+                        Height="12"
+                        Margin="0,0,8,0">
                         <Ellipse.Style>
                             <Style TargetType="Ellipse">
                                 <Setter Property="Fill" Value="#FF4C4C" />
@@ -217,48 +111,72 @@
                         </Ellipse.Style>
                     </Ellipse>
                     <TextBlock
-        VerticalAlignment="Center"
-        FontSize="12"
-        Foreground="#AAA"
-        Text="PLC" />
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="#AAA"
+                        Text="PLC" />
 
                     <Separator Width="16" Style="{x:Null}" />
 
-                    <Button Style="{StaticResource CameraControlButton}"
-        Background="#2E7D32"
-        BorderBrush="#2E7D32"
-        Command="{Binding StartAllCommand}"
-        Content="启动" />
-                    <Button Style="{StaticResource CameraControlButton}"
-        Background="#C62828"
-        BorderBrush="#C62828"
-        Command="{Binding StopAllCommand}"
-        Content="停止" />
+                    <Button
+                        Background="#2E7D32"
+                        BorderBrush="#2E7D32"
+                        Command="{Binding StartAllCommand}"
+                        Content="启动"
+                        Style="{StaticResource CameraControlButton}" />
+                    <Button
+                        Background="#C62828"
+                        BorderBrush="#C62828"
+                        Command="{Binding StopAllCommand}"
+                        Content="停止"
+                        Style="{StaticResource CameraControlButton}" />
+
+                    <!--  用户信息与登录切换  -->
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="#CCC"
+                            Text="当前用户：" />
+                        <TextBlock
+                            Margin="0,0,10,0"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Foreground="#4CAF50"
+                            Text="{Binding CurrentUser}" />
+                        <Button
+                            Background="#555"
+                            BorderBrush="#555"
+                            Command="{Binding LoginCommand}"
+                            Content="切换用户"
+                            Style="{StaticResource CameraControlButton}" />
+                    </StackPanel>
 
                     <Separator Width="16" Style="{x:Null}" />
 
                     <ToggleButton
-        x:Name="SidebarToggle"
-        Width="32"
-        Height="32"
-        Background="Transparent"
-        BorderBrush="#555"
-        BorderThickness="1"
-        Content="◀"
-        Cursor="Hand"
-        Foreground="#CCC"
-        IsChecked="True"
-        ToolTip="显示/隐藏侧边栏">
+                        x:Name="SidebarToggle"
+                        Width="32"
+                        Height="32"
+                        Background="Transparent"
+                        BorderBrush="#555"
+                        BorderThickness="1"
+                        Content="◀"
+                        Cursor="Hand"
+                        Foreground="#CCC"
+                        IsChecked="True"
+                        ToolTip="显示/隐藏侧边栏">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ToggleButton">
                                             <Border
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4">
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="4">
                                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                         </ControlTemplate>
@@ -406,14 +324,15 @@
                             IsReadOnly="True"
                             ItemsSource="{Binding LogSource}"
                             RowHeaderWidth="0"
+                            RowHeight="{x:Static sys:Double.NaN}"
                             SelectionUnit="FullRow">
                             <DataGrid.Columns>
                                 <DataGridTextColumn
-                                    Width="60"
+                                    Width="80"
                                     Binding="{Binding Timestamp, StringFormat='HH:mm:ss'}"
                                     Header="时间" />
                                 <DataGridTextColumn
-                                    Width="40"
+                                    Width="60"
                                     Binding="{Binding Level}"
                                     Header="级别">
                                     <DataGridTextColumn.ElementStyle>

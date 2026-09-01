@@ -1,7 +1,8 @@
-﻿using AVS_Core.Models;
+﻿using AVS_Common.Events;
 using AVS_Service;
 using AVS_Service.Models;
 using Prism.Commands;
+using Prism.Events;
 using Prism.Mvvm;
 using System;
 using System.Collections.Generic;
@@ -14,8 +15,8 @@ namespace AVS_App.ViewModels
     public class LoginWindowViewModel : BindableBase
     {
         private readonly ILoginCredentialService _credentialService;
+        private readonly IEventAggregator _eventAggregator;
         private bool _isAutoLoginTried = false; // 防止重复自动登录
-        // 用户名列表（根据实际需求可改为从配置读取）
         public List<string> UserNames { get; } = new List<string> { "operator", "engineer" };
 
         private string _selectedUserName;
@@ -73,10 +74,10 @@ namespace AVS_App.ViewModels
         public DelegateCommand LoginCommand { get; }
         public DelegateCommand ExitCommand { get; }
 
-        public LoginWindowViewModel(ILoginCredentialService credentialService)
+        public LoginWindowViewModel(ILoginCredentialService credentialService, IEventAggregator eventAggregator)
         {
             _credentialService = credentialService;
-
+            _eventAggregator = eventAggregator;
             LoginCommand = new DelegateCommand(async () => await ExecuteLoginAsync());
             ExitCommand = new DelegateCommand(ExecuteExit);
 
@@ -134,6 +135,21 @@ namespace AVS_App.ViewModels
                 if (success)
                 {
                     LoginSuccess = true;
+                    string roleText = SelectedRole == UserRole.Operator ? "操作员" : "工程师";
+                    string currentUser = $"{LoginParams.UserName}（{roleText}）";
+                    bool isEngineer = SelectedRole == UserRole.Engineer;
+
+                    // 更新静态会话
+                    UserSession.CurrentUser = currentUser;
+                    UserSession.IsEngineer = isEngineer;
+
+                    // 发布事件，通知主窗体更新
+                    _eventAggregator.GetEvent<LoginSuccessEvent>().Publish(new LoginSuccessInfo
+                    {
+                        CurrentUser = currentUser,
+                        IsEngineer = isEngineer
+                    });
+
                     // 保存或清除凭据
                     if (LoginParams.IsRememberPassword || LoginParams.IsAutoLogin)
                     {
