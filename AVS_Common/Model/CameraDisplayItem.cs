@@ -5,7 +5,7 @@ using System.Windows.Input;
 
 namespace AVS_Common.Model
 {
-    public class CameraDisplayItem : BindableBase,IDisposable
+    public class CameraDisplayItem : BindableBase, IDisposable
     {
         public string CameraRoleName { get; set; }
         public string PhysicalSN { get; set; }

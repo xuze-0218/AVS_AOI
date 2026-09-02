@@ -14,10 +14,4 @@ namespace AVS_Service.Models
         public bool RememberPassword { get; set; }
         public bool AutoLogin { get; set; }
     }
-
-    public enum UserRole
-    {
-        Operator,
-        Engineer
-    }
 }

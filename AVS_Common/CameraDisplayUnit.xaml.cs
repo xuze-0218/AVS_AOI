@@ -4,7 +4,6 @@ using HalconDotNet;
 using System;
 using System.Windows;
 using System.Windows.Controls;
-using Serilog;
 
 namespace AVS_Common
 {
@@ -102,7 +101,7 @@ namespace AVS_Common
             }
             catch (Exception ex)
             {
-                Log.Error($"TryRegister failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"TryRegister failed: {ex.Message}");
                 _isRegistered = false;
             }
         }
@@ -191,7 +190,7 @@ namespace AVS_Common
             }
             catch (Exception ex)
             {
-                Log.Error($"UpdateDisplay failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"UpdateDisplay failed: {ex.Message}");
             }
         }
 

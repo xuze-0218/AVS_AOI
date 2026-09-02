@@ -90,11 +90,11 @@ namespace AVS_App.ViewModels
             // 设置用户名下拉框选中项
             if (!string.IsNullOrEmpty(creds.Username) && UserNames.Contains(creds.Username))
             {
-                SelectedUserName = creds.Username;
+                SelectedUserName = creds.Username; 
             }
             else
             {
-                SelectedUserName = UserNames.FirstOrDefault();
+                SelectedUserName = UserNames.FirstOrDefault(); 
             }
             LoginParams.Password = creds.Password;
             LoginParams.IsRememberPassword = creds.RememberPassword;
@@ -139,17 +139,14 @@ namespace AVS_App.ViewModels
                     string currentUser = $"{LoginParams.UserName}（{roleText}）";
                     bool isEngineer = SelectedRole == UserRole.Engineer;
 
-                    // 更新静态会话
                     UserSession.CurrentUser = currentUser;
                     UserSession.IsEngineer = isEngineer;
-
-                    // 发布事件，通知主窗体更新
+                    //通知主窗体更新
                     _eventAggregator.GetEvent<LoginSuccessEvent>().Publish(new LoginSuccessInfo
                     {
                         CurrentUser = currentUser,
                         IsEngineer = isEngineer
                     });
-
                     // 保存或清除凭据
                     if (LoginParams.IsRememberPassword || LoginParams.IsAutoLogin)
                     {

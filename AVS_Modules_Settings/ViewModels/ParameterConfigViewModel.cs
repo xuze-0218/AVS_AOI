@@ -220,6 +220,146 @@ namespace AVS_Modules_Settings.ViewModels
             LoadProductParameters();
         }
 
+        #region 图像保存
+        // ===== 通用 =====
+        public string ImageSaveDir
+        {
+            get => _configService.GetString("Global", "ImageSaveDir");
+            set
+            {
+                _configService.UpdateParam("Global", "ImageSaveDir", value);
+                RaisePropertyChanged(nameof(ImageSaveDir));
+            }
+        }
+
+        public int ImageCompressRatio
+        {
+            get => _configService.GetInt("Global", "ImageCompressRatio", 100);
+            set { _configService.UpdateParam("Global", "ImageCompressRatio", value.ToString()); RaisePropertyChanged(); }
+        }
+
+        public int SaveOrnImgDays
+        {
+            get => _configService.GetInt("Global", "SaveOrnImgDays", 30);
+            set { _configService.UpdateParam("Global", "SaveOrnImgDays", value.ToString()); RaisePropertyChanged(); }
+        }
+
+        public int SaveRenImgDays
+        {
+            get => _configService.GetInt("Global", "SaveRenImgDays", 30);
+            set { _configService.UpdateParam("Global", "SaveRenImgDays", value.ToString()); RaisePropertyChanged(); }
+        }
+
+        public DelegateCommand BrowseImageSaveDirCommand { get; }
+
+        // ===== 2D 相机 =====
+        // 保存原始图像（与 IsSave2DNGOriginal 互斥）
+        public bool IsSave2DOriginal
+        {
+            get => _configService.GetBool("Global", "IsSave2DOriginal");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave2DOriginal", value.ToString(), ParamOutputType.BOOL);
+                RaisePropertyChanged();
+            }
+        }
+
+        public bool IsSave2DNGOnly
+        {
+            get => _configService.GetBool("Global", "IsSave2DNGOnly");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave2DNGOnly", value.ToString(), ParamOutputType.BOOL);
+                RaisePropertyChanged();
+            }
+        }
+
+        public string Format2DOriginal
+        {
+            get => _configService.GetString("Global", "Format2DOriginal", "bmp");
+            set { _configService.UpdateParam("Global", "Format2DOriginal", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave2DResult
+        {
+            get => _configService.GetBool("Global", "IsSave2DResult");
+            set { _configService.UpdateParam("Global", "IsSave2DResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+        }
+
+        public string Format2DResult
+        {
+            get => _configService.GetString("Global", "Format2DResult", "bmp");
+            set { _configService.UpdateParam("Global", "Format2DResult", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave2DMask
+        {
+            get => _configService.GetBool("Global", "IsSave2DMask");
+            set { _configService.UpdateParam("Global", "IsSave2DMask", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+        }
+
+        // ===== 3D 相机 =====
+        // 仅保存NG样本的开关（过滤器）
+        public bool IsSave3DNGOnly
+        {
+            get => _configService.GetBool("Global", "IsSave3DNGOnly");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave3DNGOnly", value.ToString(), ParamOutputType.BOOL);
+                RaisePropertyChanged();
+            }
+        }
+
+        public bool IsSave3DDepth
+        {
+            get => _configService.GetBool("Global", "IsSave3DDepth");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave3DDepth", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged();
+            }
+        }
+
+        public string Format3DDepth
+        {
+            get => _configService.GetString("Global", "Format3DDepth", "tiff");
+            set { _configService.UpdateParam("Global", "Format3DDepth", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave3DIntensity
+        {
+            get => _configService.GetBool("Global", "IsSave3DIntensity");
+            set
+            {
+                _configService.UpdateParam("Global", "IsSave3DIntensity", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged();
+            }
+        }
+
+        public string Format3DIntensity
+        {
+            get => _configService.GetString("Global", "Format3DIntensity", "bmp");
+            set { _configService.UpdateParam("Global", "Format3DIntensity", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave3DResult
+        {
+            get => _configService.GetBool("Global", "IsSave3DResult");
+            set { _configService.UpdateParam("Global", "IsSave3DResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+        }
+
+        public string Format3DResult
+        {
+            get => _configService.GetString("Global", "Format3DResult", "bmp");
+            set { _configService.UpdateParam("Global", "Format3DResult", value); RaisePropertyChanged(); }
+        }
+
+        public bool IsSave3DMask
+        {
+            get => _configService.GetBool("Global", "IsSave3DMask");
+            set { _configService.UpdateParam("Global", "IsSave3DMask", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
+        }
+
+        #endregion
+
         #region 基础参数
         public ObservableCollection<ParametersConfig> Parameters => _configService.ConfigParams;
 
@@ -343,149 +483,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         public DelegateCommand BrowseDetModelCommand { get; }
         public DelegateCommand BrowseSegModelCommand { get; }
-        #endregion
-
-        #region 图像保存
-        // ===== 通用 =====
-        public string ImageSaveDir
-        {
-            get => _configService.GetString("Global", "ImageSaveDir");
-            set
-            {
-                _configService.UpdateParam("Global", "ImageSaveDir", value);
-                RaisePropertyChanged(nameof(ImageSaveDir));
-            }
-        }
-
-        public int ImageCompressRatio
-        {
-            get => _configService.GetInt("Global", "ImageCompressRatio", 100);
-            set { _configService.UpdateParam("Global", "ImageCompressRatio", value.ToString()); RaisePropertyChanged(); }
-        }
-
-        public int SaveOrnImgDays
-        {
-            get => _configService.GetInt("Global", "SaveOrnImgDays", 30);
-            set { _configService.UpdateParam("Global", "SaveOrnImgDays", value.ToString()); RaisePropertyChanged(); }
-        }
-
-        public int SaveRenImgDays
-        {
-            get => _configService.GetInt("Global", "SaveRenImgDays", 30);
-            set { _configService.UpdateParam("Global", "SaveRenImgDays", value.ToString()); RaisePropertyChanged(); }
-        }
-
-        public DelegateCommand BrowseImageSaveDirCommand { get; }
-
-        // ===== 2D 相机 =====
-        // 保存原始图像（与 IsSave2DNGOriginal 互斥）
-        public bool IsSave2DOriginal
-        {
-            get => _configService.GetBool("Global", "IsSave2DOriginal");
-            set
-            {
-                _configService.UpdateParam("Global", "IsSave2DOriginal", value.ToString(), ParamOutputType.BOOL);
-                RaisePropertyChanged();
-            }
-        }
-
-        public bool IsSave2DNGOnly
-        {
-            get => _configService.GetBool("Global", "IsSave2DNGOnly");
-            set
-            {
-                _configService.UpdateParam("Global", "IsSave2DNGOnly", value.ToString(), ParamOutputType.BOOL);
-                RaisePropertyChanged();
-            }
-        }
-
-        public string Format2DOriginal
-        {
-            get => _configService.GetString("Global", "Format2DOriginal", "bmp");
-            set { _configService.UpdateParam("Global", "Format2DOriginal", value); RaisePropertyChanged(); }
-        }
-
-        public bool IsSave2DResult
-        {
-            get => _configService.GetBool("Global", "IsSave2DResult");
-            set { _configService.UpdateParam("Global", "IsSave2DResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
-        }
-
-        public string Format2DResult
-        {
-            get => _configService.GetString("Global", "Format2DResult", "bmp");
-            set { _configService.UpdateParam("Global", "Format2DResult", value); RaisePropertyChanged(); }
-        }
-
-        public bool IsSave2DMask
-        {
-            get => _configService.GetBool("Global", "IsSave2DMask");
-            set { _configService.UpdateParam("Global", "IsSave2DMask", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
-        }
-
-        // ===== 3D 相机 =====
-        // 仅保存NG样本的开关（过滤器）
-        public bool IsSave3DNGOnly
-        {
-            get => _configService.GetBool("Global", "IsSave3DNGOnly");
-            set
-            {
-                _configService.UpdateParam("Global", "IsSave3DNGOnly", value.ToString(), ParamOutputType.BOOL);
-                RaisePropertyChanged();
-            }
-        }
-
-        public bool IsSave3DDepth
-        {
-            get => _configService.GetBool("Global", "IsSave3DDepth");
-            set
-            {
-                _configService.UpdateParam("Global", "IsSave3DDepth", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged();
-            }
-        }
-
-        public string Format3DDepth
-        {
-            get => _configService.GetString("Global", "Format3DDepth", "tiff");
-            set { _configService.UpdateParam("Global", "Format3DDepth", value); RaisePropertyChanged(); }
-        }
-
-        public bool IsSave3DIntensity
-        {
-            get => _configService.GetBool("Global", "IsSave3DIntensity");
-            set
-            {
-                _configService.UpdateParam("Global", "IsSave3DIntensity", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); if (value)
-                {
-                    IsSave3DNGOnly = false;
-                }
-            }
-        }
-
-        public string Format3DIntensity
-        {
-            get => _configService.GetString("Global", "Format3DIntensity", "bmp");
-            set { _configService.UpdateParam("Global", "Format3DIntensity", value); RaisePropertyChanged(); }
-        }
-
-        public bool IsSave3DResult
-        {
-            get => _configService.GetBool("Global", "IsSave3DResult");
-            set { _configService.UpdateParam("Global", "IsSave3DResult", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
-        }
-
-        public string Format3DResult
-        {
-            get => _configService.GetString("Global", "Format3DResult", "bmp");
-            set { _configService.UpdateParam("Global", "Format3DResult", value); RaisePropertyChanged(); }
-        }
-
-        public bool IsSave3DMask
-        {
-            get => _configService.GetBool("Global", "IsSave3DMask");
-            set { _configService.UpdateParam("Global", "IsSave3DMask", value.ToString(), ParamOutputType.BOOL); RaisePropertyChanged(); }
-        }
-
         #endregion
 
         #region 检测顺序

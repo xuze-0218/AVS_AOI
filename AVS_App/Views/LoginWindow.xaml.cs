@@ -1,6 +1,8 @@
 ﻿using AVS_App.ViewModels;
 using AVS_Common;
 using AVS_Core.Models;
+using AVS_Service.Models;
+using System;
 using System.Windows;
 using System.Windows.Input;
 

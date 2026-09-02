@@ -2,7 +2,7 @@
 using System.ComponentModel;
 
 
-namespace AVS_Core.Models
+namespace AVS_Service.Models
 {
     public enum Result
     {
@@ -47,6 +47,19 @@ namespace AVS_Core.Models
 
         //下榻值
         public double BeadSag { get; set; }
+
+        //条形余高结果
+        public Result ResultBarBeadHump { get; set; }
+
+        //条形下榻结果
+        public Result ResultBarBeadSag { get; set; }
+
+        //条形余高值
+        public double BarBeadHump { get; set; }
+
+        //条形下榻值
+        public double BarBeadSag { get; set; }
+
 
         //3D原图
         public string Orn3DPath { get; set; }
@@ -115,6 +128,10 @@ namespace AVS_Core.Models
         public double faultySol { get; set; }
 
 
+        //焊缝类型是否为方条形（true=方条形，false=圆形）
+        public bool IsSquareBar { get; set; }
+
+
         //2D原图
         public string Orn2DPath { get; set; }
 
@@ -122,4 +139,21 @@ namespace AVS_Core.Models
         public string Dump2DPath { get; set; }
 
     }
+
+    /// <summary>
+    /// 按极柱号聚合 2D/3D 结果，两者齐备后写入综合检测 CSV
+    /// </summary>
+    public class SaveData
+    {
+        public InspectResult2DData Inspect2DData { get; set; }
+
+        public InspectResult3DData Inspect3DData { get; set; }
+
+        public bool IsDetect2D { get; set; }
+
+        public bool IsDetect3D { get; set; }
+
+        public DateTime LastUpdate { get; set; } = DateTime.Now;
+    }
+
 }

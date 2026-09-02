@@ -111,11 +111,9 @@ namespace AVS_Service
         private string GetPasswordFilePath()
         {
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string dir = Path.Combine(appData, "AVS_App");
+            string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
             Directory.CreateDirectory(dir);
             return Path.Combine(dir, PasswordFileName);
         }
     }
-
- 
 }

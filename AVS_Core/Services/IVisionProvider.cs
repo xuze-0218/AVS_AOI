@@ -42,6 +42,7 @@ namespace AVS_Core.Services
         private HWindow _windowHandle;
         private readonly IHalconEngineProvider _engineProvider;
         private readonly IAiDriveService _aiDrive;
+        private readonly IInspectionCsvService _csvService;
         private readonly ILogger _logger;
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfig;
@@ -60,6 +61,7 @@ namespace AVS_Core.Services
             IEventAggregator eventAggregator,
             //IWindowHandleManager handleManager,
             ICameraConfigService cameraConfigService,
+            IInspectionCsvService csvService,
             IAiDriveService aiDrive)
         {
             _logger = logger;
@@ -70,6 +72,7 @@ namespace AVS_Core.Services
             //_handleRegistry = handleManager;
             _handleRegistry = windowHandleRegistry;
             _cameraConfigService = cameraConfigService;
+            _csvService = csvService;
             _aiDrive = aiDrive;
         }
 
@@ -231,6 +234,31 @@ namespace AVS_Core.Services
             //    Image = processedImage,
             //    ImageType = CameraImageType.Processed
             //});
+            if (resultArray != null && resultArray.Length >= 13)
+            {
+                var inspect2D = new InspectResult2DData
+                {
+                    WorkType = param.WorkType,
+                    ModuleName = param.ModuleName,
+                    PoleNum = poleNum,
+                    DateTime = DateTime.Now,
+                    Result2D = (Result)resultArray[0].I,
+                    ResultLength = (Result)resultArray[1].I,
+                    Length = resultArray[2].D,
+                    ResultWidth = (Result)resultArray[3].I,
+                    Width = resultArray[4].D,
+                    ResultOffset = (Result)resultArray[5].I,
+                    Offset = resultArray[6].D,
+                    ResultPoreBreak = (Result)resultArray[7].I,
+                    PoreBreakArea = resultArray[8].D,
+                    ResultBeadDiameter = (Result)resultArray[9].I,
+                    BeadDiameter = resultArray[10].D,
+                    ResultfaultySol = (Result)resultArray[11].I,
+                    faultySol = resultArray[12].D,
+                    IsSquareBar = p.IsSquareBarWeldMark
+                };
+                _csvService.Report2D(inspect2D);
+            }
             _logger.Information("[2D检测] 工位={StationId} 极柱={Pole} 检测结果: {Result}", _stationId, poleNum, measureResults);
             return Task.FromResult(measureResults);
 
@@ -362,6 +390,7 @@ namespace AVS_Core.Services
         private HWindow _windowHandle;
         private readonly IHalconEngineProvider _engineProvider;
         private readonly IAiDriveService _aiDrive;
+        private readonly IInspectionCsvService _csvService;
         private readonly ILogger _logger;
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfig;
@@ -375,6 +404,7 @@ namespace AVS_Core.Services
             IHalconEngineProvider engineProvider,
             IWindowHandleRegistry windowHandleRegistry,
             //IWindowHandleManager handleManager,
+            IInspectionCsvService csvService,
             IAiDriveService aiDrive)
         {
             _logger = logger;
@@ -383,6 +413,7 @@ namespace AVS_Core.Services
             _engineProvider = engineProvider;
             //_handleManager = handleManager;
             _handleRegistry = windowHandleRegistry;
+            _csvService = csvService;
             _aiDrive = aiDrive;
         }
 
@@ -493,6 +524,26 @@ namespace AVS_Core.Services
                         + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8)
                         + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
                 }
+            }
+            if (resultArray != null && resultArray.Length >= 9)
+            {
+                var inspect3D = new InspectResult3DData
+                {
+                    WorkType = param.WorkType,
+                    ModuleName = param.ModuleName,
+                    PoleNum = poleNum,
+                    DateTime = DateTime.Now,
+                    Result3D = (Result)resultArray[0].I,
+                    ResultBeadHump = (Result)resultArray[1].I,
+                    BeadHump = resultArray[2].D,
+                    ResultBeadSag = (Result)resultArray[3].I,
+                    BeadSag = resultArray[4].D,
+                    ResultBarBeadHump = (Result)resultArray[5].I,
+                    BarBeadHump = resultArray[6].D,
+                    ResultBarBeadSag = (Result)resultArray[7].I,
+                    BarBeadSag = resultArray[8].D
+                };
+                _csvService.Report3D(inspect3D);
             }
             _logger.Information("[3D检测] 工位={StationId} 极柱={Pole} 检测结果: {Result}", _stationId, poleNum, measureResults);
             return Task.FromResult(measureResults);

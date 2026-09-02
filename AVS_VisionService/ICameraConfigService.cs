@@ -361,11 +361,11 @@ namespace AVS_Service
                 return;
             }
 
-            _logger.Information("相机 {SN} 采集启动成功", sn);
+            _logger.Debug("相机 {SN} 采集启动成功", sn);
         }
         public void StopCameraGrabbing(string sn)
         {
-            _logger.Information("[StopCameraGrabbing] 停止相机 {SN} 采集", sn);
+            _logger.Debug("停止相机 {SN} 采集", sn);
             if (_grabContexts.TryGetValue(sn, out var ctx))
             {
                 try

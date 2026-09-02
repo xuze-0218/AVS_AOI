@@ -3,22 +3,16 @@ using AVS_App.Views;
 using AVS_Common;
 using AVS_Common.Events;
 using AVS_Common.Services;
-using AVS_Core.Models;
 using AVS_Core.Services;
-using AVS_Modules_Settings.ViewModels;
 using AVS_Modules_Settings.Views;
 using AVS_Service;
 using AVS_Service.Models;
 using DryIoc;
 using Prism.DryIoc;
 using Prism.Ioc;
-using Prism.Modularity;
 using Prism.Regions;
 using Serilog;
-using Serilog.Core;
 using System;
-using System.Configuration;
-using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,6 +70,9 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
             containerRegistry.RegisterSingleton<ILoginCredentialService, LoginCredentialService>();
             containerRegistry.RegisterSingleton<ILocalTestService, LocalTestService>();
+            containerRegistry.RegisterSingleton<ICsvFileWriter, CsvRw>();
+            containerRegistry.RegisterSingleton<IInspectionCsvService, InspectionCsvService>();
+
             //containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
             containerRegistry.RegisterSingleton<IMetrologyService, MetrologyService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
@@ -188,21 +185,6 @@ namespace AVS_App
             }
             DispatcherUnhandledException += App_DispatcherUnhandledException;
             base.OnStartup(e);
-            //var shell = this.MainWindow;
-            //var loginWindow = new LoginWindow();
-            //loginWindow.ShowDialog();
-
-            //if (loginWindow.DataContext is LoginWindowViewModel vm && vm.LoginSuccess)
-            //{
-            //    CurrentUserRole = vm.SelectedRole;
-            //    shell.Show();
-            //}
-            //else
-            //{
-            //    Shutdown();
-            //    return;
-            //}
-
         }
 
         private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)

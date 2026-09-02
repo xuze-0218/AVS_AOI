@@ -98,21 +98,13 @@ namespace AVS_App.ViewModels
                 }
             }
         }
-
         public DelegateCommand<string> NavigateCommand { get; set; }
         public DelegateCommand StartAllCommand { get; set; }
         public DelegateCommand StopAllCommand { get; set; }
-
         public DelegateCommand LoginCommand { get; set; }
-
         public ObservableCollection<LogEventModel> LogSource => UiLogSink.LogCollection;
-
-        public MainWindowViewModel(IRegionManager regionManager,
-             IEventAggregator eventAggregator,
-        ICommunicationService communicationService,
-            IStationConfigService stationConfigService,
-            ICameraConfigService cameraConfigService,
-            ILoginCredentialService loginCredentialService)
+        public MainWindowViewModel(IRegionManager regionManager, IEventAggregator eventAggregator, ICommunicationService communicationService,
+            IStationConfigService stationConfigService, ICameraConfigService cameraConfigService, ILoginCredentialService loginCredentialService)
         {
             _regionManager = regionManager;
             _eventAggregator = eventAggregator;
@@ -120,7 +112,6 @@ namespace AVS_App.ViewModels
             _communicationService = communicationService;
             _stationConfigService = stationConfigService;
             _loginCredentialService = loginCredentialService;
-
             _eventAggregator.GetEvent<LoginSuccessEvent>().Subscribe(OnLoginSuccess);
             NavigateCommand = new DelegateCommand<string>(Navigate);
             StartAllCommand = new DelegateCommand(async () => await ExecuteStartAllAsync(), CanStartAll);
@@ -142,7 +133,6 @@ namespace AVS_App.ViewModels
                 Application.Current?.Dispatcher.Invoke(RefreshCameraGrabbingStatus);
             };
         }
-
         private void Navigate(string navigatePath)
         {
             if (!string.IsNullOrEmpty(navigatePath))
@@ -150,20 +140,17 @@ namespace AVS_App.ViewModels
                 _regionManager.RequestNavigate("MainContentRegion", navigatePath);
             }
         }
-
         private void RefreshCameraGrabbingStatus()
         {
             IsAnyCameraGrabbing = _cameraConfigService.ConnectedCameras.Keys
                 .Any(sn => _cameraConfigService.IsCameraGrabbing(sn));
         }
-
         private void RefreshPlcStatus()
         {
             var stations = _stationConfigService.Stations;
             IsPlcConnected = stations.Any() &&
                              stations.All(s => _communicationService.IsActive(s.StationId));
         }
-
         private void RefreshCameraStatus()
         {
             // 修改为：至少有一台相机连接即可认为相机可用
@@ -175,19 +162,15 @@ namespace AVS_App.ViewModels
                 IsAutoRunning = false;
             }
         }
-
         // 启动按钮：只要有相机连接且不忙碌即可点击
         private bool CanStartAll() => IsCameraConnected && !IsBusy;
-
         // 停止按钮：只要有相机在采集且不忙碌即可点击
         private bool CanStopAll() => IsAnyCameraGrabbing && !IsBusy;
-
         private void RefreshCommandStatus()
         {
             StartAllCommand?.RaiseCanExecuteChanged();
             StopAllCommand?.RaiseCanExecuteChanged();
         }
-
         private async Task ExecuteStartAllAsync()
         {
             if (!CanStartAll()) return;
@@ -218,7 +201,6 @@ namespace AVS_App.ViewModels
                 RefreshCameraGrabbingStatus();
             }
         }
-
         private async Task ExecuteStopAllAsync()
         {
             if (!CanStopAll()) return;
@@ -238,13 +220,11 @@ namespace AVS_App.ViewModels
                 RefreshCameraGrabbingStatus();
             }
         }
-
         private void OnLoginSuccess(LoginSuccessInfo info)
         {
             CurrentUser = info.CurrentUser;
             IsEngineer = info.IsEngineer;
         }
-
         private void ShowLoginWindow()
         {
             var loginWindow = new LoginWindow();

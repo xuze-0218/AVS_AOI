@@ -252,9 +252,9 @@ namespace AVS_Modules_Settings.ViewModels
                     try
                     {
                         Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                                {
-                                    CurrentDebugImage = image;
-                                }));
+                        {
+                            CurrentDebugImage = image;
+                        }));
                     }
                     catch (Exception ex)
                     {

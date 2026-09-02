@@ -6,6 +6,7 @@ using System.Linq;
 using MMDeploy;
 using OpenCvSharp;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace AVS_Core.Services
 {
@@ -76,7 +77,7 @@ namespace AVS_Core.Services
         {
             if (string.IsNullOrEmpty(modelId) || modelPaths == null || modelPaths.Length == 0)
             {
-                _logger?.Warning("[AiDrive] LoadSegModel: stationId 或 modelPaths 无效");
+                _logger?.Warning("LoadSegModel: stationId 或 modelPaths 无效");
                 return false;
             }         
             try
@@ -86,7 +87,7 @@ namespace AVS_Core.Services
                   
                     if (_segHandles.ContainsKey(modelId))
                     {
-                        _logger?.Information("[AiDrive] 工位 {StationId} 分割模型已加载，跳过", modelId);
+                        _logger?.Information("工位 {StationId} 分割模型已加载，跳过", modelId);
                         return true;
                     }
                     // 释放旧模型
@@ -98,12 +99,12 @@ namespace AVS_Core.Services
                     }
                     _segHandles[modelId] = handles;
                 }
-                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个分割模型完成", modelId, modelPaths.Length);
+                _logger?.Information("工位 {StationId} 加载 {Count} 个分割模型完成", modelId, modelPaths.Length);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载分割模型失败", modelId);
+                _logger?.Error(ex, "工位 {StationId} 加载分割模型失败", modelId);
                 return false;
             }
         }
@@ -189,9 +190,14 @@ namespace AVS_Core.Services
 
             try
             {
+                var swConvert = Stopwatch.StartNew();
                 Halcon2MmMat(imgGray, out var mats);
+                swConvert.Stop();
+                var swInfer = Stopwatch.StartNew();
                 var output = detector.Apply(mats);
-
+                swInfer.Stop();
+                _logger?.Information("[AI检测] 模型ID={ModelId} 图像转换耗时: {ConvertMs} ms, 推理耗时: {InferMs} ms",
+    modelId, swConvert.ElapsedMilliseconds, swInfer.ElapsedMilliseconds);
                 if (output == null || output.Count == 0 || output[0].Results == null)
                 {
                     _logger?.Debug("[AiDrive] 工位 {StationId} 检测输出为空", modelId);

@@ -64,6 +64,7 @@ namespace AVS_Core.Services
     {
         private readonly IContainerProvider _container;
         private readonly IAiDriveService _aiDriveService;
+        private readonly IInspectionCsvService _csvService;
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfigService;
         private readonly ILogger _logger;
@@ -77,13 +78,15 @@ namespace AVS_Core.Services
         /// </summary>
         private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new ConcurrentDictionary<string, IVisionProvider>();
         public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService,
-            IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService)
+            IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService,
+            IInspectionCsvService csvService)
         {
             _paramService = paramService;
             _container = containerProvider;
             _stationConfigService = stationConfigService;
             _logger = logger;
             _aiDriveService = aiDriveService;
+            _csvService = csvService;
         }
 
         public async Task InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
@@ -127,6 +130,8 @@ namespace AVS_Core.Services
             {
                 case SessionWorkType.Inspect:
                     var p = (InspectionInitParams)parameters;
+                    state.ModuleName = p.ImageName;
+                    _csvService.Clear();
                     int maxPole = p.PoleOrder.Max();
                     state.PoleOrder = p.PoleOrder;
                     state.MsgPoleCapacity = p.MsgPoleCapacity;
@@ -382,13 +387,18 @@ namespace AVS_Core.Services
             }
             int poleNum = state.PoleOrder[idx];// 映射为物理极柱号
             state.ProcessIndex++;
+            var inspectParams = new InspectionParams
+            {
+                ModuleName = state.ModuleName,
+                WorkType = "Check"
+            };
             switch (state.Provider)
             {
                 case I2DVisionProvider p2D:
-                    result = await p2D.ExecuteInspectAsync(image, poleNum, new InspectionParams());
+                    result = await p2D.ExecuteInspectAsync(image, poleNum, inspectParams);
                     break;
                 case I3DVisionProvider p3D:
-                    result = await p3D.ExecuteInspectAsync(image, poleNum, new InspectionParams());
+                    result = await p3D.ExecuteInspectAsync(image, poleNum, inspectParams);
                     break;
                 default:
                     _logger.Error("Provider 类型不匹配: {Type}", state.Provider?.GetType().FullName);
@@ -483,6 +493,11 @@ namespace AVS_Core.Services
         /// </summary>
         public TaskCompletionSource<string>[] ResultSources { get; set; } // 索引 = 物理编号；
         public int MsgPoleCapacity { get; set; }    // 单次报文最大极柱数（10 或 25）
+
+        /// <summary>
+        /// 模组码（从检测初始化报文 imgName 获取，用于综合检测 CSV 的模组码列）
+        /// </summary>
+        public string ModuleName { get; set; }
 
 
         /// <summary>

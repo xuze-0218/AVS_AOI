@@ -115,10 +115,7 @@
         </Border>
 
         <!--  ========== 分类 TabControl ==========  -->
-        <TabControl
-            Grid.Row="1"
-            Background="White"
-            SelectionChanged="TabControl_SelectionChanged">
+        <TabControl Grid.Row="1" Background="White" SelectionChanged="TabControl_SelectionChanged">
 
             <TabItem Header="基础参数">
                 <Grid MinHeight="200" Margin="5">
@@ -188,8 +185,10 @@
                                 Header="输出类型"
                                 SelectedItemBinding="{Binding OutputType}" />
 
-                            <!--  删除按钮列  -->
-                            <DataGridTemplateColumn Width="*" Header="操作">
+                            <!--  删除按钮列 -->
+                            <DataGridTemplateColumn
+                                Width="*"
+                                Header="操作">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button
@@ -234,60 +233,60 @@
                     </Grid.RowDefinitions>
 
                     <DataGrid
-                        x:Name="ProductParamGrid"
-                        HorizontalAlignment="Stretch"
-                        AutoGenerateColumns="False"
-                        CanUserAddRows="False"
-                        CanUserDeleteRows="False"
-                        HeadersVisibility="Column"
-                        ItemsSource="{Binding ProductParametersView}"
-                        SelectedItem="{Binding SelectedProductParameter}"
-                        SelectionMode="Single">
+            x:Name="ProductParamGrid"
+            HorizontalAlignment="Stretch"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            CanUserDeleteRows="False"
+            HeadersVisibility="Column"
+            ItemsSource="{Binding ProductParametersView}"
+            SelectedItem="{Binding SelectedProductParameter}"
+            SelectionMode="Single">
 
                         <DataGrid.Columns>
                             <!--  类别  -->
                             <DataGridTextColumn
-                                Width="Auto"
-                                MinWidth="80"
-                                Binding="{Binding Category}"
-                                Foreground="#007ACC"
-                                Header="类别" />
+                    Width="Auto"
+                    MinWidth="80"
+                    Binding="{Binding Category}"
+                    Foreground="#007ACC"
+                    Header="类别" />
 
                             <!--  名称  -->
                             <DataGridTextColumn
-                                Width="*"
-                                MinWidth="80"
-                                Binding="{Binding Name}"
-                                Header="名称" />
+                    Width="*"
+                    MinWidth="80"
+                    Binding="{Binding Name}"
+                    Header="名称" />
 
                             <!--  说明  -->
                             <DataGridTextColumn
-                                Width="*"
-                                MinWidth="100"
-                                Binding="{Binding Description}"
-                                Header="说明" />
+                    Width="*"
+                    MinWidth="100"
+                    Binding="{Binding Description}"
+                    Header="说明" />
 
                             <!--  数值  -->
                             <DataGridTextColumn
-                                Width="*"
-                                MinWidth="60"
-                                Binding="{Binding Value}"
-                                Header="数值" />
+                    Width="*"
+                    MinWidth="60"
+                    Binding="{Binding Value}"   
+                    Header="数值" />
 
                             <!--  删除按钮列  -->
                             <DataGridTemplateColumn
-                                Width="Auto"
-                                MinWidth="50"
-                                Header="操作">
+                    Width="Auto"
+                    MinWidth="50"
+                    Header="操作">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button
-                                            Background="Transparent"
-                                            BorderThickness="0"
-                                            Command="{Binding DataContext.DeleteProductCommand, ElementName=ProductParamGrid}"
-                                            CommandParameter="{Binding}"
-                                            Content="Del"
-                                            Foreground="Red" />
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding DataContext.DeleteProductCommand, ElementName=ProductParamGrid}"
+                                CommandParameter="{Binding}"
+                                Content="Del"
+                                Foreground="Red" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -295,22 +294,22 @@
                     </DataGrid>
 
                     <StackPanel
-                        Grid.Row="1"
-                        Margin="0,10,0,0"
-                        HorizontalAlignment="Right"
-                        Orientation="Horizontal">
+            Grid.Row="1"
+            Margin="0,10,0,0"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
                         <Button
-                            Width="40"
-                            Margin="5,0"
-                            Command="{Binding AddProductCommand}"
-                            Content="+" />
+                Width="40"
+                Margin="5,0"
+                Command="{Binding AddProductCommand}"
+                Content="+" />
                         <Button
-                            Width="90"
-                            Margin="5,0"
-                            Background="#FF3C3C3C"
-                            Command="{Binding SaveProductCommand}"
-                            Content="保存配置"
-                            Foreground="White" />
+                Width="90"
+                Margin="5,0"
+                Background="#FF3C3C3C"
+                Command="{Binding SaveProductCommand}"
+                Content="保存配置"
+                Foreground="White" />
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -509,35 +508,35 @@
                     <Grid Margin="10">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <!--  0 路径  -->
+                            <!-- 0 路径 -->
                             <RowDefinition Height="Auto" />
-                            <!--  1 通用设置  -->
+                            <!-- 1 通用设置 -->
                             <RowDefinition Height="Auto" />
-                            <!--  2 2D 分组标题  -->
+                            <!-- 2 2D 分组标题 -->
                             <RowDefinition Height="Auto" />
-                            <!--  3 2D 原始图  -->
+                            <!-- 3 2D 原始图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  4 2D NG图  -->
+                            <!-- 4 2D NG图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  5 2D 结果图  -->
+                            <!-- 5 2D 结果图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  6 2D mask图  -->
+                            <!-- 6 2D mask图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  7 3D 分组标题  -->
+                            <!-- 7 3D 分组标题 -->
                             <RowDefinition Height="Auto" />
-                            <!--  8 3D 深度图  -->
+                            <!-- 8 3D 深度图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  9 3D 亮度图  -->
+                            <!-- 9 3D 亮度图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  10 3D NG图  -->
+                            <!-- 10 3D NG图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  10 3D 结果图  -->
+                            <!-- 10 3D 结果图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  11 Mask图  -->
+                            <!-- 11 Mask图 -->
                             <RowDefinition Height="Auto" />
-                            <!--  12 保存天数  -->
+                            <!-- 12 保存天数 -->
                             <RowDefinition Height="Auto" />
-                            <!--  12 结果图保存天数  -->
+                            <!-- 12 结果图保存天数 -->
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120" />
@@ -545,211 +544,75 @@
                             <ColumnDefinition Width="100" />
                         </Grid.ColumnDefinitions>
 
-                        <!--  保存路径  -->
-                        <TextBlock
-                            Grid.Row="0"
-                            Grid.Column="0"
-                            Margin="5"
-                            VerticalAlignment="Center"
-                            Text="图像保存路径:" />
-                        <TextBox
-                            Grid.Row="0"
-                            Grid.Column="1"
-                            Margin="5"
-                            Text="{Binding ImageSaveDir, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button
-                            Grid.Row="0"
-                            Grid.Column="2"
-                            Margin="5"
-                            Command="{Binding BrowseImageSaveDirCommand}"
-                            Content="浏览" />
+                        <!-- 保存路径 -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="图像保存路径:" VerticalAlignment="Center" Margin="5"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ImageSaveDir, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+                        <Button Grid.Row="0" Grid.Column="2" Content="浏览" Command="{Binding BrowseImageSaveDirCommand}" Margin="5"/>
 
-                        <!--  通用设置：压缩比（仅jpeg有效）  -->
-                        <TextBlock
-                            Grid.Row="1"
-                            Grid.Column="0"
-                            Margin="5"
-                            VerticalAlignment="Center"
-                            Text="Jpeg压缩比:" />
-                        <TextBox
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            Width="60"
-                            Margin="5"
-                            HorizontalAlignment="Left"
-                            Text="{Binding ImageCompressRatio}" />
+                        <!-- 通用设置：压缩比（仅jpeg有效） -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Jpeg压缩比:" VerticalAlignment="Center" Margin="5"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ImageCompressRatio}" Width="60" HorizontalAlignment="Left" Margin="5"/>
 
-                        <!--  2D 分组  -->
-                        <TextBlock
-                            Grid.Row="2"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="3"
-                            Margin="5,10,5,5"
-                            FontWeight="Bold"
-                            Text="2D 相机" />
+                        <!-- 2D 分组 -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Text="2D 相机" FontWeight="Bold" Margin="5,10,5,5"/>
 
-                        <CheckBox
-                            Grid.Row="3"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="5"
-                            Content="仅保存NG样本"
-                            IsChecked="{Binding IsSave2DNGOnly}" />
+                        <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Content="仅保存NG样本" IsChecked="{Binding IsSave2DNGOnly}" Margin="5"/>
+                       
+                        
+                        <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Content="保存原始图像" IsChecked="{Binding IsSave2DOriginal}" Margin="5"/>
+                        <ComboBox Grid.Row="4" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format2DOriginal}" Margin="5">
+                            <ComboBoxItem Content="bmp" Tag="Bmp"/>
+                            <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
+                        </ComboBox> 
+                       
 
-
-                        <CheckBox
-                            Grid.Row="4"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="5"
-                            Content="保存原始图像"
-                            IsChecked="{Binding IsSave2DOriginal}" />
-                        <ComboBox
-                            Grid.Row="4"
-                            Grid.Column="2"
-                            Margin="5"
-                            SelectedValue="{Binding Format2DOriginal}"
-                            SelectedValuePath="Content">
-                            <ComboBoxItem Content="bmp" Tag="Bmp" />
-                            <ComboBoxItem Content="jpeg" Tag="Jpeg" />
+                        <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Content="保存结果图像" IsChecked="{Binding IsSave2DResult}" Margin="5"/>
+                        <ComboBox Grid.Row="5" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format2DNgResult}" Margin="5">
+                            <ComboBoxItem Content="bmp" Tag="Bmp"/>
+                            <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
                         </ComboBox>
 
+                        <CheckBox Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Content="保存Mask图像" IsChecked="{Binding IsSave2DMask}" Margin="5"/>
 
-                        <CheckBox
-                            Grid.Row="5"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="5"
-                            Content="保存结果图像"
-                            IsChecked="{Binding IsSave2DResult}" />
-                        <ComboBox
-                            Grid.Row="5"
-                            Grid.Column="2"
-                            Margin="5"
-                            SelectedValue="{Binding Format2DNgResult}"
-                            SelectedValuePath="Content">
-                            <ComboBoxItem Content="bmp" Tag="Bmp" />
-                            <ComboBoxItem Content="jpeg" Tag="Jpeg" />
+                        <!-- 3D 分组 -->
+                        <!-- 3D 分组 -->
+                        <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="3" Text="3D 相机" FontWeight="Bold" Margin="5,10,5,5"/>
+
+                        <!-- 仅保存NG样本开关 -->
+                        <CheckBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3" Content="仅保存NG样本（深度图与亮度图）" IsChecked="{Binding IsSave3DNGOnly}" Margin="5"/>
+
+                        <!-- 保存深度图像 -->
+                        <CheckBox Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2" Content="保存深度图像" IsChecked="{Binding IsSave3DDepth}" Margin="5"/>
+                        <ComboBox Grid.Row="9" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DDepth}" Margin="5">
+                            <ComboBoxItem Content="tiff" Tag="Tiff"/>
+                            <ComboBoxItem Content="ply" Tag="Ply"/>
+                            <ComboBoxItem Content="csv" Tag="Csv"/>
                         </ComboBox>
 
-                        <CheckBox
-                            Grid.Row="6"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="3"
-                            Margin="5"
-                            Content="保存Mask图像"
-                            IsChecked="{Binding IsSave2DMask}" />
-
-                        <!--  3D 分组  -->
-                        <!--  3D 分组  -->
-                        <TextBlock
-                            Grid.Row="7"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="3"
-                            Margin="5,10,5,5"
-                            FontWeight="Bold"
-                            Text="3D 相机" />
-
-                        <!--  仅保存NG样本开关  -->
-                        <CheckBox
-                            Grid.Row="8"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="3"
-                            Margin="5"
-                            Content="仅保存NG样本（深度图与亮度图）"
-                            IsChecked="{Binding IsSave3DNGOnly}" />
-
-                        <!--  保存深度图像  -->
-                        <CheckBox
-                            Grid.Row="9"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="5"
-                            Content="保存深度图像"
-                            IsChecked="{Binding IsSave3DDepth}" />
-                        <ComboBox
-                            Grid.Row="9"
-                            Grid.Column="2"
-                            Margin="5"
-                            SelectedValue="{Binding Format3DDepth}"
-                            SelectedValuePath="Content">
-                            <ComboBoxItem Content="tiff" Tag="Tiff" />
-                            <ComboBoxItem Content="ply" Tag="Ply" />
-                            <ComboBoxItem Content="csv" Tag="Csv" />
+                        <!-- 保存亮度图像 -->
+                        <CheckBox Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Content="保存亮度图像" IsChecked="{Binding IsSave3DIntensity}" Margin="5"/>
+                        <ComboBox Grid.Row="10" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DIntensity}" Margin="5">
+                            <ComboBoxItem Content="bmp" Tag="Bmp"/>
+                            <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
+                            <ComboBoxItem Content="tiff" Tag="Tiff"/>
                         </ComboBox>
 
-                        <!--  保存亮度图像  -->
-                        <CheckBox
-                            Grid.Row="10"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="5"
-                            Content="保存亮度图像"
-                            IsChecked="{Binding IsSave3DIntensity}" />
-                        <ComboBox
-                            Grid.Row="10"
-                            Grid.Column="2"
-                            Margin="5"
-                            SelectedValue="{Binding Format3DIntensity}"
-                            SelectedValuePath="Content">
-                            <ComboBoxItem Content="bmp" Tag="Bmp" />
-                            <ComboBoxItem Content="jpeg" Tag="Jpeg" />
-                            <ComboBoxItem Content="tiff" Tag="Tiff" />
+                        <!-- 保存结果图像 -->
+                        <CheckBox Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Content="保存结果图像" IsChecked="{Binding IsSave3DResult}" Margin="5"/>
+                        <ComboBox Grid.Row="11" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DResult}" Margin="5">
+                            <ComboBoxItem Content="bmp" Tag="Bmp"/>
+                            <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
                         </ComboBox>
 
-                        <!--  保存结果图像  -->
-                        <CheckBox
-                            Grid.Row="11"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="5"
-                            Content="保存结果图像"
-                            IsChecked="{Binding IsSave3DResult}" />
-                        <ComboBox
-                            Grid.Row="11"
-                            Grid.Column="2"
-                            Margin="5"
-                            SelectedValue="{Binding Format3DResult}"
-                            SelectedValuePath="Content">
-                            <ComboBoxItem Content="bmp" Tag="Bmp" />
-                            <ComboBoxItem Content="jpeg" Tag="Jpeg" />
-                        </ComboBox>
+                        <!-- 保存Mask图像 -->
+                        <CheckBox Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="3" Content="保存Mask图像" IsChecked="{Binding IsSave3DMask}" Margin="5"/>
+                        <!-- 保存天数 -->
+                        <TextBlock Grid.Row="13" Grid.Column="0" Text="原图保存天数:" Margin="5"/>
+                        <TextBox Grid.Row="13" Grid.Column="1" Text="{Binding SaveOrnImgDays}" Width="80" HorizontalAlignment="Left" Margin="5"/>
+                        <TextBlock Grid.Row="14" Grid.Column="0" Text="结果图保存天数:" Margin="5"/>
+                        <TextBox Grid.Row="14" Grid.Column="1" Text="{Binding SaveRenImgDays}" Width="80" HorizontalAlignment="Left" Margin="5"/>
 
-                        <!--  保存Mask图像  -->
-                        <CheckBox
-                            Grid.Row="12"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="3"
-                            Margin="5"
-                            Content="保存Mask图像"
-                            IsChecked="{Binding IsSave3DMask}" />
-                        <!--  保存天数  -->
-                        <TextBlock
-                            Grid.Row="13"
-                            Grid.Column="0"
-                            Margin="5"
-                            Text="原图保存天数:" />
-                        <TextBox
-                            Grid.Row="13"
-                            Grid.Column="1"
-                            Width="80"
-                            Margin="5"
-                            HorizontalAlignment="Left"
-                            Text="{Binding SaveOrnImgDays}" />
-                        <TextBlock
-                            Grid.Row="14"
-                            Grid.Column="0"
-                            Margin="5"
-                            Text="结果图保存天数:" />
-                        <TextBox
-                            Grid.Row="14"
-                            Grid.Column="1"
-                            Width="80"
-                            Margin="5"
-                            HorizontalAlignment="Left"
-                            Text="{Binding SaveRenImgDays}" />
-
-                    </Grid>
+                   </Grid>
                 </ScrollViewer>
             </TabItem>
         </TabControl>

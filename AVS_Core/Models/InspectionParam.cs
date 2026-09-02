@@ -4,6 +4,16 @@
     {
         public double Score { get; set; }
         public bool IsAiCheck { get; set; }
+
+        /// <summary>
+        /// 模组名称（用于综合检测CSV的模组码列）
+        /// </summary>
+        public string ModuleName { get; set; }
+
+        /// <summary>
+        /// 工作模式（检测/标定/点检）
+        /// </summary>
+        public string WorkType { get; set; }
     }
 
     public class CalibrationParams
