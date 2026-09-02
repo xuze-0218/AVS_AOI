@@ -72,6 +72,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ILocalTestService, LocalTestService>();
             containerRegistry.RegisterSingleton<ICsvFileWriter, CsvRw>();
             containerRegistry.RegisterSingleton<IInspectionCsvService, InspectionCsvService>();
+            containerRegistry.RegisterSingleton<IImageSaveService, ImageSaveService>();
 
             //containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
             containerRegistry.RegisterSingleton<IMetrologyService, MetrologyService>();
