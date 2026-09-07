@@ -15,7 +15,7 @@ using System.Linq;
 
 namespace AVS_App.ViewModels
 {
-    public class InspectionViewModel : BindableBase
+    public class InspectionViewModel : BindableBase, INavigationAware
     {
         /// <summary>
         /// 导航日志，记录页面内的导航历史，支持前进后退
@@ -132,6 +132,21 @@ namespace AVS_App.ViewModels
                 }
             }
 
+        }
+
+        public void OnNavigatedTo(NavigationContext navigationContext)
+        {
+            //获取导航日志
+            _journal = navigationContext.NavigationService.Journal;
+            //刷新命令的状态
+            GoBackCommand.RaiseCanExecuteChanged();
+        }
+
+        public bool IsNavigationTarget(NavigationContext navigationContext) => true;
+
+
+        public void OnNavigatedFrom(NavigationContext navigationContext)
+        {
         }
     }
 }

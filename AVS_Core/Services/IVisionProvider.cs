@@ -649,8 +649,8 @@ namespace AVS_Core.Services
 
             var p = _paramService.GetStationParams(_stationId);
             paramDir = p.IsSquareBarWeldMark
-                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json")
-                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
+                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamB.json")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CircProductParamB.json");
 
             var cameraSetting = _cameraConfigService.AllSettings.FirstOrDefault(s => s.CameraRole == config.CameraRole);
             if (cameraSetting == null)

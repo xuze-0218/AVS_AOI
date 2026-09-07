@@ -26,7 +26,7 @@ namespace AVS_Modules_Settings.Models
             set => SetProperty(ref _name, value);
         }
 
-        private string _description;
+        private string _description = "default";
         public string Description
         {
             get => _description;

@@ -193,7 +193,6 @@ namespace AVS_App.ViewModels
             }
             catch (Exception ex)
             {
-                // 建议记录日志或提示
                 IsAutoRunning = false;
             }
             finally

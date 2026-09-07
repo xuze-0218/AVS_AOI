@@ -11,8 +11,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Data;
 
@@ -67,6 +69,7 @@ namespace AVS_Modules_Settings.ViewModels
                 }
                 IsBaseParamModify = false;
                 _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+                LoadProductParameters();
                 _logger.Information("参数配置已保存");
             });
 
@@ -772,12 +775,34 @@ namespace AVS_Modules_Settings.ViewModels
 
         private string _productParamFilePath;
 
+        private string _productParamFileName;
+        public string ProductParamFileName
+        {
+            get => _productParamFileName;
+            private set => SetProperty(ref _productParamFileName, value);
+        }
+
+
         private void SaveProductParameters()
         {
             try
             {
-                string json = JsonConvert.SerializeObject(ProductParameters, Formatting.Indented);
-                File.WriteAllText(_productParamFilePath, json);
+                var sb = new StringBuilder();
+                // 写入表头（可选，便于阅读和解析）
+                sb.AppendLine("参数类别,参数名称,参数说明,参数数值");
+
+                foreach (var p in ProductParameters)
+                {
+                    // 对包含逗号的字段进行简单转义（用双引号包裹）
+                    string category = CsvEscape(p.Category);
+                    string name = CsvEscape(p.Name);
+                    string description = CsvEscape(p.Description);
+                    string value = p.Value.ToString(CultureInfo.InvariantCulture);
+
+                    sb.AppendLine($"{category},{name},{description},{value}");
+                }
+
+                File.WriteAllText(_productParamFilePath, sb.ToString(), Encoding.UTF8);
                 _logger.Information("产品参数已保存到 {Path}", _productParamFilePath);
             }
             catch (Exception ex)
@@ -785,6 +810,19 @@ namespace AVS_Modules_Settings.ViewModels
                 _logger.Error(ex, "保存产品参数失败");
                 MessageBox.Show("保存产品参数失败：" + ex.Message);
             }
+        }
+
+        // CSV转义：如果字段包含逗号、引号或换行，用双引号包裹并替换内部引号
+        private static string CsvEscape(string field)
+        {
+            if (string.IsNullOrEmpty(field))
+                return string.Empty;
+
+            if (field.Contains(",") || field.Contains("\"") || field.Contains("\n"))
+            {
+                return "\"" + field.Replace("\"", "\"\"") + "\"";
+            }
+            return field;
         }
 
         private void LoadProductParameters()
@@ -796,9 +834,9 @@ namespace AVS_Modules_Settings.ViewModels
 
             bool isSquareBar = _configService.GetBool(section, "IsSquareBarWeldMark", false);
             string productType = isSquareBar ? "SB" : "Circ";
-            string fileName = $"{productType}ProductParam{section}.json";
+            string fileName = $"{productType}ProductParam{section}.json"; // 文件名可保留.json，但内容为文本
             _productParamFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", fileName);
-
+            ProductParamFileName = fileName.Split('.')[0];
             if (!File.Exists(_productParamFilePath))
             {
                 _logger.Warning("产品参数文件不存在: {Path}", _productParamFilePath);
@@ -807,17 +845,96 @@ namespace AVS_Modules_Settings.ViewModels
 
             try
             {
-                string json = File.ReadAllText(_productParamFilePath);
-                var list = JsonConvert.DeserializeObject<ObservableCollection<ProductParameter>>(json);
-                if (list != null)
-                    foreach (var item in list)
-                        ProductParameters.Add(item);
+                string[] lines = File.ReadAllLines(_productParamFilePath, Encoding.UTF8);
+                if (lines.Length == 0)
+                {
+                    _logger.Warning("产品参数文件为空: {Path}", _productParamFilePath);
+                    return;
+                }
+
+                // 检查第一行是否为表头（可根据内容判断，或直接跳过第一行）
+                int startIndex = 0;
+                if (lines[0].StartsWith("参数类别")) // 简单判断表头
+                    startIndex = 1;
+
+                for (int i = startIndex; i < lines.Length; i++)
+                {
+                    string line = lines[i].Trim();
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    string[] parts = ParseCsvLine(line);
+                    if (parts.Length < 4)
+                    {
+                        _logger.Warning("产品参数行格式错误，行号 {Line}，内容：{Content}", i + 1, line);
+                        continue;
+                    }
+
+                    var param = new ProductParameter
+                    {
+                        Category = parts[0],
+                        Name = parts[1],
+                        Description = parts[2],
+                        Value = parts[3]
+                    };
+                    ProductParameters.Add(param);
+                }
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "加载产品参数失败");
                 MessageBox.Show("产品参数加载失败：" + ex.Message);
             }
+        }
+
+        // 解析CSV行，支持双引号转义
+        private static string[] ParseCsvLine(string line)
+        {
+            var fields = new List<string>();
+            bool inQuotes = false;
+            var current = new StringBuilder();
+
+            for (int i = 0; i < line.Length; i++)
+            {
+                char c = line[i];
+                if (inQuotes)
+                {
+                    if (c == '"')
+                    {
+                        if (i + 1 < line.Length && line[i + 1] == '"') // 双引号转义
+                        {
+                            current.Append('"');
+                            i++;
+                        }
+                        else
+                        {
+                            inQuotes = false;
+                        }
+                    }
+                    else
+                    {
+                        current.Append(c);
+                    }
+                }
+                else
+                {
+                    if (c == '"')
+                    {
+                        inQuotes = true;
+                    }
+                    else if (c == ',')
+                    {
+                        fields.Add(current.ToString());
+                        current.Clear();
+                    }
+                    else
+                    {
+                        current.Append(c);
+                    }
+                }
+            }
+            fields.Add(current.ToString());
+            return fields.ToArray();
         }
 
         public void OnProductParamTabActivated()
