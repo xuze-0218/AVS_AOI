@@ -154,6 +154,9 @@ namespace AVS_Service.Services
                 }
             }
         }
+        /// <summary>
+        /// 加载相机配置
+        /// </summary>
         public void LoadSettings()
         {
             try

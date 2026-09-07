@@ -1,6 +1,7 @@
 ﻿using AVS_Common.Events;
 using AVS_Common.Services;
 using AVS_Core.Models;
+using AVS_Drivers.Camera.Common.Enum;
 using AVS_Service;
 using AVS_Service.Models;
 using AVS_Service.Services;
@@ -11,6 +12,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace AVS_Core.Services
 {
@@ -148,7 +150,6 @@ namespace AVS_Core.Services
             {
 
                 if (p.IsSquareBarWeldMark)
-                    //这里score要从本地配置里读取 先写死
                     _aiDrive.DetectMulti(_aiModelId, 0, image, p.ScoreValue, out int[] beadType01, out beadRect01);
                 else
                     _aiDrive.Detect(_aiModelId, 0, image, p.ScoreValue, out int beadType01, out beadRect01);
@@ -411,7 +412,9 @@ namespace AVS_Core.Services
         private readonly IStationConfigService _stationConfig;
         private readonly IWindowHandleRegistry _handleRegistry;
         private readonly IImageSaveService _imageSaveService;
+        private readonly ICameraConfigService _cameraConfigService;
         //private readonly IWindowHandleManager _handleManager;
+        private HDevProcedure _cropProc, _measureProc, _planeFitProc;
         private HDevProcedureCall _cropCall, _measureCall, _planeFitCall;
 
         public ThreeDVisionProvider(ILogger logger,
@@ -422,6 +425,7 @@ namespace AVS_Core.Services
             //IWindowHandleManager handleManager,
             IInspectionCsvService csvService,
             IImageSaveService imageSaveService,
+            ICameraConfigService cameraConfigService,
             IAiDriveService aiDrive)
         {
             _logger = logger;
@@ -431,6 +435,7 @@ namespace AVS_Core.Services
             //_handleManager = handleManager;
             _imageSaveService = imageSaveService;
             _handleRegistry = windowHandleRegistry;
+            _cameraConfigService = cameraConfigService;
             _csvService = csvService;
             _aiDrive = aiDrive;
         }
@@ -465,112 +470,172 @@ namespace AVS_Core.Services
             string measureResults = string.Empty;
             HTuple resultArray = new HTuple();
             HTuple beadRect = new HTuple();
-            HOperatorSet.GenEmptyObj(out HObject mask01);
-            HOperatorSet.GenEmptyObj(out HObject mask02);
-            HOperatorSet.GenEmptyObj(out HObject mask03);
-            string sn = _stationConfig.GetStation(_stationId).CameraRole;
-            if (p.IsAiCheck)
+            HObject mask01 = null, mask02 = null, mask03 = null;
+            HObject mask01Img = null, mask02Img = null, mask03Img = null;
+            HObject resultImage = null;
+            bool canMeasure = true;
+
+            try
             {
-                _cropCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
-                _cropCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-                _cropCall.SetInputIconicParamObject("Image", image);
-                _cropCall.Execute();
-                HObject imgByte = _cropCall.GetOutputIconicParamObject("ImageByte");
+                HOperatorSet.GenEmptyObj(out mask01);
+                HOperatorSet.GenEmptyObj(out mask02);
+                HOperatorSet.GenEmptyObj(out mask03);
+                HOperatorSet.GenEmptyObj(out mask01Img);
+                HOperatorSet.GenEmptyObj(out mask02Img);
+                HOperatorSet.GenEmptyObj(out mask03Img);
+
+                // 获取当前使用的测量过程（平面拟合或测量）
                 var call = _measureCall != null ? _measureCall : _planeFitCall;
-                if (p.IsSquareBarWeldMark)
+
+                if (p.IsAiCheck)
                 {
-                    _aiDrive.DetectMulti(_aiModelId, 0, imgByte, p.ScoreValue, out int[] beadType01, out beadRect);
-                    call.SetInputCtrlParamTuple("BeadType", beadType01);
+                    // ===== AI 检测 =====
+                    // 执行裁剪过程
+                    _cropCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
+                    _cropCall.SetInputCtrlParamTuple("ParamSide", _stationId);
+                    _cropCall.SetInputIconicParamObject("Image", image);
+                    _cropCall.Execute();
+                    HObject imgByte = _cropCall.GetOutputIconicParamObject("ImageByte");
+
+                    bool use3DSegmentation = p.IsAiCheck && !p.IsSquareBarWeldMark && p.Is3DSegmentation;
+                    if (use3DSegmentation)
+                    {
+                        // ===== 3D 分割模式 =====
+                        // 调用 AI 分割模型获取三个 Mask
+                        _aiDrive.Predict3DImage(_stationId, 0, imgByte, out HObject masks, out mask01, out mask02, out mask03);
+                        masks?.Dispose(); // 父对象可释放，Mask 已单独取出
+
+                        // 转换 Mask 为图像格式，供 Halcon 过程使用
+                        HTuple width, height;
+                        HOperatorSet.GetImageSize(imgByte, out width, out height);
+                        HOperatorSet.RegionToBin(mask01, out mask01Img, 255, 0, width, height);
+                        HOperatorSet.RegionToBin(mask02, out mask02Img, 255, 0, width, height);
+                        HOperatorSet.RegionToBin(mask03, out mask03Img, 255, 0, width, height);
+
+                        // 传入 Mask 图像
+                        call.SetInputIconicParamObject("Mask01", mask01Img);
+                        call.SetInputIconicParamObject("Mask02", mask02Img);
+                        call.SetInputIconicParamObject("Mask03", mask03Img);
+                    }
+                    else
+                    {
+                        // ===== AI 定位模式 =====
+                        if (p.IsSquareBarWeldMark)
+                        {
+                            _aiDrive.DetectMulti(_aiModelId, 0, imgByte, p.ScoreValue, out int[] beadType, out beadRect);
+                            call.SetInputCtrlParamTuple("BeadType", beadType);
+                        }
+                        else
+                        {
+                            _aiDrive.Detect(_aiModelId, 0, imgByte, p.ScoreValue, out int beadType, out beadRect);
+                            call.SetInputCtrlParamTuple("BeadType", beadType);
+                        }
+
+                        int requiredRectLength = p.IsSquareBarWeldMark ? 8 : 4;
+                        if (beadRect.Length < requiredRectLength)
+                        {
+                            // 定位失败，生成失败结果
+                            canMeasure = false;
+                            resultArray = new HTuple();
+                            HOperatorSet.TupleGenConst(13, 2, out resultArray);
+                            _logger.Warning("3D定位焊缝框数量不足，期望 {Expected}，实际 {Actual}", requiredRectLength, beadRect.Length);
+                        }
+                        else
+                        {
+                            call.SetInputCtrlParamTuple("TargetRect", beadRect);
+                        }
+                    }
+
+                    if (canMeasure)
+                    {
+                        // 执行测量/平面拟合过程
+                        call.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
+                        call.SetInputCtrlParamTuple("ParamSide", _stationId);
+                        call.SetInputIconicParamObject("Image", image);
+                        call.Execute();
+                        resultArray = call.GetOutputCtrlParamTuple("ResultArray");
+                    }
+
+                    imgByte?.Dispose();
                 }
                 else
                 {
-                    _aiDrive.Detect(_aiModelId, 0, imgByte, p.ScoreValue, out int beadType01, out beadRect);
-                    call.SetInputCtrlParamTuple("BeadType", beadType01);
+                    // ===== 传统检测（非AI）=====
+                    // 当前无实际测量，结果全0
+                    resultArray = new HTuple();
+                    HOperatorSet.TupleGenConst(13, 0, out resultArray); // 生成13个0
+                    _logger.Information("3D传统检测模式，未执行AI算法");
                 }
 
-                if (beadRect.Length < 4)
+                // ===== 构造结果字符串（固定50字符） =====
+                if (resultArray.Length >= 9)
                 {
-                    mask01.Dispose();
-                    mask02.Dispose();
-                    mask03.Dispose();
-                    HOperatorSet.TupleGenConst(13, 2, out resultArray);
-                    string result01 = DoubleToString(resultArray[2].D, 8);//方形余高
-                    string result02 = DoubleToString(resultArray[4].D, 8);//方形下塌
-                    string result03 = DoubleToString(resultArray[6].D, 8);//条形余高
-                    string result04 = DoubleToString(resultArray[8].D, 8);//条形下塌
-                    string result05 = DoubleToString(resultArray[10].D, 8);//
-                    string result06 = DoubleToString(resultArray[12].D, 8);//
-                    measureResults = "02" + result01 + result02 + result03 + result04 + result05 + result06;
-                }
-                else
-                {
-
-
-                    call.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
-                    call.SetInputCtrlParamTuple("ParamSide", _stationId);
-                    call.SetInputCtrlParamTuple("TargetRect", beadRect);
-                    call.SetInputIconicParamObject("Image", image);
-
-                    call.Execute();
-                    resultArray = call.GetOutputCtrlParamTuple("ResultArray");
-                    imgByte.Dispose();
-                    mask01.Dispose();
-                    mask02.Dispose();
-                    mask03.Dispose();
-                    string data01 = DoubleToString(resultArray[2].D, 8);  //方形余高
-                    string data02 = DoubleToString(resultArray[4].D, 8);  //方形下塌
+                    string data01 = DoubleToString(resultArray[2].D, 8);  // 方形余高
+                    string data02 = DoubleToString(resultArray[4].D, 8);  // 方形下塌
                     string data03 = DoubleToString(resultArray[6].D, 8);  // 条形余高
                     string data04 = DoubleToString(resultArray[8].D, 8);  // 条形下塌
                     string data05 = DoubleToString(0, 8);
                     string data06 = DoubleToString(0, 8);
+                    result = resultArray[0].D == 0 ? "01" : "02";
                     measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
                 }
-            }
-            else
-            {
-                try
+                else
                 {
-                    measureResults = new string('0', 50);
+                    // 结果数组异常，返回失败
+                    measureResults = "02" + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
                 }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "3D传统检测出错");
-                    measureResults = "02"
-                        + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8)
-                        + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
-                }
-            }
-            if (resultArray != null && resultArray.Length >= 9)
-            {
-                var inspect3D = new InspectResult3DData
-                {
-                    WorkType = param.WorkType,
-                    ModuleName = param.ModuleName,
-                    PoleNum = poleNum,
-                    DateTime = DateTime.Now,
-                    Result3D = (Result)resultArray[0].I,
-                    ResultBeadHump = (Result)resultArray[1].I,
-                    BeadHump = resultArray[2].D,
-                    ResultBeadSag = (Result)resultArray[3].I,
-                    BeadSag = resultArray[4].D,
-                    ResultBarBeadHump = (Result)resultArray[5].I,
-                    BarBeadHump = resultArray[6].D,
-                    ResultBarBeadSag = (Result)resultArray[7].I,
-                    BarBeadSag = resultArray[8].D
-                };
-                _csvService.Report3D(inspect3D);
-                HObject resultImage = null;
-                try { HOperatorSet.DumpWindowImage(out resultImage, _windowHandle); } catch { }
 
-                _imageSaveService.Save3DImages(
-                    inspect3D,
-                    image.Clone(),          // 深度图
-                    null,                   // 亮度图，当前可能未传入，后续可从相机回调补充
-                    resultImage,            // 结果图
-                    mask01,                 // 如果存在
-                    mask02,
-                    mask03);
+                // ===== 保存 CSV 和图像 =====
+                if (resultArray != null && resultArray.Length >= 9)
+                {
+                    var inspect3D = new InspectResult3DData
+                    {
+                        WorkType = param.WorkType,
+                        ModuleName = param.ModuleName,
+                        PoleNum = poleNum,
+                        DateTime = DateTime.Now,
+                        Result3D = (Result)resultArray[0].I,
+                        ResultBeadHump = (Result)resultArray[1].I,
+                        BeadHump = resultArray[2].D,
+                        ResultBeadSag = (Result)resultArray[3].I,
+                        BeadSag = resultArray[4].D,
+                        ResultBarBeadHump = (Result)resultArray[5].I,
+                        BarBeadHump = resultArray[6].D,
+                        ResultBarBeadSag = (Result)resultArray[7].I,
+                        BarBeadSag = resultArray[8].D
+                    };
+                    _csvService.Report3D(inspect3D);
+
+                    // 获取窗口截图
+                    try { HOperatorSet.DumpWindowImage(out resultImage, _windowHandle); } catch { }
+
+                    _imageSaveService.Save3DImages(
+                        inspect3D,
+                        image.Clone(),          // 深度图（克隆后由保存服务负责释放）
+                        null,                   // 亮度图，当前未传入
+                        resultImage,            // 结果图
+                        mask01,                /*mask01Img?mask01*/
+                        mask02,
+                        mask03);
+                }
             }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "3D检测执行异常，工位={StationId} 极柱={Pole}", _stationId, poleNum);
+                measureResults = "02" + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8) + DoubleToString(0, 8);
+            }
+            finally
+            {
+                // 确保所有临时对象释放
+                mask01?.Dispose();
+                mask02?.Dispose();
+                mask03?.Dispose();
+                mask01Img.Dispose();
+                mask02Img.Dispose();
+                mask03Img.Dispose();
+                resultImage?.Dispose();
+            }
+
             _logger.Information("[3D检测] 工位={StationId} 极柱={Pole} 检测结果: {Result}", _stationId, poleNum, measureResults);
             return Task.FromResult(measureResults);
         }
@@ -580,37 +645,73 @@ namespace AVS_Core.Services
             _stationId = config.StationId;
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole);
-            _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
+            _engineProvider.GetEngine();
+
             var p = _paramService.GetStationParams(_stationId);
             paramDir = p.IsSquareBarWeldMark
                 ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SBProductParamB.json")
                 : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CircProductParamB.json");
-            //加载并执行 LoadParam
-            var loadProc = new HDevProcedure("LoadParam");
-            var loadCall = new HDevProcedureCall(loadProc);
-            loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
-            loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
-            loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-            loadCall.Execute();
-            loadCall.Dispose();
-            loadProc.Dispose();
-            //初始化Crop3d
-            var cropProc = new HDevProcedure("Crop3d");
-            _cropCall = new HDevProcedureCall(cropProc);
 
-            if (p.IsPlaneCheck)
+            var cameraSetting = _cameraConfigService.AllSettings.FirstOrDefault(s => s.CameraRole == config.CameraRole);
+            if (cameraSetting == null)
             {
-                var proc = p.IsSquareBarWeldMark
-                    ? new HDevProcedure("PlaneFitSB3D")
-                    : new HDevProcedure("PlaneFit3D");
-                _planeFitCall = new HDevProcedureCall(proc);
+                _logger.Error("未找到相机角色 {Role} 的配置", config.CameraRole);
+                throw new InvalidOperationException($"未找到相机角色 {config.CameraRole} 的配置");
             }
-            else
+            CameraBrand cameraBrand = (CameraBrand)cameraSetting.CameraType;
+            bool isLmi = cameraBrand == CameraBrand.LMI3D;
+
+            try
             {
-                var proc = p.IsSquareBarWeldMark
-                    ? new HDevProcedure("MeasureSB3d")
-                    : new HDevProcedure("Measure3d");
-                _measureCall = new HDevProcedureCall(proc);
+                // 释放旧的过程对象
+                _cropCall?.Dispose();
+                _cropProc?.Dispose();
+                _planeFitCall?.Dispose();
+                _planeFitProc?.Dispose();
+                _measureCall?.Dispose();
+                _measureProc?.Dispose();
+
+                // 加载 LoadParam
+                using (var loadProc = new HDevProcedure("LoadParam"))
+                using (var loadCall = new HDevProcedureCall(loadProc))
+                {
+                    loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
+                    loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
+                    loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
+                    loadCall.Execute();
+                }
+
+                // 初始化 Crop3d
+                string cropProcName = isLmi ? "Crop3d" : "Crop3d_HK";
+                _cropProc = new HDevProcedure(cropProcName);
+                _cropCall = new HDevProcedureCall(_cropProc);
+
+                bool use3DSegmentation = p.IsAiCheck && !p.IsSquareBarWeldMark && p.Is3DSegmentation;
+
+                if (p.IsPlaneCheck)
+                {
+                    string procName;
+                    if (p.IsSquareBarWeldMark)
+                        procName = "PlaneFitSB3D";
+                    else if (!isLmi) // HK
+                        procName = use3DSegmentation ? "PlaneFit3DHKML" : "PlaneFit3DHK";
+                    else // LMI
+                        procName = use3DSegmentation ? "PlaneFit3DML" : "PlaneFit3D";
+
+                    _planeFitProc = new HDevProcedure(procName);
+                    _planeFitCall = new HDevProcedureCall(_planeFitProc);
+                }
+                else
+                {
+                    string procName = p.IsSquareBarWeldMark ? "MeasureSB3d" : "Measure3d";
+                    _measureProc = new HDevProcedure(procName);
+                    _measureCall = new HDevProcedureCall(_measureProc);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "3D视觉提供者初始化失败，工位：{StationId}", _stationId);
+                throw;
             }
         }
 

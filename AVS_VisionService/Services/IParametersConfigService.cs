@@ -167,6 +167,7 @@ namespace AVS_Service.Services
                 IsAiCheck = GetBool(stationId, "IsAiCheck"),
                 IsRotated = GetBool(stationId, "IsRotated"),
                 IsSquareBarWeldMark = GetBool(stationId, "IsSquareBarWeldMark"),
+                Is3DSegmentation = GetBool(stationId, "Is3DSegmentation"),
                 IsCirWeldMark = GetBool(stationId, "IsCirWeldMark"),
                 ScoreValue = GetDouble(stationId, "ScoreValue", 0.8),
                 IsPlaneCheck = GetBool(stationId, "IsPlaneCheck"),

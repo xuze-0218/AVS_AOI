@@ -11,6 +11,8 @@
         public bool IsSquareBarWeldMark { get; set; }
         public bool IsCirWeldMark { get; set; }
 
+        public bool Is3DSegmentation { get; set; }
+
         // ===== AI 阈值 =====
         public double ScoreValue { get; set; } = 0.8;
 

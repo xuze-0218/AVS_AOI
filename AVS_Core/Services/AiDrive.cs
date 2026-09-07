@@ -30,6 +30,9 @@ namespace AVS_Core.Services
         /// </summary>
         void Predict(string modelId, int modelIndex, HObject imgGray, out HObject imgMask);
 
+
+        void Predict3DImage(string modelSide, int modelNum, HObject imgGray, out HObject imgMask, out HObject mask01, out HObject mask02, out HObject mask03);
+
         /// <summary>
         /// 图像目标检测（单目标）
         /// </summary>
@@ -79,12 +82,12 @@ namespace AVS_Core.Services
             {
                 _logger?.Warning("LoadSegModel: stationId 或 modelPaths 无效");
                 return false;
-            }         
+            }
             try
             {
                 lock (_lock)
                 {
-                  
+
                     if (_segHandles.ContainsKey(modelId))
                     {
                         _logger?.Information("工位 {StationId} 分割模型已加载，跳过", modelId);
@@ -155,11 +158,24 @@ namespace AVS_Core.Services
 
             try
             {
-                Halcon2MmMat(imgGray, out var mats);
-                var output = segmentor.Apply(mats);
-                ResultToColorMask(output[0], out OpenCvSharp.Mat colorMask);
-                Mat2HalconRgb(colorMask, out imgMask);
-                colorMask.Dispose();
+                using (var mmInput = Halcon2MmMat(imgGray))
+                {
+                    var output = segmentor.Apply(mmInput.Mats);
+                    if (output == null || output.Count == 0)
+                    {
+                        _logger?.Warning("分割输出为空");
+                        return;
+                    }
+                    ResultToColorMask(output[0], out var colorMask);
+                    try
+                    {
+                        Mat2HalconRgb(colorMask, out imgMask);
+                    }
+                    finally
+                    {
+                        colorMask.Dispose();
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -167,7 +183,6 @@ namespace AVS_Core.Services
                 HOperatorSet.GenEmptyObj(out imgMask);
             }
         }
-
         public void Detect(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect)
         {
             DetectInternal(modelId, modelIndex, imgGray, scoreThreshold, multiTarget: false, out var labels, out targetRect);
@@ -191,10 +206,10 @@ namespace AVS_Core.Services
             try
             {
                 var swConvert = Stopwatch.StartNew();
-                Halcon2MmMat(imgGray, out var mats);
+                var mmInput = Halcon2MmMat(imgGray);
                 swConvert.Stop();
                 var swInfer = Stopwatch.StartNew();
-                var output = detector.Apply(mats);
+                var output = detector.Apply(mmInput.Mats);
                 swInfer.Stop();
                 _logger?.Information("[AI检测] 模型ID={ModelId} 图像转换耗时: {ConvertMs} ms, 推理耗时: {InferMs} ms",
     modelId, swConvert.ElapsedMilliseconds, swInfer.ElapsedMilliseconds);
@@ -306,73 +321,73 @@ namespace AVS_Core.Services
 
         // ========== 图像格式转换 ==========
 
-        private static void Halcon2MmMat(HObject imgGray, out MMDeploy.Mat[] mats)
+        private static unsafe MmMatInput Halcon2MmMat(HObject imgGray)
         {
-            HOperatorSet.CountChannels(imgGray, out HTuple chs);
-            if ((int)chs.D == 1)
+            if (imgGray == null)
+                throw new ArgumentNullException(nameof(imgGray));
+
+            HOperatorSet.CountChannels(imgGray, out HTuple chsTuple);
+            int chs = chsTuple.I;
+
+            // 灰度图像
+            if (chs == 1)
             {
-                mats = new MMDeploy.Mat[1];
-                unsafe
-                {
-                    HOperatorSet.GetImagePointer1(imgGray, out HTuple ptrGray, out HTuple type, out HTuple width, out HTuple height);
-                    IntPtr ptr2 = ptrGray;
-                    int bytes = width * height;
-                    byte[] rgbvalues = new byte[bytes];
-                    Marshal.Copy(ptr2, rgbvalues, 0, bytes);
+                HOperatorSet.GetImagePointer1(imgGray, out HTuple ptrGray, out HTuple type, out HTuple width, out HTuple height);
+                int w = width.I;
+                int h = height.I;
+                int bytes = w * h;
+                byte[] buffer = new byte[bytes];
+                Marshal.Copy((IntPtr)ptrGray, buffer, 0, bytes);
 
-                    OpenCvSharp.Mat mat = new OpenCvSharp.Mat();
-                    mat.Create(height, width, MatType.CV_8UC1);
-                    Marshal.Copy(rgbvalues, 0, mat.Data, rgbvalues.Length);
+                var mats = new MMDeploy.Mat[1];
+                var input = new MmMatInput(mats, buffer); // 固定 buffer
+                mats[0].Height = h;
+                mats[0].Width = w;
+                mats[0].Channel = 1; // 修正通道数
+                mats[0].Format = PixelFormat.Grayscale;
+                mats[0].Type = DataType.Int8;
+                mats[0].Device = null;
 
-                    mats[0].Data = mat.DataPointer;
-                    mats[0].Height = mat.Height;
-                    mats[0].Width = mat.Width;
-                    mats[0].Channel = mat.Dims();
-                    mats[0].Format = PixelFormat.Grayscale;
-                    mats[0].Type = DataType.Int8;
-                    mats[0].Device = null;
-                }
+                return input;
             }
-            else if ((int)chs.D == 3)
+            // 彩色图像
+            else if (chs == 3)
             {
                 HOperatorSet.GetImagePointer3(imgGray, out HTuple ptrRed, out HTuple ptrGreen, out HTuple ptrBlue,
                     out HTuple type, out HTuple width, out HTuple height);
-                int bytes = width * height * 3;
-                byte[] rgbvalues = new byte[bytes];
+                int w = width.I;
+                int h = height.I;
+                int pixels = w * h;
+                int bytes = pixels * 3;
+                byte[] buffer = new byte[bytes];
 
                 unsafe
                 {
                     byte* r = (byte*)(IntPtr)ptrRed;
                     byte* g = (byte*)(IntPtr)ptrGreen;
                     byte* b = (byte*)(IntPtr)ptrBlue;
-                    int length = width * height;
-                    for (int i = 0; i < length; i++)
+                    for (int i = 0; i < pixels; i++)
                     {
-                        rgbvalues[i * 3 + 0] = b[i];
-                        rgbvalues[i * 3 + 1] = g[i];
-                        rgbvalues[i * 3 + 2] = r[i];
+                        buffer[i * 3 + 0] = b[i];
+                        buffer[i * 3 + 1] = g[i];
+                        buffer[i * 3 + 2] = r[i];
                     }
                 }
 
-                OpenCvSharp.Mat mat = new OpenCvSharp.Mat();
-                mat.Create(height, width, MatType.CV_8UC3);
-                Marshal.Copy(rgbvalues, 0, mat.Data, rgbvalues.Length);
+                var mats = new MMDeploy.Mat[1];
+                var input = new MmMatInput(mats, buffer); // 固定 buffer
+                mats[0].Height = h;
+                mats[0].Width = w;
+                mats[0].Channel = 3; // 修正通道数
+                mats[0].Format = PixelFormat.BGR;
+                mats[0].Type = DataType.Int8;
+                mats[0].Device = null;
 
-                mats = new MMDeploy.Mat[1];
-                unsafe
-                {
-                    mats[0].Data = mat.DataPointer;
-                    mats[0].Height = mat.Height;
-                    mats[0].Width = mat.Width;
-                    mats[0].Channel = mat.Dims();
-                    mats[0].Format = PixelFormat.BGR;
-                    mats[0].Type = DataType.Int8;
-                    mats[0].Device = null;
-                }
+                return input;
             }
             else
             {
-                mats = new MMDeploy.Mat[1];
+                throw new NotSupportedException($"不支持的图像通道数: {chs}");
             }
         }
 
@@ -440,7 +455,7 @@ namespace AVS_Core.Services
             return palette;
         }
 
-        private static void Mat2HalconRgb(OpenCvSharp.Mat mat, out HObject image)
+        private static unsafe void Mat2HalconRgb(OpenCvSharp.Mat mat, out HObject image)
         {
             int ImageWidth = mat.Width;
             int ImageHeight = mat.Height;
@@ -462,6 +477,112 @@ namespace AVS_Core.Services
                     IntPtr ptr = new IntPtr(pc);
                     HOperatorSet.GenImageInterleaved(out image, ptr, "bgr", ImageWidth, ImageHeight, 0, "byte", 0, 0, 0, 0, -1, 0);
                 }
+            }
+        }
+
+        public void Predict3DImage(string modelId, int modelIndex, HObject imgGray, out HObject imgMask, out HObject mask01, out HObject mask02, out HObject mask03)
+        {
+            // 初始化输出为空对象
+            HOperatorSet.GenEmptyObj(out imgMask);
+            HOperatorSet.GenEmptyObj(out mask01);
+            HOperatorSet.GenEmptyObj(out mask02);
+            HOperatorSet.GenEmptyObj(out mask03);
+
+            if (!TryGetHandle(_segHandles, modelId, modelIndex, out var segmentor))
+                return;
+
+            try
+            {
+                // 转换图像并固定内存
+                using (var mmInput = Halcon2MmMat(imgGray))
+                {
+                    var output = segmentor.Apply(mmInput.Mats);
+                    if (output == null || output.Count == 0 || output[0].Mask == null || output[0].Mask.Length == 0)
+                    {
+                        _logger?.Warning("[AiDrive] 3D分割输出无效");
+                        return;
+                    }
+
+                    var segOut = output[0];
+                    int width = segOut.Width;
+                    int height = segOut.Height;
+                    int[] maskData = segOut.Mask;
+
+                    // 检查 mask 数据长度
+                    if (maskData.Length < width * height)
+                    {
+                        _logger?.Error("[AiDrive] 3D分割Mask数据长度不足");
+                        return;
+                    }
+
+                    // 转换为字节数组（类别ID）
+                    byte[] byteMask = new byte[width * height];
+                    for (int i = 0; i < byteMask.Length; i++)
+                    {
+                        byteMask[i] = (byte)maskData[i];
+                    }
+
+                    // 创建临时 class map 图像
+                    HObject classMap = null;
+                    GCHandle handle = default;
+                    try
+                    {
+                        handle = GCHandle.Alloc(byteMask, GCHandleType.Pinned);
+                        IntPtr ptr = handle.AddrOfPinnedObject();
+                        HOperatorSet.GenImage1(out classMap, "byte", width, height, ptr);
+
+                        // 阈值分割：类别1->mask01, 2->mask02, 3->mask03
+                        HOperatorSet.Threshold(classMap, out mask01, 1, 1);
+                        HOperatorSet.Threshold(classMap, out mask02, 2, 2);
+                        HOperatorSet.Threshold(classMap, out mask03, 3, 3);
+                    }
+                    finally
+                    {
+                        if (handle.IsAllocated) handle.Free();
+                        classMap?.Dispose();
+                    }
+
+                    // 生成彩色掩码图（用于保存/调试）
+                    ResultToColorMask(segOut, out OpenCvSharp.Mat colorMask);
+                    try
+                    {
+                        Mat2HalconRgb(colorMask, out imgMask);
+                    }
+                    finally
+                    {
+                        colorMask.Dispose();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error(ex, "[AiDrive] 3D分割推理失败");
+                HOperatorSet.GenEmptyObj(out imgMask);
+                HOperatorSet.GenEmptyObj(out mask01);
+                HOperatorSet.GenEmptyObj(out mask02);
+                HOperatorSet.GenEmptyObj(out mask03);
+            }
+        }
+
+        private sealed class MmMatInput : IDisposable
+        {
+            private readonly GCHandle _handle;
+            public MMDeploy.Mat[] Mats { get; }
+
+            public MmMatInput(MMDeploy.Mat[] mats, byte[] buffer)
+            {
+                Mats = mats;
+                _handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+                unsafe
+                {
+                    mats[0].Data = (byte*)_handle.AddrOfPinnedObject();
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_handle.IsAllocated)
+                    _handle.Free();
             }
         }
     }
