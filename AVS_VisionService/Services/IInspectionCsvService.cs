@@ -1,5 +1,4 @@
 ﻿using AVS_Common;
-using AVS_Common.Services;
 using AVS_Service.Models;
 using Serilog;
 using System;
@@ -9,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
     public interface IInspectionCsvService
     {

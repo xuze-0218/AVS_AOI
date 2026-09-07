@@ -7,6 +7,7 @@ using AVS_Core.Services;
 using AVS_Modules_Settings.Views;
 using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using DryIoc;
 using Prism.DryIoc;
 using Prism.Ioc;

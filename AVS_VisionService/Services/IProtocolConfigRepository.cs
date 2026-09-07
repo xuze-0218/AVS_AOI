@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
 
     public interface IProtocolConfigRepository

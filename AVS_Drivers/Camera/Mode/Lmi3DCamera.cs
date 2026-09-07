@@ -27,7 +27,7 @@ namespace AVS_Drivers.Camera.Mode
         // 固定容量环形内存池
         // ==========================================
         private const int BufferCount = 10;             // 图像缓存容量
-        private const int MAX_FRAME_SIZE = 200 * 1024 * 1024; // 单帧最大 200MB（如实际帧更小可调低）
+        private const int MAX_FRAME_SIZE = 30 * 1024 * 1024; // 单帧最大 30MB（如实际帧更小可调低）
         private byte[][] _depthBuffers = new byte[BufferCount][];
         private GCHandle[] _depthHandles = new GCHandle[BufferCount];
         private int _bufferIndex = 0;
@@ -131,7 +131,7 @@ namespace AVS_Drivers.Camera.Mode
         {
             try
             {
-                if (_isGrabbing) StopGrabbingCore();
+                if (_isGrabbing) StopGrabbing();
 
                 if (_sensor != null)
                 {

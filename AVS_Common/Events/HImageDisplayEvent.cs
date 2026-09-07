@@ -3,7 +3,7 @@ using Prism.Events;
 
 namespace AVS_Common.Events
 {
-    public enum CameraImageType { Raw, Processed }
+    public enum CameraImageType { Raw, Processed, CameraImageType }
     public class CameraImagePayload
     {
         public string CameraSN { get; set; }
@@ -18,5 +18,11 @@ namespace AVS_Common.Events
     public class HImageDisplayEvent : PubSubEvent<CameraImagePayload>
     {
 
+    } 
+    public class HIntensityImageDisplayEvent : PubSubEvent<CameraImagePayload>
+    {
+
     }
+
+
 }

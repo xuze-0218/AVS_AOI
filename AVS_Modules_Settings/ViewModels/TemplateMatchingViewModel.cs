@@ -7,6 +7,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using AVS_Service.Models;
+using AVS_Service.Services;
 
 namespace AVS_Modules_Settings.ViewModels
 {

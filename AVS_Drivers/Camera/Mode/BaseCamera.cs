@@ -14,14 +14,11 @@ namespace AVS_Drivers.Camera.Mode
         {
             ActionGetImage += ResetActionImageSignal;
         }
-
-
-
         #region Parm
         public string SN { get; set; } = string.Empty;
 
         /// <summary>
-        /// 回调委托，获取图像数据，+= 赋值,子类要添加到回调中
+        /// 回调委托，获取图像数据，用于接收相机回调中的图像数据指针
         /// </summary>
         protected Action<IntPtr> ActionGetImage { get; set; }
 
@@ -31,23 +28,18 @@ namespace AVS_Drivers.Camera.Mode
         /// 获取亮度图像数据(3D)
         /// </summary>
         public event Action<IntPtr> IntensityImageReceived;
+        /// <summary>
+        /// 存储回调中收到的图像指针
+        /// </summary>
         protected IntPtr CallBaclImg { get; set; }
 
         private readonly CameraInfoModel _imageInfo = new CameraInfoModel();
         public CameraInfoModel ImageInfo => _imageInfo;
-
-
         #endregion
-
-
         #region  operate
-
         public abstract void CloseDevice();
-
         public abstract List<string> GetListEnum();
-
         public abstract bool InitDevice(string CamSN);
-
         /// <summary>
         /// 等待硬触发获取图像
         /// </summary>
@@ -119,8 +111,6 @@ namespace AVS_Drivers.Camera.Mode
         /// </summary>
         protected abstract bool StopGrabbingCore();
         #endregion
-
-
         #region SettingConfig
         public void SetCamConfig(CamConfig config)
         {
@@ -132,7 +122,6 @@ namespace AVS_Drivers.Camera.Mode
             SetGain(config.Gain);
             SetTriggerDelay(config.TriggerDelay);
         }
-
         public void GetCamConfig(out CamConfig config)
         {
             GetExpouseTime(out ushort expouseTime);
@@ -153,8 +142,6 @@ namespace AVS_Drivers.Camera.Mode
                 Gain = gain
             };
         }
-
-
         /// <summary>
         /// 设置触发模式及触发源
         /// </summary>
@@ -162,22 +149,12 @@ namespace AVS_Drivers.Camera.Mode
         /// <param name="triggerEnum"></param>
         /// <returns></returns>
         public abstract bool SetTriggerMode(TriggerMode mode, TriggerSource triggerEnum = TriggerSource.Line0);
-
         public abstract bool GetTriggerMode(out TriggerMode mode, out TriggerSource hardTriggerModel);
 
-
-
         public abstract bool SetExpouseTime(ushort value);
-
         public abstract bool GetExpouseTime(out ushort value);
-
-
-
         public abstract bool SetTriggerPolarity(TriggerPolarity polarity);
-
         public abstract bool GetTriggerPolarity(out TriggerPolarity polarity);
-
-
 
         /// <summary>
         /// 设置触发滤波时间 （us）
@@ -192,27 +169,18 @@ namespace AVS_Drivers.Camera.Mode
         /// <param name="flitertime"></param>
         /// <returns></returns>
         public abstract bool GetTriggerFliter(out ushort flitertime);
-
-
         public abstract bool SetTriggerDelay(ushort delay);
-
         public abstract bool GetTriggerDelay(out ushort delay);
-
-
         public abstract bool SetGain(short gain);
-
         public abstract bool GetGain(out short gain);
 
         public abstract bool SetLineMode(IOLines line, LineMode mode);
         public abstract bool SetLineStatus(IOLines line, LineStatus linestatus);
         public abstract bool GetLineStatus(IOLines line, out LineStatus lineStatus);
-
         public abstract bool AutoBalanceWhite();
-
         public abstract bool SetALLOutPutValue(int channel);
 
         #endregion
-
 
         #region  protected abstract
         protected void OnIntensityImageReceived(IntPtr data)

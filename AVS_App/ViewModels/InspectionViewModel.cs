@@ -1,8 +1,8 @@
 ﻿using AVS_Common.Events;
 using AVS_Common.Model;
 using AVS_Core.Services;
-using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
@@ -11,8 +11,6 @@ using Serilog;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
 
 
 namespace AVS_App.ViewModels
@@ -37,8 +35,6 @@ namespace AVS_App.ViewModels
             if (_journal != null && _journal.CanGoBack)
                 _journal.GoBack();
         });
-
-
 
         public InspectionViewModel(
             IEventAggregator eventAggregator,

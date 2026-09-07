@@ -1,5 +1,6 @@
 ﻿using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using Prism.Commands;
 using Prism.Mvvm;
 using Prism.Regions;

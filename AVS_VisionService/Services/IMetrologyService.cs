@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using HalconDotNet;
-namespace AVS_Service
+namespace AVS_Service.Services
 {
 
     /// <summary>

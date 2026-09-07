@@ -1,6 +1,6 @@
 ﻿using AVS_Common.Model;
-using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using Newtonsoft.Json;
 using Prism.Commands;
 using Prism.Mvvm;

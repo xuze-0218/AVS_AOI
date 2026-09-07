@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
     /// <summary>
     /// 检测图像保存服务，根据配置自动保存 2D/3D 的原始图、结果图、Mask 图等，
@@ -41,6 +41,8 @@ namespace AVS_Service
         void Save3DImages(InspectResult3DData data, HObject depthImage, HObject intensityImage = null,
                           HObject resultImage = null, HObject mask1 = null,
                           HObject mask2 = null, HObject mask3 = null);
+
+        void Save3DIntensityImage(HObject intensityImage, int poleNum, string moduleName);
     }
 
     public class ImageSaveService : IImageSaveService
@@ -65,7 +67,7 @@ namespace AVS_Service
 
             // 获取缺陷类型列表，OK 时只有一个空字符串，表示无子目录
             List<string> defectList = GetDefectList(data);
-            if (defectList.Count == 0) defectList.Add(""); // OK 情况
+            if (defectList.Count == 0) defectList.Add(""); // OK
 
             foreach (string defect in defectList)
             {
@@ -84,7 +86,7 @@ namespace AVS_Service
                 {
                     string format = _paramService.GetString("Global", "Format2DResult", "bmp");
                     string subDir = "ResultImage\\Dumplmage";
-                    string suffix = "_W";
+                    string suffix = "_R";
                     string path = SaveImageAsync(data, resultImage, "2D", subDir, suffix, format, defect);
                     data.Dump2DPath = path;
                 }
@@ -136,7 +138,7 @@ namespace AVS_Service
                 {
                     string format = _paramService.GetString("Global", "Format3DResult", "bmp");
                     string subDir = "ResultImage\\Dumplmage";
-                    string suffix = "_W";
+                    string suffix = "_R";
                     string path = SaveImageAsync(data, resultImage, "3D", subDir, suffix, format, defect);
                     data.Dump3DPath = path;
                 }
@@ -151,11 +153,47 @@ namespace AVS_Service
             }
         }
 
+        public void Save3DIntensityImage(HObject intensityImage, int poleNum, string moduleName)
+        {
+            if (!IsValidImage(intensityImage)) return;
+            if (!_paramService.GetBool("Global", "IsSave3DIntensity", true)) return;
+
+            string baseDir = GetImageSaveDir();
+            string dateStr = DateTime.Now.ToString("yyyy_MM_dd");
+            string timeStr = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff");
+            string saveDir = Path.Combine(baseDir, dateStr, "OK", moduleName, "3D", "OriginallmageGray");
+            Directory.CreateDirectory(saveDir);
+            string fileName = $"{timeStr}_{moduleName}_Pole_{poleNum:D2}_O.png";
+            string fullPath = Path.Combine(saveDir, fileName);
+
+            HObject clone = intensityImage.Clone();
+            Task.Run(() =>
+            {
+                try { HOperatorSet.WriteImage(clone, "png", 0, fullPath); }
+                catch (Exception ex) { _logger.Error(ex, "3D亮度图保存失败"); }
+                finally { clone.Dispose(); }
+            });
+        }
         // ===== 辅助方法 =====
 
         private bool IsValidImage(HObject image)
         {
-            return image != null && image.IsInitialized();
+            return image != null && image.IsInitialized() && !IsEmpty(image);
+        }
+
+        private bool IsEmpty(HObject image)
+        {
+            HObject emptyObj;
+            HOperatorSet.GenEmptyObj(out emptyObj);
+            try
+            {
+                HOperatorSet.TestEqualObj(image, emptyObj, out HTuple isEqual);
+                return isEqual.I == 1;
+            }
+            finally
+            {
+                emptyObj.Dispose();
+            }
         }
 
         private string SaveImageAsync(InspectResult2DData data, HObject image, string dimension,

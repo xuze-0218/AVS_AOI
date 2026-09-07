@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 
 
-namespace AVS_Common.Services
+namespace AVS_Common
 {
     public interface ICsvFileWriter
     {
@@ -145,7 +145,7 @@ namespace AVS_Common.Services
                     if (num > -1)
                     {
                         text = rowStr.Substring(0, num);
-                        rowStr = num + 2 >= rowStr.Length ? "" : rowStr.Substring(num + 2).Trim();
+                        rowStr = ((num + 2 >= rowStr.Length) ? "" : rowStr.Substring(num + 2).Trim());
                     }
                     else
                     {
@@ -159,7 +159,7 @@ namespace AVS_Common.Services
                     if (num > -1)
                     {
                         text = rowStr.Substring(0, num);
-                        rowStr = num + 1 >= rowStr.Length ? "" : rowStr.Substring(num + 1).Trim();
+                        rowStr = ((num + 1 >= rowStr.Length) ? "" : rowStr.Substring(num + 1).Trim());
                     }
                     else
                     {

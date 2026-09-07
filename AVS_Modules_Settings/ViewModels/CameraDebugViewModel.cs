@@ -2,8 +2,8 @@
 using AVS_Drivers.Camera;
 using AVS_Drivers.Camera.Common.Enum;
 using AVS_Drivers.Camera.Common.Model;
-using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using HalconDotNet;
 using Prism.Commands;
 using Prism.Events;

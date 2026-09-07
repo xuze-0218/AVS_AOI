@@ -712,7 +712,7 @@ namespace AVS_Drivers.Camera.Mode
         {
             CloseDevice();
         }
-    
+
     }
 }
 

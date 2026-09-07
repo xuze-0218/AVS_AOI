@@ -4,6 +4,7 @@ using AVS_Common.Events;
 using AVS_Common.Model;
 using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;

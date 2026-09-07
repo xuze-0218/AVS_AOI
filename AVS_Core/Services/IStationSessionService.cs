@@ -1,8 +1,11 @@
-﻿using AVS_Core.Models;
+﻿using AVS_Common.Events;
+using AVS_Core.Models;
 using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using HalconDotNet;
 using OpenCvSharp.Dnn;
+using Prism.Events;
 using Prism.Ioc;
 using Serilog;
 using System;
@@ -62,6 +65,8 @@ namespace AVS_Core.Services
 
     public class StationSessionService : IStationSessionService
     {
+        private readonly IEventAggregator _eventAggregator;
+        private readonly IImageSaveService _imageSaveService;
         private readonly IContainerProvider _container;
         private readonly IAiDriveService _aiDriveService;
         private readonly IInspectionCsvService _csvService;
@@ -79,14 +84,64 @@ namespace AVS_Core.Services
         private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new ConcurrentDictionary<string, IVisionProvider>();
         public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService,
             IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService,
-            IInspectionCsvService csvService)
+            IInspectionCsvService csvService, IEventAggregator eventAggregator, IImageSaveService imageSaveService)
         {
+            _eventAggregator = eventAggregator;
             _paramService = paramService;
             _container = containerProvider;
+            _imageSaveService = imageSaveService;
             _stationConfigService = stationConfigService;
             _logger = logger;
             _aiDriveService = aiDriveService;
             _csvService = csvService;
+
+            _eventAggregator.GetEvent<HIntensityImageDisplayEvent>().Subscribe(OnIntensityImageReceived, ThreadOption.PublisherThread, false);
+        }
+
+        private void OnIntensityImageReceived(CameraImagePayload payload)
+        {
+            if (payload?.Image == null || !payload.Image.IsInitialized())
+            {
+                payload?.Image?.Dispose();
+                return;
+            }
+            try
+            {
+                // 根据相机SN查找对应工位
+                var stationCfg = _stationConfigService.Stations.FirstOrDefault(s => s.CameraRole == payload.CameraSN);
+                if (stationCfg == null)
+                {
+                    _logger.Warning("亮度图未找到相机 {SN} 对应的工位", payload.CameraSN);
+                    payload.Image.Dispose();
+                    return;
+                }
+                // 获取当前检测会话
+                if (_sessions.TryGetValue(stationCfg.StationId, out var state) && state.WorkType == SessionWorkType.Inspect)
+                {
+                    int idx = state.GrayReceivedCount;
+                    if (idx >= state.PoleOrder.Length)
+                    {
+                        _logger.Warning("亮度图接收数量超出极柱总数，工位 {StationId}", stationCfg.StationId);
+                        payload.Image.Dispose();
+                        return;
+                    }
+
+                    int pole = state.PoleOrder[idx];
+                    state.GrayReceivedCount++; // 递增计数
+
+                    _imageSaveService.Save3DIntensityImage(payload.Image, pole, state.ModuleName);
+                    payload.Image.Dispose(); // 保存服务内部已克隆，可安全释放
+                }
+                else
+                {
+                    payload.Image.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "亮度图保存处理失败");
+                payload?.Image?.Dispose();
+            }
         }
 
         public async Task InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
@@ -475,7 +530,6 @@ namespace AVS_Core.Services
         public Task ProcessTask { get; set; }
         public BlockingCollection<HObject> ImageQueue { get; set; }
         public bool IsActive => Cts != null && !Cts.IsCancellationRequested;
-
         //检测相关
         public int[] PoleOrder { get; set; }        // 极柱拍照顺序（物理编号）假设4行13列共52个极柱，拍照顺序可能是 [1~13 26~14 27~39 52~40],索引0-51
         /// <summary>
@@ -499,6 +553,8 @@ namespace AVS_Core.Services
         /// </summary>
         public string ModuleName { get; set; }
 
+        public int GrayReceivedCount { get; set; }   // 亮度图接收计数
+        public string TimeLabel { get; set; }        // 批次时间标签，用于路径命名
 
         /// <summary>
         /// —— 标定/点检相关 ——

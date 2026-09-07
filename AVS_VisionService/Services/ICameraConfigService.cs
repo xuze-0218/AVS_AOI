@@ -16,7 +16,7 @@ using System.Threading;
 using System.Linq;
 using AVS_Drivers.Camera.Mode;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
     public interface ICameraConfigService
     {
@@ -71,7 +71,6 @@ namespace AVS_Service
         private Dictionary<string, ICamera> _connectedCameras = new Dictionary<string, ICamera>();
         private List<CameraSettingModel> _settingsCache = new List<CameraSettingModel>();
         private Dictionary<string, CameraGrabContext> _grabContexts = new Dictionary<string, CameraGrabContext>();
-        private Dictionary<string, Action<IntPtr>> _intensityHandlers = new Dictionary<string, Action<IntPtr>>();
         public IReadOnlyDictionary<string, ICamera> ConnectedCameras => _connectedCameras;
         public List<CameraSettingModel> AllSettings => _settingsCache;
 
@@ -282,8 +281,6 @@ namespace AVS_Service
                 if (ptr == IntPtr.Zero || ctx.PtrQueue.IsAddingCompleted)
                     return;
 
-                // P0-1：在 SDK 回调线程内同步拷贝，此时 ptr 仍有效（pin 未释放），
-                // 拷贝完成后即与 SDK 缓冲区解耦，避免指针悬垂/释放后使用。
                 var info = camera.ImageInfo; // 快照宽高与像素格式
                 HObject tempImage = null;
                 HObject imageCopy = null;
@@ -326,21 +323,31 @@ namespace AVS_Service
                     imageCopy?.Dispose();
                 }
             };
-
+            ctx.IntensityHandler = ptr =>
+            {
+                if (ptr == IntPtr.Zero) return;
+                try
+                {
+                    var info = camera.ImageInfo;
+                    HObject intensityImage;
+                    HOperatorSet.GenImage1(out intensityImage, "byte", info.Width, info.Height, ptr);
+                    _eventAggregator.GetEvent<HIntensityImageDisplayEvent>().Publish(new CameraImagePayload
+                    {
+                        CameraSN = sn,
+                        Image = intensityImage
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "处理亮度图失败 {SN}", sn);
+                }
+            };
+            camera.IntensityImageReceived += ctx.IntensityHandler;
             _grabContexts[sn] = ctx;
             if (_grabbingCameras.Add(sn))
             {
                 CameraGrabbingStatusChanged?.Invoke(sn, true);
             }
-
-            // 处理特殊相机的额外回调（如 Hik3DCamera 的亮度图）
-            if (camera is Hik3DCamera hikCamera)
-            {
-                Action<IntPtr> handler = ptr => { /* 处理亮度图，可暂时为空 */ };
-                _intensityHandlers[sn] = handler;
-                hikCamera.IntensityImageReceived += handler;
-            }
-
             // 启动后台处理任务
             ctx.ProcessingTask = Task.Run(() =>
             {
@@ -358,6 +365,12 @@ namespace AVS_Service
             if (!startOk)
             {
                 _logger.Error("相机 {SN} 启动采集失败", sn);
+                if (ctx.IntensityHandler != null)
+                {
+                    camera.IntensityImageReceived -= ctx.IntensityHandler;
+                }
+                _grabContexts.Remove(sn);
+                _grabbingCameras.Remove(sn);
                 return;
             }
 
@@ -380,10 +393,14 @@ namespace AVS_Service
                     }
                     if (_connectedCameras.TryGetValue(sn, out var camera))
                     {
+                        if (ctx.IntensityHandler != null)
+                        {
+                            camera.IntensityImageReceived -= ctx.IntensityHandler;  // 取消订阅
+                        }
                         // 调用新的 StopGrabbing 方法，它会移除回调并调用核心停止逻辑
                         camera.StopGrabbing(ctx.GrabCallback);
                     }
-                    // P0-1：清理队列中残留的 HObject，避免停止时非托管图像资源泄漏
+                   
                     if (ctx.PtrQueue != null)
                     {
                         while (ctx.PtrQueue.TryTake(out var leftover))
@@ -396,20 +413,6 @@ namespace AVS_Service
                     }
                 }
                 catch (Exception ex) { _logger.Error(ex, "[StopCameraGrabbing] 停止抓取上下文异常 {SN}", sn); }
-            }
-
-            // 若相机支持移除回调，这里可以移除（比如 Hik3DCamera 的 IntensityImageReceived）
-            if (_connectedCameras.TryGetValue(sn, out var camera2))
-            {
-                if (camera2 is Hik3DCamera hikCamera)
-                {
-                    if (_intensityHandlers.TryGetValue(sn, out var handler))
-                    {
-                        hikCamera.IntensityImageReceived -= handler;
-                        _intensityHandlers.Remove(sn);
-                    }
-                }
-                //不调用 CloseDevice，保持连接
             }
         }
         /// <summary>
@@ -562,5 +565,9 @@ namespace AVS_Service
         public CancellationTokenSource Cts;
         public Task ProcessingTask;
         public Action<IntPtr> GrabCallback;
+        /// <summary>
+        /// 保存亮度图订阅委托
+        /// </summary>
+        public Action<IntPtr> IntensityHandler;  
     }
 }

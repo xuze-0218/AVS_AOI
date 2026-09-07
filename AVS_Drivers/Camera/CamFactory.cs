@@ -35,7 +35,7 @@ namespace AVS_Drivers.Camera
                     break;
                 case CameraBrand.HIK3D:
                     camera = new Hik3DCamera();
-                    break; 
+                    break;
                 case CameraBrand.LMI3D:
                     camera = new Lmi3DCamera();
                     break;
@@ -84,7 +84,7 @@ namespace AVS_Drivers.Camera
                     break;
                 case CameraBrand.HIK3D:
                     returncamera = new Hik3DCamera();
-                    break; 
+                    break;
                 case CameraBrand.LMI3D:
                     returncamera = new Lmi3DCamera();
                     break;

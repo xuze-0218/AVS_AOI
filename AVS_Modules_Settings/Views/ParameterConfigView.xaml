@@ -514,29 +514,29 @@
                             <RowDefinition Height="Auto" />
                             <!-- 2 2D 分组标题 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 3 2D 原始图 -->
+                            <!-- 3 2D 仅NG开关 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 4 2D NG图 -->
+                            <!-- 4 2D 原始图 -->
                             <RowDefinition Height="Auto" />
                             <!-- 5 2D 结果图 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 6 2D mask图 -->
+                            <!-- 6 2D Mask图 -->
                             <RowDefinition Height="Auto" />
                             <!-- 7 3D 分组标题 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 8 3D 深度图 -->
+                            <!-- 8 3D 仅NG开关 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 9 3D 亮度图 -->
+                            <!-- 9 3D 深度图 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 10 3D NG图 -->
+                            <!-- 10 3D 亮度图 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 10 3D 结果图 -->
+                            <!-- 11 3D 结果图 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 11 Mask图 -->
+                            <!-- 12 3D Mask图 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 12 保存天数 -->
+                            <!-- 13 原图保存天数 -->
                             <RowDefinition Height="Auto" />
-                            <!-- 12 结果图保存天数 -->
+                            <!-- 14 结果图保存天数 -->
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120" />
@@ -546,73 +546,78 @@
 
                         <!-- 保存路径 -->
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="图像保存路径:" VerticalAlignment="Center" Margin="5"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ImageSaveDir, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
-                        <Button Grid.Row="0" Grid.Column="2" Content="浏览" Command="{Binding BrowseImageSaveDirCommand}" Margin="5"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ImageSaveDir, UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
+                        <Button Grid.Row="0" Grid.Column="2" Content="浏览" Command="{Binding BrowseImageSaveDirCommand}" Margin="5" VerticalAlignment="Center"/>
 
-                        <!-- 通用设置：压缩比（仅jpeg有效） -->
+                        <!-- 通用设置：压缩比 -->
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Jpeg压缩比:" VerticalAlignment="Center" Margin="5"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ImageCompressRatio}" Width="60" HorizontalAlignment="Left" Margin="5"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ImageCompressRatio,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Width="60" HorizontalAlignment="Left" Margin="5" VerticalAlignment="Center"/>
 
                         <!-- 2D 分组 -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Text="2D 相机" FontWeight="Bold" Margin="5,10,5,5"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Text="2D 相机" FontWeight="Bold" Margin="5,10,5,5" VerticalAlignment="Center"/>
 
-                        <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Content="仅保存NG样本" IsChecked="{Binding IsSave2DNGOnly}" Margin="5"/>
-                       
-                        
-                        <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Content="保存原始图像" IsChecked="{Binding IsSave2DOriginal}" Margin="5"/>
-                        <ComboBox Grid.Row="4" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format2DOriginal}" Margin="5">
-                            <ComboBoxItem Content="bmp" Tag="Bmp"/>
-                            <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
-                        </ComboBox> 
-                       
+                        <!-- 仅保存NG样本（2D） -->
+                        <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Content="仅保存NG样本" IsChecked="{Binding IsSave2DNGOnly,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
 
-                        <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Content="保存结果图像" IsChecked="{Binding IsSave2DResult}" Margin="5"/>
-                        <ComboBox Grid.Row="5" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format2DNgResult}" Margin="5">
+                        <!-- 保存原始图像（2D） -->
+                        <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Content="保存原始图像" IsChecked="{Binding IsSave2DOriginal,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="4" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format2DOriginal,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center">
                             <ComboBoxItem Content="bmp" Tag="Bmp"/>
                             <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
                         </ComboBox>
 
-                        <CheckBox Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Content="保存Mask图像" IsChecked="{Binding IsSave2DMask}" Margin="5"/>
+                        <!-- 保存结果图像（2D） -->
+                        <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Content="保存结果图像" IsChecked="{Binding IsSave2DResult,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="5" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format2DResult,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center">
+                            <ComboBoxItem Content="bmp" Tag="Bmp"/>
+                            <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
+                        </ComboBox>
+
+                        <!-- 保存Mask图像（2D） -->
+                        <CheckBox Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Content="保存Mask图像" IsChecked="{Binding IsSave2DMask,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
 
                         <!-- 3D 分组 -->
-                        <!-- 3D 分组 -->
-                        <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="3" Text="3D 相机" FontWeight="Bold" Margin="5,10,5,5"/>
+                        <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="3" Text="3D 相机" FontWeight="Bold" Margin="5,10,5,5" VerticalAlignment="Center"/>
 
-                        <!-- 仅保存NG样本开关 -->
-                        <CheckBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3" Content="仅保存NG样本（深度图与亮度图）" IsChecked="{Binding IsSave3DNGOnly}" Margin="5"/>
+                        <!-- 仅保存NG样本（3D） -->
+                        <CheckBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3" Content="仅保存NG样本（深度图与亮度图）" IsChecked="{Binding IsSave3DNGOnly,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
 
-                        <!-- 保存深度图像 -->
-                        <CheckBox Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2" Content="保存深度图像" IsChecked="{Binding IsSave3DDepth}" Margin="5"/>
-                        <ComboBox Grid.Row="9" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DDepth}" Margin="5">
+                        <!-- 保存深度图像（3D） -->
+                        <CheckBox Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2" Content="保存深度图像" IsChecked="{Binding IsSave3DDepth,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="9" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DDepth,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center">
                             <ComboBoxItem Content="tiff" Tag="Tiff"/>
                             <ComboBoxItem Content="ply" Tag="Ply"/>
                             <ComboBoxItem Content="csv" Tag="Csv"/>
                         </ComboBox>
 
-                        <!-- 保存亮度图像 -->
-                        <CheckBox Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Content="保存亮度图像" IsChecked="{Binding IsSave3DIntensity}" Margin="5"/>
-                        <ComboBox Grid.Row="10" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DIntensity}" Margin="5">
+                        <!-- 保存亮度图像（3D） -->
+                        <CheckBox Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Content="保存亮度图像" IsChecked="{Binding IsSave3DIntensity,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="10" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DIntensity,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center">
                             <ComboBoxItem Content="bmp" Tag="Bmp"/>
                             <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
                             <ComboBoxItem Content="tiff" Tag="Tiff"/>
                         </ComboBox>
 
-                        <!-- 保存结果图像 -->
-                        <CheckBox Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Content="保存结果图像" IsChecked="{Binding IsSave3DResult}" Margin="5"/>
-                        <ComboBox Grid.Row="11" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DResult}" Margin="5">
+                        <!-- 保存结果图像（3D） -->
+                        <CheckBox Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Content="保存结果图像" IsChecked="{Binding IsSave3DResult,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="11" Grid.Column="2" SelectedValuePath="Content" SelectedValue="{Binding Format3DResult,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center">
                             <ComboBoxItem Content="bmp" Tag="Bmp"/>
                             <ComboBoxItem Content="jpeg" Tag="Jpeg"/>
                         </ComboBox>
 
-                        <!-- 保存Mask图像 -->
-                        <CheckBox Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="3" Content="保存Mask图像" IsChecked="{Binding IsSave3DMask}" Margin="5"/>
-                        <!-- 保存天数 -->
-                        <TextBlock Grid.Row="13" Grid.Column="0" Text="原图保存天数:" Margin="5"/>
-                        <TextBox Grid.Row="13" Grid.Column="1" Text="{Binding SaveOrnImgDays}" Width="80" HorizontalAlignment="Left" Margin="5"/>
-                        <TextBlock Grid.Row="14" Grid.Column="0" Text="结果图保存天数:" Margin="5"/>
-                        <TextBox Grid.Row="14" Grid.Column="1" Text="{Binding SaveRenImgDays}" Width="80" HorizontalAlignment="Left" Margin="5"/>
+                        <!-- 保存Mask图像（3D） -->
+                        <CheckBox Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="3" Content="保存Mask图像" IsChecked="{Binding IsSave3DMask,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Margin="5" VerticalAlignment="Center"/>
 
-                   </Grid>
+                        <!-- 原图保存天数 -->
+                        <TextBlock Grid.Row="13" Grid.Column="0" Text="原图保存天数:" Margin="5" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="13" Grid.Column="1" Text="{Binding SaveOrnImgDays,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Width="80" HorizontalAlignment="Left" Margin="5" VerticalAlignment="Center"/>
+
+                        <!-- 结果图保存天数 -->
+                        <TextBlock Grid.Row="14" Grid.Column="0" Text="结果图保存天数:" Margin="5" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="14" Grid.Column="1" Text="{Binding SaveRenImgDays,UpdateSourceTrigger=PropertyChanged,Mode=TwoWay}" Width="80" HorizontalAlignment="Left" Margin="5" VerticalAlignment="Center"/>
+
+                     
+                    </Grid>
                 </ScrollViewer>
             </TabItem>
         </TabControl>

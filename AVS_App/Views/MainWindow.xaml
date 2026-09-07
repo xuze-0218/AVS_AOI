@@ -11,6 +11,8 @@
     Height="700"
     MinWidth="900"
     MinHeight="500"
+    WindowStartupLocation="CenterScreen"
+    WindowState="Maximized"
     prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
 

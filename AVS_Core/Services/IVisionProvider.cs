@@ -3,6 +3,7 @@ using AVS_Common.Services;
 using AVS_Core.Models;
 using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using HalconDotNet;
 using Prism.Events;
 using Serilog;
@@ -50,6 +51,7 @@ namespace AVS_Core.Services
         //private readonly IWindowHandleManager _handleManager;
         private readonly IEventAggregator _eventAggregator;
         private readonly ICameraConfigService _cameraConfigService;
+        private readonly IImageSaveService _imageSaveService;
         private string paramDir = string.Empty;
         private HDevProcedureCall _cropCall, _measureCall;
 
@@ -61,6 +63,7 @@ namespace AVS_Core.Services
             IEventAggregator eventAggregator,
             //IWindowHandleManager handleManager,
             ICameraConfigService cameraConfigService,
+            IImageSaveService imageSaveService,
             IInspectionCsvService csvService,
             IAiDriveService aiDrive)
         {
@@ -69,6 +72,7 @@ namespace AVS_Core.Services
             _paramService = parametersConfig;
             _engineProvider = engineProvider;
             _eventAggregator = eventAggregator;
+            _imageSaveService = imageSaveService;
             //_handleRegistry = handleManager;
             _handleRegistry = windowHandleRegistry;
             _cameraConfigService = cameraConfigService;
@@ -196,9 +200,7 @@ namespace AVS_Core.Services
                     _measureCall.Execute();
                     resultArray = _measureCall.GetOutputCtrlParamTuple("ResultArray");
                     imgBead.Dispose();
-                    mask01.Dispose();
-                    mask02.Dispose();
-                    mask03.Dispose();
+
                     //方形数据格式位  焊缝长度 - 方形焊缝宽度 - 条形焊缝宽度 -焊缝间距- 爆孔数量
                     //圆形数据格式位  焊缝长度 - 焊缝宽度 - 焊缝偏移 -爆孔数量- 焊缝外径
                     string data01 = DoubleToString(resultArray[2].D, 8);//焊缝长度
@@ -258,6 +260,19 @@ namespace AVS_Core.Services
                     IsSquareBar = p.IsSquareBarWeldMark
                 };
                 _csvService.Report2D(inspect2D);
+                HObject resultImage = null;
+                try { HOperatorSet.DumpWindowImage(out resultImage, _windowHandle); } catch { }
+                _imageSaveService.Save2DImages(
+                    inspect2D,
+                    image.Clone(),
+                    resultImage,
+                    mask01,
+                    mask02,
+                    mask03);
+                mask01.Dispose();
+                mask02.Dispose();
+                mask03.Dispose();
+                resultImage?.Dispose();
             }
             _logger.Information("[2D检测] 工位={StationId} 极柱={Pole} 检测结果: {Result}", _stationId, poleNum, measureResults);
             return Task.FromResult(measureResults);
@@ -395,6 +410,7 @@ namespace AVS_Core.Services
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfig;
         private readonly IWindowHandleRegistry _handleRegistry;
+        private readonly IImageSaveService _imageSaveService;
         //private readonly IWindowHandleManager _handleManager;
         private HDevProcedureCall _cropCall, _measureCall, _planeFitCall;
 
@@ -405,6 +421,7 @@ namespace AVS_Core.Services
             IWindowHandleRegistry windowHandleRegistry,
             //IWindowHandleManager handleManager,
             IInspectionCsvService csvService,
+            IImageSaveService imageSaveService,
             IAiDriveService aiDrive)
         {
             _logger = logger;
@@ -412,6 +429,7 @@ namespace AVS_Core.Services
             _paramService = parametersConfig;
             _engineProvider = engineProvider;
             //_handleManager = handleManager;
+            _imageSaveService = imageSaveService;
             _handleRegistry = windowHandleRegistry;
             _csvService = csvService;
             _aiDrive = aiDrive;
@@ -451,9 +469,6 @@ namespace AVS_Core.Services
             HOperatorSet.GenEmptyObj(out HObject mask02);
             HOperatorSet.GenEmptyObj(out HObject mask03);
             string sn = _stationConfig.GetStation(_stationId).CameraRole;
-            //忘了需不需要再加个超时重试机制
-            //_windowHandle = await _handleRegistry.WaitForHandleAsync(sn).ConfigureAwait(false);
-            //目前的逻辑是深度学习一定勾选
             if (p.IsAiCheck)
             {
                 _cropCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
@@ -544,6 +559,17 @@ namespace AVS_Core.Services
                     BarBeadSag = resultArray[8].D
                 };
                 _csvService.Report3D(inspect3D);
+                HObject resultImage = null;
+                try { HOperatorSet.DumpWindowImage(out resultImage, _windowHandle); } catch { }
+
+                _imageSaveService.Save3DImages(
+                    inspect3D,
+                    image.Clone(),          // 深度图
+                    null,                   // 亮度图，当前可能未传入，后续可从相机回调补充
+                    resultImage,            // 结果图
+                    mask01,                 // 如果存在
+                    mask02,
+                    mask03);
             }
             _logger.Information("[3D检测] 工位={StationId} 极柱={Pole} 检测结果: {Result}", _stationId, poleNum, measureResults);
             return Task.FromResult(measureResults);

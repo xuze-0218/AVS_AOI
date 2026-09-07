@@ -1,7 +1,7 @@
 ﻿using AVS_Common.Events;
 using AVS_Modules_Settings.Models;
-using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using Newtonsoft.Json;
 using Prism.Commands;
 using Prism.Events;

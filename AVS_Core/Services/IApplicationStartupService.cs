@@ -1,5 +1,6 @@
 ﻿using AVS_Common.Events;
 using AVS_Service;
+using AVS_Service.Services;
 using Prism.Events;
 using Serilog;
 using System;

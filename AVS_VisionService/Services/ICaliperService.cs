@@ -1,7 +1,7 @@
 using HalconDotNet;
 using System;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
     /// <summary>
     /// 卡尺测量选择模式

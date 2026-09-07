@@ -188,18 +188,19 @@ namespace AVS_Drivers.Camera.Mode
         }
         #endregion
         #region 参数设置
-        /// <summary>
-        /// 不操作，使用相机内部设置
-        /// </summary>
-        /// <param name="mode"></param>
-        /// <param name="triggerEnum"></param>
-        /// <returns></returns>
         public override bool SetTriggerMode(TriggerMode mode, TriggerSource triggerEnum = TriggerSource.Line0)
         {
-            return true;
+
+            if (mode == TriggerMode.On && triggerEnum == TriggerSource.Software)
+            {
+                return true;
+            }
+            return false;
         }
         public override bool GetTriggerMode(out TriggerMode mode, out TriggerSource hardTriggerModel)
         {
+
+            // 默认返回软触发
             mode = TriggerMode.On;
             hardTriggerModel = TriggerSource.Software;
             return true;
@@ -339,8 +340,6 @@ namespace AVS_Drivers.Camera.Mode
                     {
                         _camera.ProcessDepthImage(pstImageData.pData, (int)pstImageData.nDataLen);
                     }
-
-                    // 可选：处理亮度数据（暂存，后续可扩展事件）
                     if (pstImageData.pIntensityData != IntPtr.Zero && pstImageData.nIntensityDataLen > 0)
                     {
                         _camera.ProcessIntensityImage(pstImageData.pIntensityData, (int)pstImageData.nIntensityDataLen);

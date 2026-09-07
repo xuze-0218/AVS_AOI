@@ -7,7 +7,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
     /// <summary>
     /// 相机与PLC的映射关系

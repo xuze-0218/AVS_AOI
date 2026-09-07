@@ -1,5 +1,5 @@
-using AVS_Service;
 using AVS_Service.Models;
+using AVS_Service.Services;
 using HalconDotNet;
 using Prism.Commands;
 using Prism.Mvvm;
@@ -234,9 +234,9 @@ namespace AVS_Modules_Settings.ViewModels
         {
             switch (CaliperTransition)
             {
-                case 0: return AVS_Service.CaliperTransition.Positive;  // 白到黑
-                case 1: return AVS_Service.CaliperTransition.Negative;  // 黑到白
-                default: return AVS_Service.CaliperTransition.All;      // 全部
+                case 0: return AVS_Service.Services.CaliperTransition.Positive;  // 白到黑
+                case 1: return AVS_Service.Services.CaliperTransition.Negative;  // 黑到白
+                default: return AVS_Service.Services.CaliperTransition.All;      // 全部
             }
         }
 
@@ -244,9 +244,9 @@ namespace AVS_Modules_Settings.ViewModels
         {
             switch (CaliperSelect)
             {
-                case 0: return AVS_Service.CaliperSelect.First;
-                case 1: return AVS_Service.CaliperSelect.Last;
-                default: return AVS_Service.CaliperSelect.All;
+                case 0: return AVS_Service.Services.CaliperSelect.First;
+                case 1: return AVS_Service.Services.CaliperSelect.Last;
+                default: return AVS_Service.Services.CaliperSelect.All;
             }
         }
 

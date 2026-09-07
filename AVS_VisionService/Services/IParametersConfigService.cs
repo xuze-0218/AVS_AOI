@@ -6,7 +6,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
     public interface IParametersConfigService
     {

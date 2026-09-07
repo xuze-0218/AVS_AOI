@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AVS_Service
+namespace AVS_Service.Services
 {
     /// <summary>
     /// 用户登录凭证服务

@@ -8,7 +8,7 @@ namespace AVS_Drivers.Camera
 {
     public interface ICamera : IDisposable
     {
-
+        event Action<IntPtr> IntensityImageReceived;
         #region  operate
         CameraInfoModel ImageInfo { get; }
 
@@ -196,7 +196,6 @@ namespace AVS_Drivers.Camera
         bool SetALLOutPutValue(int channel);
 
         #endregion
-
 
     }
 }
