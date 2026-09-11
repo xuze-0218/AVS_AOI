@@ -1,6 +1,7 @@
 ﻿using AVS_Common.Events;
 using AVS_Core.Models;
 using AVS_Service;
+using AVS_Service.Events;
 using AVS_Service.Models;
 using AVS_Service.Services;
 using HalconDotNet;
@@ -73,6 +74,10 @@ namespace AVS_Core.Services
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfigService;
         private readonly ILogger _logger;
+        /// <summary>
+        /// 当前极柱的聚合器，用于汇总2D、3D检测结果，判断是否NG，以及计算总耗时
+        /// </summary>
+        private readonly ConcurrentDictionary<int, PoleAggregator> _poleAggregators = new ConcurrentDictionary<int, PoleAggregator>();
         private readonly object _preloadLock = new object();
         private Task _preloadTask; // 后台预加载任务
 
@@ -96,6 +101,26 @@ namespace AVS_Core.Services
             _csvService = csvService;
 
             _eventAggregator.GetEvent<HIntensityImageDisplayEvent>().Subscribe(OnIntensityImageReceived, ThreadOption.PublisherThread, false);
+            _eventAggregator.GetEvent<VisionDimensionResultEvent>().Subscribe(OnDimensionResult, ThreadOption.PublisherThread, false);
+        }
+
+        private void OnDimensionResult(VisionDimensionResultPayload payload)
+        {
+            var agg = _poleAggregators.GetOrAdd(payload.PoleNum, _ => new PoleAggregator());
+            agg.CompletedDimensions++;
+            agg.AnyNG |= (payload.DimensionResult != Result.OK);
+            agg.TotalElapsedMs += payload.DetectTimeMs;
+            if (agg.CompletedDimensions >= agg.TotalDimensions)
+            {
+                var finalOK = !agg.AnyNG;
+                _eventAggregator.GetEvent<PoleResultEvent>().Publish(new PoleResultPayload
+                {
+                    PoleNum = payload.PoleNum,
+                    IsOK = finalOK,
+                    DetectTimeMs = agg.TotalElapsedMs / agg.TotalDimensions
+                });
+                _poleAggregators.TryRemove(payload.PoleNum, out _);
+            }
         }
 
         private void OnIntensityImageReceived(CameraImagePayload payload)
@@ -184,6 +209,7 @@ namespace AVS_Core.Services
             switch (workType)
             {
                 case SessionWorkType.Inspect:
+                    _poleAggregators.Clear();
                     var p = (InspectionInitParams)parameters;
                     state.ModuleName = p.ImageName;
                     _csvService.Clear();
@@ -579,5 +605,13 @@ namespace AVS_Core.Services
             Cts?.Dispose();
             ImageQueue?.Dispose();
         }
+    }
+
+    internal class PoleAggregator
+    {
+        public int TotalDimensions { get; set; } = 2; 
+        public int CompletedDimensions { get; set; }
+        public bool AnyNG { get; set; }
+        public double TotalElapsedMs { get; set; }
     }
 }

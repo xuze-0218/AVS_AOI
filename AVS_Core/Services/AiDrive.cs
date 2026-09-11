@@ -1,12 +1,13 @@
 ﻿using HalconDotNet;
+using MMDeploy;
+using OpenCvSharp;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using MMDeploy;
-using OpenCvSharp;
-using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Linq;
+using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
 
 namespace AVS_Core.Services
 {
@@ -51,6 +52,7 @@ namespace AVS_Core.Services
         bool IsModelLoaded(string modelId);
     }
 
+    
     /// <summary>
     /// AI推理驱动服务，封装MMDeploy推理引擎的加载与调用。
     /// 支持多工位、多模型管理，通过依赖注入使用。
@@ -60,14 +62,17 @@ namespace AVS_Core.Services
         private readonly string _deviceName;
         private readonly int _deviceId;
         private readonly ILogger _logger;
+        private readonly object _lock = new object();
+        /// <summary>
+        /// 模型调用锁
+        /// </summary>
+        private readonly object _inferenceLock = new object();
 
         private readonly Dictionary<string, List<Segmentor>> _segHandles = new Dictionary<string, List<Segmentor>>();
         private readonly Dictionary<string, List<Detector>> _detHandles = new Dictionary<string, List<Detector>>();
-        private readonly object _lock = new object();
-
         private bool _disposed;
 
-        public AiDriveService(string deviceName = "cuda", int deviceId = 0, ILogger logger = null)
+        public AiDriveService(string deviceName = "cpu", int deviceId = 0, ILogger logger = null)
         {
             _deviceName = deviceName;
             _deviceId = deviceId;
@@ -147,8 +152,8 @@ namespace AVS_Core.Services
             }
         }
 
-        // ========== 推理接口 ==========
 
+        // ========== 推理接口 ==========
         public void Predict(string modelId, int modelIndex, HObject imgGray, out HObject imgMask)
         {
             HOperatorSet.GenEmptyObj(out imgMask);
@@ -160,12 +165,19 @@ namespace AVS_Core.Services
             {
                 using (var mmInput = Halcon2MmMat(imgGray))
                 {
-                    var output = segmentor.Apply(mmInput.Mats);
+                    // 修正：Apply 返回 List<SegmentorOutput>
+                    List<SegmentorOutput> output;
+                    lock (_inferenceLock)
+                    {
+                        output = segmentor.Apply(mmInput.Mats);
+                    }
+
                     if (output == null || output.Count == 0)
                     {
                         _logger?.Warning("分割输出为空");
                         return;
                     }
+
                     ResultToColorMask(output[0], out var colorMask);
                     try
                     {
@@ -183,6 +195,7 @@ namespace AVS_Core.Services
                 HOperatorSet.GenEmptyObj(out imgMask);
             }
         }
+
         public void Detect(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, out int targetLabel, out HTuple targetRect)
         {
             DetectInternal(modelId, modelIndex, imgGray, scoreThreshold, multiTarget: false, out var labels, out targetRect);
@@ -194,6 +207,7 @@ namespace AVS_Core.Services
             DetectInternal(modelId, modelIndex, imgGray, scoreThreshold, multiTarget: true, out targetLabels, out targetRect);
         }
 
+        //[HandleProcessCorruptedStateExceptions]
         private void DetectInternal(string modelId, int modelIndex, HObject imgGray, double scoreThreshold, bool multiTarget,
             out int[] targetLabels, out HTuple targetRect)
         {
@@ -206,41 +220,49 @@ namespace AVS_Core.Services
             try
             {
                 var swConvert = Stopwatch.StartNew();
-                var mmInput = Halcon2MmMat(imgGray);
-                swConvert.Stop();
-                var swInfer = Stopwatch.StartNew();
-                var output = detector.Apply(mmInput.Mats);
-                swInfer.Stop();
-                _logger?.Information("[AI检测] 模型ID={ModelId} 图像转换耗时: {ConvertMs} ms, 推理耗时: {InferMs} ms",
-    modelId, swConvert.ElapsedMilliseconds, swInfer.ElapsedMilliseconds);
-                if (output == null || output.Count == 0 || output[0].Results == null)
+                using (var mmInput = Halcon2MmMat(imgGray))
                 {
-                    _logger?.Debug("[AiDrive] 工位 {StationId} 检测输出为空", modelId);
-                    return;
-                }
+                    swConvert.Stop();
+                    var swInfer = Stopwatch.StartNew();
 
-                int idx = 0;
-                int maxCount = targetLabels.Length;
-                foreach (var obj in output[0].Results)
-                {
-                    if (obj.Score < scoreThreshold)
-                        continue;
+                    List<DetectorOutput> output;
+                    lock (_inferenceLock)
+                    {
+                        output = detector.Apply(mmInput.Mats);
+                    }
+                    swInfer.Stop();
+                    _logger?.Information("[AI检测] 模型ID={ModelId} 图像转换耗时: {ConvertMs} ms, 推理耗时: {InferMs} ms",
+                        modelId, swConvert.ElapsedMilliseconds, swInfer.ElapsedMilliseconds);
 
-                    targetLabels[idx] = obj.LabelId;
+                    if (output == null || output.Count == 0 || output[0].Results == null)
+                    {
+                        _logger?.Debug("[AiDrive] 工位 {StationId} 检测输出为空", modelId);
+                        return;
+                    }
 
-                    float x1 = Math.Max((float)Math.Floor(obj.BBox.Top) - 1, 0f);
-                    float y1 = Math.Max((float)Math.Floor(obj.BBox.Left) - 1, 0f);
-                    float x2 = Math.Max((float)Math.Floor(obj.BBox.Bottom) - 1, 0f);
-                    float y2 = Math.Max((float)Math.Floor(obj.BBox.Right) - 1, 0f);
+                    int idx = 0;
+                    int maxCount = targetLabels.Length;
+                    foreach (var obj in output[0].Results)
+                    {
+                        if (obj.Score < scoreThreshold)
+                            continue;
 
-                    HOperatorSet.TupleConcat(targetRect, x1, out targetRect);
-                    HOperatorSet.TupleConcat(targetRect, y1, out targetRect);
-                    HOperatorSet.TupleConcat(targetRect, x2, out targetRect);
-                    HOperatorSet.TupleConcat(targetRect, y2, out targetRect);
+                        targetLabels[idx] = obj.LabelId;
 
-                    idx++;
-                    if (idx >= maxCount)
-                        break;
+                        float x1 = Math.Max((float)Math.Floor(obj.BBox.Top) - 1, 0f);
+                        float y1 = Math.Max((float)Math.Floor(obj.BBox.Left) - 1, 0f);
+                        float x2 = Math.Max((float)Math.Floor(obj.BBox.Bottom) - 1, 0f);
+                        float y2 = Math.Max((float)Math.Floor(obj.BBox.Right) - 1, 0f);
+
+                        HOperatorSet.TupleConcat(targetRect, x1, out targetRect);
+                        HOperatorSet.TupleConcat(targetRect, y1, out targetRect);
+                        HOperatorSet.TupleConcat(targetRect, x2, out targetRect);
+                        HOperatorSet.TupleConcat(targetRect, y2, out targetRect);
+
+                        idx++;
+                        if (idx >= maxCount)
+                            break;
+                    }
                 }
             }
             catch (Exception ex)
@@ -248,6 +270,89 @@ namespace AVS_Core.Services
                 _logger?.Error(ex, "[AiDrive] 工位 {StationId} 检测推理失败 (modelIndex={Index})", modelId, modelIndex);
                 targetLabels = multiTarget ? new int[2] { -1, -1 } : new int[1] { -1 };
                 targetRect = new HTuple();
+            }
+        }
+
+        public void Predict3DImage(string modelId, int modelIndex, HObject imgGray, out HObject imgMask, out HObject mask01, out HObject mask02, out HObject mask03)
+        {
+            HOperatorSet.GenEmptyObj(out imgMask);
+            HOperatorSet.GenEmptyObj(out mask01);
+            HOperatorSet.GenEmptyObj(out mask02);
+            HOperatorSet.GenEmptyObj(out mask03);
+
+            if (!TryGetHandle(_segHandles, modelId, modelIndex, out var segmentor))
+                return;
+
+            try
+            {
+                using (var mmInput = Halcon2MmMat(imgGray))
+                {
+                    // 修正：Apply 返回 List<SegmentorOutput>
+                    List<SegmentorOutput> output;
+                    lock (_inferenceLock)
+                    {
+                        output = segmentor.Apply(mmInput.Mats);
+                    }
+
+                    if (output == null || output.Count == 0 || output[0].Mask == null || output[0].Mask.Length == 0)
+                    {
+                        _logger?.Warning("[AiDrive] 3D分割输出无效");
+                        return;
+                    }
+
+                    var segOut = output[0];
+                    int width = segOut.Width;
+                    int height = segOut.Height;
+                    int[] maskData = segOut.Mask;
+
+                    if (maskData.Length < width * height)
+                    {
+                        _logger?.Error("[AiDrive] 3D分割Mask数据长度不足");
+                        return;
+                    }
+
+                    byte[] byteMask = new byte[width * height];
+                    for (int i = 0; i < byteMask.Length; i++)
+                    {
+                        byteMask[i] = (byte)maskData[i];
+                    }
+
+                    HObject classMap = null;
+                    GCHandle handle = default;
+                    try
+                    {
+                        handle = GCHandle.Alloc(byteMask, GCHandleType.Pinned);
+                        IntPtr ptr = handle.AddrOfPinnedObject();
+                        HOperatorSet.GenImage1(out classMap, "byte", width, height, ptr);
+
+                        HOperatorSet.Threshold(classMap, out mask01, 1, 1);
+                        HOperatorSet.Threshold(classMap, out mask02, 2, 2);
+                        HOperatorSet.Threshold(classMap, out mask03, 3, 3);
+                    }
+                    finally
+                    {
+                        if (handle.IsAllocated) handle.Free();
+                        classMap?.Dispose();
+                    }
+
+                    ResultToColorMask(segOut, out OpenCvSharp.Mat colorMask);
+                    try
+                    {
+                        Mat2HalconRgb(colorMask, out imgMask);
+                    }
+                    finally
+                    {
+                        colorMask.Dispose();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error(ex, "[AiDrive] 3D分割推理失败");
+                HOperatorSet.GenEmptyObj(out imgMask);
+                HOperatorSet.GenEmptyObj(out mask01);
+                HOperatorSet.GenEmptyObj(out mask02);
+                HOperatorSet.GenEmptyObj(out mask03);
             }
         }
 
@@ -480,90 +585,7 @@ namespace AVS_Core.Services
             }
         }
 
-        public void Predict3DImage(string modelId, int modelIndex, HObject imgGray, out HObject imgMask, out HObject mask01, out HObject mask02, out HObject mask03)
-        {
-            // 初始化输出为空对象
-            HOperatorSet.GenEmptyObj(out imgMask);
-            HOperatorSet.GenEmptyObj(out mask01);
-            HOperatorSet.GenEmptyObj(out mask02);
-            HOperatorSet.GenEmptyObj(out mask03);
-
-            if (!TryGetHandle(_segHandles, modelId, modelIndex, out var segmentor))
-                return;
-
-            try
-            {
-                // 转换图像并固定内存
-                using (var mmInput = Halcon2MmMat(imgGray))
-                {
-                    var output = segmentor.Apply(mmInput.Mats);
-                    if (output == null || output.Count == 0 || output[0].Mask == null || output[0].Mask.Length == 0)
-                    {
-                        _logger?.Warning("[AiDrive] 3D分割输出无效");
-                        return;
-                    }
-
-                    var segOut = output[0];
-                    int width = segOut.Width;
-                    int height = segOut.Height;
-                    int[] maskData = segOut.Mask;
-
-                    // 检查 mask 数据长度
-                    if (maskData.Length < width * height)
-                    {
-                        _logger?.Error("[AiDrive] 3D分割Mask数据长度不足");
-                        return;
-                    }
-
-                    // 转换为字节数组（类别ID）
-                    byte[] byteMask = new byte[width * height];
-                    for (int i = 0; i < byteMask.Length; i++)
-                    {
-                        byteMask[i] = (byte)maskData[i];
-                    }
-
-                    // 创建临时 class map 图像
-                    HObject classMap = null;
-                    GCHandle handle = default;
-                    try
-                    {
-                        handle = GCHandle.Alloc(byteMask, GCHandleType.Pinned);
-                        IntPtr ptr = handle.AddrOfPinnedObject();
-                        HOperatorSet.GenImage1(out classMap, "byte", width, height, ptr);
-
-                        // 阈值分割：类别1->mask01, 2->mask02, 3->mask03
-                        HOperatorSet.Threshold(classMap, out mask01, 1, 1);
-                        HOperatorSet.Threshold(classMap, out mask02, 2, 2);
-                        HOperatorSet.Threshold(classMap, out mask03, 3, 3);
-                    }
-                    finally
-                    {
-                        if (handle.IsAllocated) handle.Free();
-                        classMap?.Dispose();
-                    }
-
-                    // 生成彩色掩码图（用于保存/调试）
-                    ResultToColorMask(segOut, out OpenCvSharp.Mat colorMask);
-                    try
-                    {
-                        Mat2HalconRgb(colorMask, out imgMask);
-                    }
-                    finally
-                    {
-                        colorMask.Dispose();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger?.Error(ex, "[AiDrive] 3D分割推理失败");
-                HOperatorSet.GenEmptyObj(out imgMask);
-                HOperatorSet.GenEmptyObj(out mask01);
-                HOperatorSet.GenEmptyObj(out mask02);
-                HOperatorSet.GenEmptyObj(out mask03);
-            }
-        }
-
+     
         private sealed class MmMatInput : IDisposable
         {
             private readonly GCHandle _handle;

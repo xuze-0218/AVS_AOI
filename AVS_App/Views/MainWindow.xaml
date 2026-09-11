@@ -254,7 +254,7 @@
                                         FontSize="18"
                                         FontWeight="Bold"
                                         Foreground="#4CAF50"
-                                        Text="120" />
+                                        Text="{Binding TotalCount}" />
                                 </StackPanel>
                                 <StackPanel Margin="4">
                                     <TextBlock
@@ -265,7 +265,7 @@
                                         FontSize="18"
                                         FontWeight="Bold"
                                         Foreground="#2196F3"
-                                        Text="118" />
+                                        Text="{Binding OkCount}" />
                                 </StackPanel>
                                 <StackPanel Margin="4">
                                     <TextBlock
@@ -276,7 +276,7 @@
                                         FontSize="18"
                                         FontWeight="Bold"
                                         Foreground="#F44336"
-                                        Text="2" />
+                                        Text="{Binding NgCount}" />
                                 </StackPanel>
                                 <StackPanel Margin="4">
                                     <TextBlock
@@ -287,7 +287,7 @@
                                         FontSize="18"
                                         FontWeight="Bold"
                                         Foreground="#FF9800"
-                                        Text="98.3%" />
+                                        Text="{Binding YieldRate, StringFormat={}{0}%}" />
                                 </StackPanel>
                             </UniformGrid>
                         </StackPanel>

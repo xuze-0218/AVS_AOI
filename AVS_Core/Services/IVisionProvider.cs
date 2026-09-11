@@ -3,12 +3,14 @@ using AVS_Common.Services;
 using AVS_Core.Models;
 using AVS_Drivers.Camera.Common.Enum;
 using AVS_Service;
+using AVS_Service.Events;
 using AVS_Service.Models;
 using AVS_Service.Services;
 using HalconDotNet;
 using Prism.Events;
 using Serilog;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -132,6 +134,7 @@ namespace AVS_Core.Services
         /// <returns></returns>
         public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
+            var stopwatch = Stopwatch.StartNew();
             var p = _paramService.GetStationParams(_stationId);
             string result = "01";
             string measureResults = string.Empty;
@@ -237,6 +240,7 @@ namespace AVS_Core.Services
             //    Image = processedImage,
             //    ImageType = CameraImageType.Processed
             //});
+            stopwatch.Stop();
             if (resultArray != null && resultArray.Length >= 13)
             {
                 var inspect2D = new InspectResult2DData
@@ -260,7 +264,15 @@ namespace AVS_Core.Services
                     faultySol = resultArray[12].D,
                     IsSquareBar = p.IsSquareBarWeldMark
                 };
+
                 _csvService.Report2D(inspect2D);
+                _eventAggregator.GetEvent<VisionDimensionResultEvent>().Publish(new VisionDimensionResultPayload
+                {
+                    PoleNum = poleNum,
+                    DimensionResult = inspect2D.Result2D,
+                    DetectTimeMs = stopwatch.Elapsed.TotalMilliseconds,
+                    Dimension = VisionDimension.TwoD
+                });
                 HObject resultImage = null;
                 try { HOperatorSet.DumpWindowImage(out resultImage, _windowHandle); } catch { }
                 _imageSaveService.Save2DImages(
@@ -412,6 +424,7 @@ namespace AVS_Core.Services
         private readonly IStationConfigService _stationConfig;
         private readonly IWindowHandleRegistry _handleRegistry;
         private readonly IImageSaveService _imageSaveService;
+        private readonly IEventAggregator _eventAggregator;
         private readonly ICameraConfigService _cameraConfigService;
         //private readonly IWindowHandleManager _handleManager;
         private HDevProcedure _cropProc, _measureProc, _planeFitProc;
@@ -422,6 +435,7 @@ namespace AVS_Core.Services
             IParametersConfigService parametersConfig,
             IHalconEngineProvider engineProvider,
             IWindowHandleRegistry windowHandleRegistry,
+            IEventAggregator eventAggregator,
             //IWindowHandleManager handleManager,
             IInspectionCsvService csvService,
             IImageSaveService imageSaveService,
@@ -432,6 +446,7 @@ namespace AVS_Core.Services
             _stationConfig = stationConfig;
             _paramService = parametersConfig;
             _engineProvider = engineProvider;
+            _eventAggregator = eventAggregator;
             //_handleManager = handleManager;
             _imageSaveService = imageSaveService;
             _handleRegistry = windowHandleRegistry;
@@ -465,6 +480,7 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
+            var stopwatch = Stopwatch.StartNew();
             var p = _paramService.GetStationParams(_stationId);
             string result = "01";
             string measureResults = string.Empty;
@@ -588,6 +604,7 @@ namespace AVS_Core.Services
                 // ===== 保存 CSV 和图像 =====
                 if (resultArray != null && resultArray.Length >= 9)
                 {
+                    stopwatch.Stop();
                     var inspect3D = new InspectResult3DData
                     {
                         WorkType = param.WorkType,
@@ -604,6 +621,13 @@ namespace AVS_Core.Services
                         ResultBarBeadSag = (Result)resultArray[7].I,
                         BarBeadSag = resultArray[8].D
                     };
+                    _eventAggregator.GetEvent<VisionDimensionResultEvent>().Publish(new VisionDimensionResultPayload
+                    {
+                        PoleNum = poleNum,
+                        DimensionResult = inspect3D.Result3D,
+                        DetectTimeMs = stopwatch.Elapsed.TotalMilliseconds,
+                        Dimension = VisionDimension.ThreeD
+                    });
                     _csvService.Report3D(inspect3D);
 
                     // 获取窗口截图

@@ -3,6 +3,7 @@ using AVS_Common;
 using AVS_Common.Events;
 using AVS_Common.Model;
 using AVS_Service;
+using AVS_Service.Events;
 using AVS_Service.Models;
 using AVS_Service.Services;
 using Prism.Commands;
@@ -99,6 +100,17 @@ namespace AVS_App.ViewModels
                 }
             }
         }
+
+        private int _totalCount;
+        private int _okCount;
+        private int _ngCount;
+        private double _yieldRate;
+
+        public int TotalCount { get => _totalCount; set => SetProperty(ref _totalCount, value); }
+        public int OkCount { get => _okCount; set => SetProperty(ref _okCount, value); }
+        public int NgCount { get => _ngCount; set => SetProperty(ref _ngCount, value); }
+        public double YieldRate { get => _yieldRate; set => SetProperty(ref _yieldRate, value); }
+
         public DelegateCommand<string> NavigateCommand { get; set; }
         public DelegateCommand StartAllCommand { get; set; }
         public DelegateCommand StopAllCommand { get; set; }
@@ -133,7 +145,16 @@ namespace AVS_App.ViewModels
             {
                 Application.Current?.Dispatcher.Invoke(RefreshCameraGrabbingStatus);
             };
+            eventAggregator.GetEvent<PoleResultEvent>().Subscribe(OnPoleResult, ThreadOption.UIThread);
         }
+
+        private void OnPoleResult(PoleResultPayload payload)
+        {
+            TotalCount++;
+            if (payload.IsOK) OkCount++; else NgCount++;
+            YieldRate = TotalCount == 0 ? 0 : Math.Round((double)OkCount / TotalCount * 100, 1);
+        }
+
         private void Navigate(string navigatePath)
         {
             if (!string.IsNullOrEmpty(navigatePath))
