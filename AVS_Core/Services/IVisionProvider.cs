@@ -47,7 +47,7 @@ namespace AVS_Core.Services
         private HWindow _windowHandle;
         private readonly IHalconEngineProvider _engineProvider;
         private readonly IAiDriveService _aiDrive;
-        private readonly IInspectionCsvService _csvService;
+        private readonly ICsvSaverService _csvService;
         private readonly ILogger _logger;
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfig;
@@ -68,7 +68,7 @@ namespace AVS_Core.Services
             //IWindowHandleManager handleManager,
             ICameraConfigService cameraConfigService,
             IImageSaveService imageSaveService,
-            IInspectionCsvService csvService,
+            ICsvSaverService csvService,
             IAiDriveService aiDrive)
         {
             _logger = logger;
@@ -418,7 +418,7 @@ namespace AVS_Core.Services
         private HWindow _windowHandle;
         private readonly IHalconEngineProvider _engineProvider;
         private readonly IAiDriveService _aiDrive;
-        private readonly IInspectionCsvService _csvService;
+        private readonly ICsvSaverService _csvService;
         private readonly ILogger _logger;
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfig;
@@ -437,7 +437,7 @@ namespace AVS_Core.Services
             IWindowHandleRegistry windowHandleRegistry,
             IEventAggregator eventAggregator,
             //IWindowHandleManager handleManager,
-            IInspectionCsvService csvService,
+            ICsvSaverService csvService,
             IImageSaveService imageSaveService,
             ICameraConfigService cameraConfigService,
             IAiDriveService aiDrive)

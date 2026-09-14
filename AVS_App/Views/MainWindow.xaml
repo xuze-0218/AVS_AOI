@@ -67,7 +67,7 @@
                     <RadioButton
                         VerticalContentAlignment="Center"
                         Command="{Binding NavigateCommand}"
-                        CommandParameter="CameraDisplayTestView"
+                        CommandParameter="HistoryQueryView"
                         Content="📊 历史记录"
                         Style="{StaticResource TopNavButtonStyle}" />
                 </ItemsControl>

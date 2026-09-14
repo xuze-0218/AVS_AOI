@@ -70,7 +70,7 @@ namespace AVS_Core.Services
         private readonly IImageSaveService _imageSaveService;
         private readonly IContainerProvider _container;
         private readonly IAiDriveService _aiDriveService;
-        private readonly IInspectionCsvService _csvService;
+        private readonly ICsvSaverService _csvService;
         private readonly IParametersConfigService _paramService;
         private readonly IStationConfigService _stationConfigService;
         private readonly ILogger _logger;
@@ -89,7 +89,7 @@ namespace AVS_Core.Services
         private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new ConcurrentDictionary<string, IVisionProvider>();
         public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService,
             IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService,
-            IInspectionCsvService csvService, IEventAggregator eventAggregator, IImageSaveService imageSaveService)
+            ICsvSaverService csvService, IEventAggregator eventAggregator, IImageSaveService imageSaveService)
         {
             _eventAggregator = eventAggregator;
             _paramService = paramService;
@@ -171,7 +171,6 @@ namespace AVS_Core.Services
 
         public async Task InitializeSession(string stationId, SessionWorkType workType, object parameters = null)
         {
-            //await EnsurePreloadCompletedAsync();
             // 清理旧会话
             if (_sessions.TryRemove(stationId, out var oldState))
                 oldState.Dispose();
@@ -609,7 +608,7 @@ namespace AVS_Core.Services
 
     internal class PoleAggregator
     {
-        public int TotalDimensions { get; set; } = 2; 
+        public int TotalDimensions { get; set; } = 2;
         public int CompletedDimensions { get; set; }
         public bool AnyNG { get; set; }
         public double TotalElapsedMs { get; set; }

@@ -5,12 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AVS_Service.Services
 {
-    public interface IInspectionCsvService
+    public interface ICsvSaverService
     {
         void Report2D(InspectResult2DData data);
         void Report3D(InspectResult3DData data);
@@ -18,7 +16,7 @@ namespace AVS_Service.Services
     }
 
 
-    public class InspectionCsvService : IInspectionCsvService
+    public class CsvSaverService : ICsvSaverService
     {
         private const string DefaultCsvSaveDir = "DataRecord";
         private readonly ICsvFileWriter _csvWriter;
@@ -32,7 +30,7 @@ namespace AVS_Service.Services
         private readonly HashSet<string> _checked3DDetailCsv = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _checkedCombinedCsv = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        public InspectionCsvService(ICsvFileWriter csvWriter, IParametersConfigService paramService, ILogger logger)
+        public CsvSaverService(ICsvFileWriter csvWriter, IParametersConfigService paramService, ILogger logger)
         {
             _csvWriter = csvWriter;
             _paramService = paramService;
@@ -84,7 +82,8 @@ namespace AVS_Service.Services
         // ========== 2D明细CSV ==========
         private void Write2DDetailCsv(InspectResult2DData data)
         {
-            string csvPath = BuildCsvPath("2D检测", DateTime.Now.ToString("yyyy_MM_dd"), "_DataRecord.csv");
+            BarShape shape = data.IsSquareBar ? BarShape.SquareBar : BarShape.Circle;
+            string csvPath = BuildCsvPath("2D检测", DateTime.Now.ToString("yyyy_MM_dd"), shape);
             var header = InspectionCsvHeaders.Get2DDetailHeader(data.IsSquareBar);
             EnsureHeader(csvPath, header, _checked2DDetailCsv);
 
@@ -113,7 +112,8 @@ namespace AVS_Service.Services
         // ========== 3D明细CSV ==========
         private void Write3DDetailCsv(InspectResult3DData data)
         {
-            string csvPath = BuildCsvPath("3D检测", DateTime.Now.ToString("yyyy_MM_dd"), "_DataRecord.csv");
+            BarShape shape = data.IsSquareBar ? BarShape.SquareBar : BarShape.Circle;
+            string csvPath = BuildCsvPath("3D检测", DateTime.Now.ToString("yyyy_MM_dd"), shape);
             bool isSquareBar = data.ResultBarBeadHump != Result.None || data.ResultBarBeadSag != Result.None; // 简化判断，也可通过配置
             var header = InspectionCsvHeaders.Get3DDetailHeader(isSquareBar);
             EnsureHeader(csvPath, header, _checked3DDetailCsv);
@@ -149,7 +149,15 @@ namespace AVS_Service.Services
         private void TryWriteCombinedCsv(SaveData sd)
         {
             if (!sd.IsDetect2D || !sd.IsDetect3D) return;
-
+            if (sd.Inspect2DData != null && sd.Inspect3DData != null && sd.Inspect2DData.IsSquareBar != sd.Inspect3DData.IsSquareBar)
+            {
+                _logger.Warning($"极柱 {sd.Inspect2DData.PoleNum} 的 2D/3D 形状不一致 " +
+                             $"(2D:{(sd.Inspect2DData.IsSquareBar ? "方" : "圆")}, " +
+                             $"3D:{(sd.Inspect3DData.IsSquareBar ? "方" : "圆")})，跳过综合写入");
+                // 清掉缓存，避免后续重复触发
+                _pending.Remove(sd.Inspect2DData.PoleNum);
+                return;
+            }
             WriteCombinedCsv(sd);
             if (sd.Inspect2DData != null)
                 _pending.Remove(sd.Inspect2DData.PoleNum);
@@ -160,8 +168,8 @@ namespace AVS_Service.Services
             var d2 = sd.Inspect2DData;
             var d3 = sd.Inspect3DData;
             bool isSquareBar = d2.IsSquareBar;
-
-            string csvPath = BuildCsvPath("综合检测", DateTime.Now.ToString("yyyy_MM_dd"), "_DataRecord.csv");
+            BarShape shape = d2.IsSquareBar ? BarShape.SquareBar : BarShape.Circle;
+            string csvPath = BuildCsvPath("综合检测", DateTime.Now.ToString("yyyy_MM_dd"), shape);
             var header = InspectionCsvHeaders.GetCombinedHeader(isSquareBar);
             EnsureHeader(csvPath, header, _checkedCombinedCsv);
 
@@ -219,7 +227,7 @@ namespace AVS_Service.Services
             return sd;
         }
 
-        private string BuildCsvPath(string subDir, string dateStr, string fileName)
+        private string BuildCsvPath(string subDir, string dateStr, BarShape shape)
         {
             string baseDir = _paramService.GetString("", "CsvSaveDir", "");
             if (string.IsNullOrWhiteSpace(baseDir))
@@ -227,22 +235,20 @@ namespace AVS_Service.Services
 
             string saveDir = Path.Combine(baseDir, subDir, dateStr);
             Directory.CreateDirectory(saveDir);
-            return Path.Combine(saveDir, fileName);
+            return Path.Combine(saveDir, $"_DataRecord_{shape.ToFileSuffix()}.csv");
         }
 
         private void EnsureHeader(string csvPath, string[] expectedHeader, HashSet<string> checkedSet)
         {
             lock (_lock)
             {
-                if (checkedSet.Contains(csvPath))
-                    return;
-
+                if (checkedSet.Contains(csvPath)) return;
                 if (File.Exists(csvPath) && new FileInfo(csvPath).Length > 0)
                 {
-                    // 检查表头是否一致，不一致则迁移
                     if (!HasExpectedHeader(csvPath, expectedHeader))
                     {
-                        MigrateHeader(csvPath, expectedHeader);
+                        HandleCorruptFile(csvPath);
+                        _csvWriter.WriteCsv(csvPath, new List<string[]> { expectedHeader }, true);
                     }
                 }
                 else
@@ -253,25 +259,25 @@ namespace AVS_Service.Services
             }
         }
 
+        private void HandleCorruptFile(string csvPath)
+        {
+            string backup = $"{csvPath}.corrupt-{DateTime.Now:yyyyMMddHHmmss}";
+            try
+            {
+                File.Move(csvPath, backup);
+                _logger.Warning($"CSV 表头异常，已隔离：{csvPath} → {backup}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"隔离异常 CSV 失败：{csvPath}", ex);
+            }
+        }
+
         private bool HasExpectedHeader(string csvPath, string[] expectedHeader)
         {
             var rows = _csvWriter.ReadCsv(csvPath);
             if (rows.Count == 0) return false;
             return rows[0].SequenceEqual(expectedHeader, StringComparer.OrdinalIgnoreCase);
-        }
-
-        private void MigrateHeader(string csvPath, string[] expectedHeader)
-        {
-            var rows = _csvWriter.ReadCsv(csvPath);
-            if (rows.Count == 0)
-            {
-                rows.Add(expectedHeader);
-            }
-            else
-            {
-                rows[0] = expectedHeader;
-            }
-            _csvWriter.WriteCsv(csvPath, rows, false); // 覆盖写回
         }
 
         private static string formatStr(double value)

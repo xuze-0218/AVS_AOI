@@ -31,7 +31,10 @@ namespace AVS_Service.Models
         public DateTime DateTime { get; set; }
 
         //总结果
-        public Result ResultSummary { get; set; }
+        /// <summary>
+        /// 使用Result2D / Result3D,这个结果不可信
+        /// </summary>
+        public Result ResultSummary { get; set; } =Result.None;
 
         //3D结果
         public Result Result3D { get; set; }
@@ -66,6 +69,11 @@ namespace AVS_Service.Models
 
         //3D结果图
         public string Dump3DPath { get; set; }
+
+        //焊缝类型是否为方条形（true=方条形，false=圆形）
+        public bool IsSquareBar { get; set; }
+
+        public BarShape Shape => IsSquareBar ? BarShape.SquareBar : BarShape.Circle;
 
 
     }
@@ -130,6 +138,8 @@ namespace AVS_Service.Models
 
         //焊缝类型是否为方条形（true=方条形，false=圆形）
         public bool IsSquareBar { get; set; }
+
+        public BarShape Shape => IsSquareBar ? BarShape.SquareBar : BarShape.Circle;
 
 
         //2D原图

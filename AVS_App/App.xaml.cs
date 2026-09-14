@@ -52,6 +52,7 @@ namespace AVS_App
             containerRegistry.RegisterForNavigation<PlcDebugView>();
             containerRegistry.RegisterForNavigation<MetrologyView>();
             containerRegistry.RegisterForNavigation<DebugCenterView>();
+            containerRegistry.RegisterForNavigation<HistoryQueryView>();
 
 
 
@@ -72,7 +73,8 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ILoginCredentialService, LoginCredentialService>();
             containerRegistry.RegisterSingleton<ILocalTestService, LocalTestService>();
             containerRegistry.RegisterSingleton<ICsvFileWriter, CsvRw>();
-            containerRegistry.RegisterSingleton<IInspectionCsvService, InspectionCsvService>();
+            containerRegistry.RegisterSingleton<IHistoryDataService, HistoryDataService>();
+            containerRegistry.RegisterSingleton<ICsvSaverService, CsvSaverService>();
             containerRegistry.RegisterSingleton<IImageSaveService, ImageSaveService>();
 
             //containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
