@@ -79,8 +79,7 @@ namespace AVS_Service.Models
         }
         };
 
-        public static readonly IReadOnlyList<CsvSchema> All =
-            new[] { TwoDCircle, TwoDSquare, ThreeDCircle, ThreeDSquare };
+        public static readonly IReadOnlyList<CsvSchema> All = new[] { TwoDCircle, TwoDSquare, ThreeDCircle, ThreeDSquare };
 
         public static CsvSchema Get(VisionDimension type, BarShape shape)
             => All.FirstOrDefault(s => s.DataType == type && s.Shape == shape);

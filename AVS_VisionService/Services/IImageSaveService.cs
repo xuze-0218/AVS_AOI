@@ -84,7 +84,7 @@ namespace AVS_Service.Services
                 // 结果渲染图
                 if (_paramService.GetBool("Global", "IsSave2DResult", true) && IsValidImage(resultImage))
                 {
-                    string format = _paramService.GetString("Global", "Format2DResult", "bmp");
+                    string format = _paramService.GetString("Global", "Format2DResult", "jpeg");
                     string subDir = "ResultImage\\Dumplmage";
                     string suffix = "_R";
                     string path = SaveImageAsync(data, resultImage, "2D", subDir, suffix, format, defect);
@@ -136,7 +136,7 @@ namespace AVS_Service.Services
                 // 结果图
                 if (_paramService.GetBool("Global", "IsSave3DResult", true) && IsValidImage(resultImage))
                 {
-                    string format = _paramService.GetString("Global", "Format3DResult", "bmp");
+                    string format = _paramService.GetString("Global", "Format3DResult", "jpeg");
                     string subDir = "ResultImage\\Dumplmage";
                     string suffix = "_R";
                     string path = SaveImageAsync(data, resultImage, "3D", subDir, suffix, format, defect);

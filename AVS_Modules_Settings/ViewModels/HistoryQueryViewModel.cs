@@ -157,7 +157,7 @@ namespace AVS_Modules_Settings.ViewModels
             }
             catch (Exception ex)
             {
-                _dialogService.Show("查询失败：" + ex.Message);
+                MessageBox.Show("查询失败：" + ex.Message);
             }
             finally { IsLoading = false; }
         }
@@ -211,11 +211,13 @@ namespace AVS_Modules_Settings.ViewModels
             {
                 Shapes.Clear(); FactorOptions.Clear();
                 HasMultipleShapes = false;
+                SelectedDataType = null;
+                SelectedShape = null;
                 SelectedFactor = null;
                 return;
             }
-            if (!DataTypes.Contains(SelectedDataType.Value)) SelectedDataType = DataTypes[0];
-
+            if (SelectedDataType == null || !DataTypes.Contains(SelectedDataType.Value))
+                SelectedDataType = DataTypes[0];
             RebuildShapes();
             RebuildFactors();
         }
@@ -225,6 +227,14 @@ namespace AVS_Modules_Settings.ViewModels
         private void RebuildShapes()
         {
             Shapes.Clear();
+
+            if (SelectedDataType == null)
+            {
+                HasMultipleShapes = false;
+                SelectedShape = null;
+                return;
+            }
+
             var source = SelectedDataType == VisionDimension.TwoD
                 ? _rows2D.Select(r => r.Shape)
                 : _rows3D.Select(r => r.Shape);
@@ -234,8 +244,13 @@ namespace AVS_Modules_Settings.ViewModels
 
             HasMultipleShapes = Shapes.Count > 1;
 
-            if (Shapes.Count == 0) return;
-            if (!Shapes.Contains(SelectedShape.Value)) SelectedShape = Shapes[0];
+            if (Shapes.Count == 0)
+            {
+                SelectedShape = null;
+                return;
+            }
+            if (SelectedShape == null || !Shapes.Contains(SelectedShape.Value))
+                SelectedShape = Shapes[0];
         }
 
         private void RebuildFactors()

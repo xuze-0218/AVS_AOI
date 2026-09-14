@@ -114,8 +114,7 @@ namespace AVS_Service.Services
         {
             BarShape shape = data.IsSquareBar ? BarShape.SquareBar : BarShape.Circle;
             string csvPath = BuildCsvPath("3D检测", DateTime.Now.ToString("yyyy_MM_dd"), shape);
-            bool isSquareBar = data.ResultBarBeadHump != Result.None || data.ResultBarBeadSag != Result.None; // 简化判断，也可通过配置
-            var header = InspectionCsvHeaders.Get3DDetailHeader(isSquareBar);
+            var header = InspectionCsvHeaders.Get3DDetailHeader(data.IsSquareBar);
             EnsureHeader(csvPath, header, _checked3DDetailCsv);
 
             var row = new List<string>
@@ -123,7 +122,7 @@ namespace AVS_Service.Services
                 data.WorkType ?? string.Empty,
                 data.ModuleName ?? string.Empty,
                 data.PoleNum.ToString(),
-                data.DateTime.ToString(),
+                data.DateTime.ToString("yyyy-MM-dd HH:mm:ss"),
                 data.Result3D.ToString(),
                 data.ResultBeadHump.ToString(),
                 data.ResultBeadSag.ToString(),
@@ -131,7 +130,7 @@ namespace AVS_Service.Services
                 formatStr(data.BeadSag)
             };
 
-            if (isSquareBar)
+            if (data.IsSquareBar)
             {
                 row.Add(data.ResultBarBeadHump.ToString());
                 row.Add(data.ResultBarBeadSag.ToString());
@@ -178,7 +177,7 @@ namespace AVS_Service.Services
                 d2.WorkType,
                 d2.ModuleName,
                 d2.PoleNum.ToString(),
-                d2.DateTime.ToString(),
+                d2.DateTime.ToString("yyyy-MM-dd HH:mm:ss"),
                 ((int)d2.Result2D + (int)d3.Result3D) == 0 ? "OK" : "NG",
                 d2.Result2D.ToString(),
                 d2.ResultLength.ToString(),

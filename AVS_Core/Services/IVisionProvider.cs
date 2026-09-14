@@ -619,10 +619,12 @@ namespace AVS_Core.Services
                         ResultBarBeadHump = (Result)resultArray[5].I,
                         BarBeadHump = resultArray[6].D,
                         ResultBarBeadSag = (Result)resultArray[7].I,
-                        BarBeadSag = resultArray[8].D
+                        BarBeadSag = resultArray[8].D,
+                        IsSquareBar = p.IsSquareBarWeldMark
                     };
                     _eventAggregator.GetEvent<VisionDimensionResultEvent>().Publish(new VisionDimensionResultPayload
                     {
+
                         PoleNum = poleNum,
                         DimensionResult = inspect3D.Result3D,
                         DetectTimeMs = stopwatch.Elapsed.TotalMilliseconds,

@@ -16,7 +16,7 @@ namespace AVS_Service.Services
         Task<HistoryLoadResult> LoadAsync(DateTime start, DateTime end, string root, CancellationToken ct);
     }
 
-    public sealed class HistoryLoadResult
+    public class HistoryLoadResult
     {
         public IReadOnlyList<InspectResult2DData> Rows2D { get; set; } = Array.Empty<InspectResult2DData>();
         public IReadOnlyList<InspectResult3DData> Rows3D { get; set; } = Array.Empty<InspectResult3DData>();
@@ -24,14 +24,14 @@ namespace AVS_Service.Services
         public IReadOnlyList<CsvFormatError> Errors { get; set; } = Array.Empty<CsvFormatError>();
     }
 
-    public sealed class LoadedCsvInfo
+    public class LoadedCsvInfo
     {
         public string Path { get; set; }
         public string SchemaName { get; set; }
         public int DataRowCount { get; set; }
     }
 
-    public sealed class HistoryDataService : IHistoryDataService
+    public class HistoryDataService : IHistoryDataService
     {
         private readonly ICsvFileWriter _csvWriter;
         private readonly ILogger _logger;

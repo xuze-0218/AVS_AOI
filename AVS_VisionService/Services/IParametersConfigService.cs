@@ -116,11 +116,13 @@ namespace AVS_Service.Services
                     var json = File.ReadAllText(_configPath);
                     var list = JsonConvert.DeserializeObject<ObservableCollection<ParametersConfig>>(json);
                     ConfigParams.Clear();
-                    if (list != null)
+                    if (list != null && list.Count > 0)
                     {
                         foreach (var p in list) ConfigParams.Add(p);
                         Log.Information("参数配置加载成功，共 {Count} 项", ConfigParams.Count);
+                        return;
                     }
+                    Log.Warning("配置文件为空，注入默认参数");
                 }
                 catch (Exception ex)
                 {
@@ -132,8 +134,59 @@ namespace AVS_Service.Services
                 Log.Warning("配置文件不存在: {Path}", _configPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(_configPath));
                 Log.Warning("创建配置文件: {Path}", _configPath);
-
             }
+            InjectDefaultGlobalParams();
+            SaveConfig();
+        }
+
+        /// <summary>
+        /// 首次启动或配置丢失时，为 Global 模块注入默认参数。
+        /// 与 ParameterConfigViewModel / ImageSaveService / PlcMessageRouter 中读取的 Key 保持一致。
+        /// </summary>
+        private void InjectDefaultGlobalParams()
+        {
+            // ---------- 图像保存路径 ----------
+            AddDefault("Global", "ImageSaveDir", "", ParamOutputType.STRING);
+            AddDefault("Global", "ImageCompressRatio", "100", ParamOutputType.INT);
+            AddDefault("Global", "SaveOrnImgDays", "30", ParamOutputType.INT);
+            AddDefault("Global", "SaveRenImgDays", "30", ParamOutputType.INT);
+
+            // ---------- 2D 相机 ----------
+            AddDefault("Global", "IsSave2DOriginal", "false", ParamOutputType.BOOL);
+            AddDefault("Global", "IsSave2DNGOnly", "false", ParamOutputType.BOOL);
+            AddDefault("Global", "Format2DOriginal", "bmp", ParamOutputType.STRING);
+            AddDefault("Global", "IsSave2DResult", "true", ParamOutputType.BOOL);
+            AddDefault("Global", "Format2DResult", "jpeg", ParamOutputType.STRING);
+            AddDefault("Global", "IsSave2DMask", "false", ParamOutputType.BOOL);
+
+            // ---------- 3D 相机 ----------
+            AddDefault("Global", "IsSave3DNGOnly", "false", ParamOutputType.BOOL);
+            AddDefault("Global", "IsSave3DDepth", "true", ParamOutputType.BOOL);
+            AddDefault("Global", "Format3DDepth", "tiff", ParamOutputType.STRING);
+            AddDefault("Global", "IsSave3DIntensity", "true", ParamOutputType.BOOL);
+            AddDefault("Global", "Format3DIntensity", "bmp", ParamOutputType.STRING);
+            AddDefault("Global", "IsSave3DResult", "true", ParamOutputType.BOOL);
+            AddDefault("Global", "Format3DResult", "jpeg", ParamOutputType.STRING);
+            AddDefault("Global", "IsSave3DMask", "false", ParamOutputType.BOOL);
+
+            AddDefault("Global", "CurrentStationID", "焊后检测", ParamOutputType.STRING);
+        }
+
+        /// <summary>
+        /// 若指定模块+名称不存在则添加；存在则不覆盖。
+        /// </summary>
+        private void AddDefault(string module, string name, string value, ParamOutputType type)
+        {
+            if (ConfigParams.Any(p => p.ModuleName == module && p.Name == name))
+                return;
+
+            ConfigParams.Add(new ParametersConfig
+            {
+                ModuleName = module,
+                Name = name,
+                Expression = value,
+                OutputType = type,
+            });
         }
 
         public bool SaveConfig()
@@ -164,11 +217,11 @@ namespace AVS_Service.Services
             return new StationParamsSnapshot
             {
                 IsNormalCheck = GetBool(stationId, "IsNormalCheck"),
-                IsAiCheck = GetBool(stationId, "IsAiCheck"),
+                IsAiCheck = GetBool(stationId, "IsAiCheck", true),
                 IsRotated = GetBool(stationId, "IsRotated"),
-                IsSquareBarWeldMark = GetBool(stationId, "IsSquareBarWeldMark"),
+                IsSquareBarWeldMark = GetBool(stationId, "IsSquareBarWeldMark", false),
                 Is3DSegmentation = GetBool(stationId, "Is3DSegmentation"),
-                IsCirWeldMark = GetBool(stationId, "IsCirWeldMark"),
+                IsCirWeldMark = GetBool(stationId, "IsCirWeldMark", true),
                 ScoreValue = GetDouble(stationId, "ScoreValue", 0.8),
                 IsPlaneCheck = GetBool(stationId, "IsPlaneCheck"),
                 Fx = GetDouble(stationId, "Fx", 0.014),

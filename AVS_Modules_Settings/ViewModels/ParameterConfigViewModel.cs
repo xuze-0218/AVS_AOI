@@ -163,7 +163,7 @@ namespace AVS_Modules_Settings.ViewModels
             SaveToConfigCommand = new DelegateCommand(() =>
             {
                 SaveToConfig();
-                _logger.Information("检测顺序已保存到配方 {Index}", RecipeIndex);
+                _logger.Information("检测顺序已保存到配方 {Index}", RecipeIndex + 1);
             });
 
             // ---------- 产品参数命令 ----------
@@ -291,7 +291,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         public string Format2DResult
         {
-            get => _configService.GetString("Global", "Format2DResult", "bmp");
+            get => _configService.GetString("Global", "Format2DResult", "jpeg");
             set { _configService.UpdateParam("Global", "Format2DResult", value); RaisePropertyChanged(); }
         }
 
@@ -351,7 +351,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         public string Format3DResult
         {
-            get => _configService.GetString("Global", "Format3DResult", "bmp");
+            get => _configService.GetString("Global", "Format3DResult", "jpeg");
             set { _configService.UpdateParam("Global", "Format3DResult", value); RaisePropertyChanged(); }
         }
 
@@ -739,7 +739,7 @@ namespace AVS_Modules_Settings.ViewModels
             _configService.UpdateParam("Recipe", "InspectOrders", json);
             _configService.SaveConfig();
 
-            _logger.Information("配方 {Index} 的检测顺序已保存到 'Recipe' Section", RecipeIndex);
+            _logger.Information("配方 {Index} 的检测顺序已保存到 'Recipe' Section", RecipeIndex + 1);
         }
 
         private InspectOrder[] LoadInspectOrdersFromConfig()
@@ -852,9 +852,9 @@ namespace AVS_Modules_Settings.ViewModels
                     return;
                 }
 
-                // 检查第一行是否为表头（可根据内容判断，或直接跳过第一行）
+                // 检查第一行是否为表头
                 int startIndex = 0;
-                if (lines[0].StartsWith("参数类别")) // 简单判断表头
+                if (lines[0].StartsWith("参数类别")) //判断表头
                     startIndex = 1;
 
                 for (int i = startIndex; i < lines.Length; i++)
