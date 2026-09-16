@@ -652,7 +652,6 @@ namespace AVS_Core.Services
             }
             finally
             {
-                // 确保所有临时对象释放
                 mask01?.Dispose();
                 mask02?.Dispose();
                 mask03?.Dispose();

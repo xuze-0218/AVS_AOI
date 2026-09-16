@@ -78,8 +78,8 @@ namespace AVS_Core.Services
         /// 当前极柱的聚合器，用于汇总2D、3D检测结果，判断是否NG，以及计算总耗时
         /// </summary>
         private readonly ConcurrentDictionary<int, PoleAggregator> _poleAggregators = new ConcurrentDictionary<int, PoleAggregator>();
-        private readonly object _preloadLock = new object();
-        private Task _preloadTask; // 后台预加载任务
+        private readonly SemaphoreSlim _preloadLock = new SemaphoreSlim(1, 1);
+        //private Task _preloadTask; // 后台预加载任务
 
 
         private readonly ConcurrentDictionary<string, SessionState> _sessions = new ConcurrentDictionary<string, SessionState>();
@@ -333,76 +333,68 @@ namespace AVS_Core.Services
 
         public async Task PreloadAllStationsAsync()
         {
-            if (_preloadTask != null) return;
-            lock (_preloadLock)
+            await _preloadLock.WaitAsync();
+            try
             {
-                if (_preloadTask != null) return;
-
-                _preloadTask = Task.Run(async () =>
+                var tasks = _stationConfigService.Stations.Select(async station =>
                 {
-                    var tasks = _stationConfigService.Stations.Select(async station =>
+                    //初始化视觉服务并缓存，加载halcon引擎参数等
+                    if (!_providers.ContainsKey(station.StationId))
                     {
-                        //初始化视觉服务并缓存，加载halcon引擎参数等
-                        if (!_providers.ContainsKey(station.StationId))
+                        IVisionProvider provider;
+                        switch (station.Dimension)
                         {
-                            IVisionProvider provider;
-
-                            switch (station.Dimension)
-                            {
-                                case VisionDimension.TwoD:
-                                    provider = _container.Resolve<I2DVisionProvider>();
-                                    break;
-
-                                case VisionDimension.ThreeD:
-                                    provider = _container.Resolve<I3DVisionProvider>();
-                                    break;
-
-                                default:
-                                    throw new NotSupportedException();
-                            }
-
-                            await provider.InitializeAsync(station);
-                            _providers.TryAdd(station.StationId, provider);
-                            _logger.Information("预加载工位 {Id} 视觉完成", station.StationId);
+                            case VisionDimension.TwoD:
+                                provider = _container.Resolve<I2DVisionProvider>(); break;
+                            case VisionDimension.ThreeD:
+                                provider = _container.Resolve<I3DVisionProvider>(); break;
+                            default:
+                                throw new NotSupportedException();
                         }
-                        //加载AI模型
-                        string moduleName = station.StationId;
-                        var p = _paramService.GetStationParams(moduleName);
-                        if (p.IsAiCheck)
+                        await provider.InitializeAsync(station);
+                        _providers.TryAdd(station.StationId, provider);
+                        _logger.Information("预加载工位 {Id} 视觉完成", station.StationId);
+                    }
+                    //AI模型已加载就跳过，未加载才尝试
+                    string moduleName = station.StationId;
+                    var p = _paramService.GetStationParams(moduleName);
+                    if (!p.IsAiCheck) return;
+                    // 确定 AI 模型键：优先使用 AiModelStationId，否则用 StationId
+                    string aiKey = string.IsNullOrEmpty(station.AiModelStationId) ? station.StationId : station.AiModelStationId;
+                    // 如果该键的模型尚未加载，则加载
+                    if (_aiDriveService.IsModelLoaded(aiKey)) return;
+                    // 模型路径从参数配置中读取（也可以硬编码或从 station 配置中获取）
+                    string detModelPath = _paramService.GetString(moduleName, "DetModelPath", "");
+                    string segModelPathsStr = _paramService.GetString(moduleName, "SegModelPaths", "");
+                    if (string.IsNullOrEmpty(detModelPath) && string.IsNullOrEmpty(segModelPathsStr))
+                    {
+                        _logger.Warning("工位 {StationId} 未配置 AI 模型路径，跳过（配置好后可触发重载）", station.StationId);
+                        return;
+                    }
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(detModelPath))
+                            _aiDriveService.LoadDetModel(aiKey, new[] { detModelPath });
+
+                        if (!string.IsNullOrEmpty(segModelPathsStr))
                         {
-                            // 确定 AI 模型键：优先使用 AiModelStationId，否则用 StationId
-                            string aiKey = string.IsNullOrEmpty(station.AiModelStationId) ? station.StationId : station.AiModelStationId;
-                            // 如果该键的模型尚未加载，则加载
-                            if (!_aiDriveService.IsModelLoaded(aiKey))
-                            {
-                                // 模型路径从参数配置中读取（也可以硬编码或从 station 配置中获取）
-                                string detModelPath = _paramService.GetString(moduleName, "DetModelPath", "");
-                                string segModelPathsStr = _paramService.GetString(moduleName, "SegModelPaths", "");
-                                if (!string.IsNullOrEmpty(detModelPath))
-                                    _aiDriveService.LoadDetModel(aiKey, new[] { detModelPath });
-                                else
-                                {
-                                    _logger.Error("工位 {StationId} AI 加载检测模型失败（键: {AiKey}）", station.StationId, aiKey);
-                                }
-                                if (!string.IsNullOrEmpty(segModelPathsStr))
-                                {
-                                    var segPaths = segModelPathsStr.Split(';');
-                                    _aiDriveService.LoadSegModel(aiKey, segPaths);
-                                }
-                                else
-                                {
-                                    _logger.Error("工位 {StationId} AI 加载分割模型失败（键: {AiKey}）", station.StationId, aiKey);
-                                }
-                            }
-                            _logger.Information("工位 {StationId} AI 模型加载完成（键: {AiKey}）", station.StationId, aiKey);
-
+                            var segPaths = segModelPathsStr.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                            _aiDriveService.LoadSegModel(aiKey, segPaths);
                         }
-                    });
-                    await Task.WhenAll(tasks);
-                    _logger.Information("所有工位视觉服务预加载完成");
+                        _logger.Information("工位 {StationId} AI 模型加载完成（键: {AiKey}）", station.StationId, aiKey);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "工位 {StationId} AI 模型加载失败（键: {AiKey}）", station.StationId, aiKey);
+                    }
                 });
+                await Task.WhenAll(tasks);
+                _logger.Information("所有工位视觉服务预加载完成");
             }
-            await _preloadTask;
+            finally
+            {
+                _preloadLock.Release();
+            }
         }
 
         /// <summary>

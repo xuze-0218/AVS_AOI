@@ -26,6 +26,10 @@ namespace AVS_Core.Services
         /// </summary>
         bool LoadDetModel(string modelId, string[] modelPaths);
 
+        void UnloadDetModel(string modelId);
+
+        void UnloadSegModel(string modelId);
+
         /// <summary>
         /// 图像分割推理
         /// </summary>
@@ -52,7 +56,7 @@ namespace AVS_Core.Services
         bool IsModelLoaded(string modelId);
     }
 
-    
+
     /// <summary>
     /// AI推理驱动服务，封装MMDeploy推理引擎的加载与调用。
     /// 支持多工位、多模型管理，通过依赖注入使用。
@@ -72,7 +76,7 @@ namespace AVS_Core.Services
         private readonly Dictionary<string, List<Detector>> _detHandles = new Dictionary<string, List<Detector>>();
         private bool _disposed;
 
-        public AiDriveService(string deviceName = "cpu", int deviceId = 0, ILogger logger = null)
+        public AiDriveService(string deviceName = "cuda", int deviceId = 0, ILogger logger = null)
         {
             _deviceName = deviceName;
             _deviceId = deviceId;
@@ -131,15 +135,12 @@ namespace AVS_Core.Services
                 {
                     if (_detHandles.ContainsKey(modelId))
                     {
-                        _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已加载，跳过", modelId);
-                        return true;
+                        _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已存在，先卸载旧模型", modelId);
+                        DisposeHandles(_detHandles, modelId); 
                     }
-                    DisposeHandles(_detHandles, modelId);
                     var handles = new List<Detector>();
                     foreach (var path in modelPaths)
-                    {
                         handles.Add(new Detector(path, _deviceName, _deviceId));
-                    }
                     _detHandles[modelId] = handles;
                 }
                 _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个检测模型完成", modelId, modelPaths.Length);
@@ -152,6 +153,17 @@ namespace AVS_Core.Services
             }
         }
 
+        public void UnloadDetModel(string modelId)
+        {
+            lock (_lock) DisposeHandles(_detHandles, modelId);
+            _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已卸载", modelId);
+        }
+
+        public void UnloadSegModel(string modelId)
+        {
+            lock (_lock) DisposeHandles(_segHandles, modelId);
+            _logger?.Information("[AiDrive] 工位 {StationId} 分割模型已卸载", modelId);
+        }
 
         // ========== 推理接口 ==========
         public void Predict(string modelId, int modelIndex, HObject imgGray, out HObject imgMask)
@@ -585,7 +597,7 @@ namespace AVS_Core.Services
             }
         }
 
-     
+
         private sealed class MmMatInput : IDisposable
         {
             private readonly GCHandle _handle;

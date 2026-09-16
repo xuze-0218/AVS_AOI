@@ -8,6 +8,7 @@ using Prism.Events;
 using Prism.Mvvm;
 using Prism.Regions;
 using Serilog;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -26,6 +27,7 @@ namespace AVS_App.ViewModels
         private readonly IStationConfigService _stationConfigService;
         private readonly ILocalTestService _localTestService;
         private readonly ILogger _logger;
+        private readonly SubscriptionToken _stationChangedToken;
         private int _layoutColumns = 2;
         public int LayoutColumns { get => _layoutColumns; set => SetProperty(ref _layoutColumns, value); }
         //相机数据集合
@@ -53,6 +55,13 @@ namespace AVS_App.ViewModels
             //根据配置加载相机窗体数量
             InitializeLayout(_cameraConfigService.AllSettings);
             _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnImageReceived, ThreadOption.PublisherThread);
+            _stationChangedToken = _eventAggregator.GetEvent<StationConfigChangedEvent>().Subscribe(OnStationConfigChanged, ThreadOption.UIThread);
+        }
+
+        private void OnStationConfigChanged()
+        {
+            InitializeLayout(_cameraConfigService.AllSettings);
+            _logger.Information("工位配置已变更，Inspection 布局已刷新，当前相机数：{Count}", CameraDisplayList.Count);
         }
 
         private void OnImageReceived(CameraImagePayload payload)
@@ -140,6 +149,8 @@ namespace AVS_App.ViewModels
             _journal = navigationContext.NavigationService.Journal;
             //刷新命令的状态
             GoBackCommand.RaiseCanExecuteChanged();
+            //兜底,每次进入页面重新对齐布局
+            //InitializeLayout(_cameraConfigService.AllSettings);
         }
 
         public bool IsNavigationTarget(NavigationContext navigationContext) => true;

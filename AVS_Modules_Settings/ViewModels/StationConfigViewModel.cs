@@ -80,7 +80,10 @@ namespace AVS_Modules_Settings.ViewModels
                 }
 
                 _stationConfigService.Save();
-                InitializeOriginalIds();   // 保存后刷新原始ID记录
+                // 保存后刷新原始ID记录
+                InitializeOriginalIds();   
+                //通知MainView刷新相机布局
+                _eventAggregator.GetEvent<StationConfigChangedEvent>().Publish();
             });
             LoadCommand = new DelegateCommand(SyncWithCameras);
             InitializeOriginalIds();

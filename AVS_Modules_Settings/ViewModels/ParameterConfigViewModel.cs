@@ -26,6 +26,7 @@ namespace AVS_Modules_Settings.ViewModels
         private readonly IParametersConfigService _configService;
         private readonly ILogger _logger;
         private bool _isInitialized = false;
+      
         private string _lastModuleName = "未分类模块";
 
         // ===== 构造函数 =====
@@ -69,6 +70,17 @@ namespace AVS_Modules_Settings.ViewModels
                 }
                 IsBaseParamModify = false;
                 _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+                if (_changedAiSections.Count > 0)
+                {
+                    _logger.Information("AI 模型路径变更: {Sections}",
+                        string.Join(", ", _changedAiSections));
+
+                    foreach (var section in _changedAiSections)
+                    {
+                        _eventAggregator.GetEvent<AiModelConfigChangedEvent>().Publish(section);
+                    }
+                    _changedAiSections.Clear();
+                }
                 LoadProductParameters();
                 _logger.Information("参数配置已保存");
             });
@@ -89,7 +101,7 @@ namespace AVS_Modules_Settings.ViewModels
 
                 if (confirm != MessageBoxResult.Yes)
                     return;
-
+                var sectionToDelete = SelectedSection;
                 var paramsToDelete = Parameters.Where(p => p.ModuleName == SelectedSection).ToList();
                 foreach (var p in paramsToDelete)
                     Parameters.Remove(p);
@@ -97,7 +109,8 @@ namespace AVS_Modules_Settings.ViewModels
                 _configService.SaveConfig();
                 RefreshSectionList();
                 _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
-                _logger.Information("Section {Section} 已删除", SelectedSection);
+                _changedAiSections.Remove(sectionToDelete);   //清理变更记录
+                _logger.Information("Section {Section} 已删除", sectionToDelete);
             });
 
             // ---------- AI模型路径命令 ----------
@@ -472,16 +485,41 @@ namespace AVS_Modules_Settings.ViewModels
         #endregion
 
         #region AI检测模型
+        private readonly HashSet<string> _changedAiSections = new HashSet<string>();
         public string DetModelPath
         {
             get => _configService.GetString(SelectedSection ?? "Global", "DetModelPath");
-            set => _configService.UpdateParam(SelectedSection ?? "Global", "DetModelPath", value);
+            set
+            {
+                if (string.IsNullOrEmpty(SelectedSection))
+                {
+                    _configService.UpdateParam("Global", "DetModelPath", value);
+                }
+                else
+                {
+                    _configService.UpdateParam(SelectedSection, "DetModelPath", value);
+                    _changedAiSections.Add(SelectedSection);   //记录变更
+                }
+                RaisePropertyChanged();
+            }
         }
 
         public string SegModelPaths
         {
             get => _configService.GetString(SelectedSection ?? "Global", "SegModelPaths");
-            set => _configService.UpdateParam(SelectedSection ?? "Global", "SegModelPaths", value);
+            set
+            {
+                if (string.IsNullOrEmpty(SelectedSection))
+                {
+                    _configService.UpdateParam("Global", "SegModelPaths", value);
+                }
+                else
+                {
+                    _configService.UpdateParam(SelectedSection, "SegModelPaths", value);
+                    _changedAiSections.Add(SelectedSection); 
+                }
+                RaisePropertyChanged();
+            }
         }
 
         public DelegateCommand BrowseDetModelCommand { get; }
@@ -955,7 +993,7 @@ namespace AVS_Modules_Settings.ViewModels
                 }
                 else if (result == MessageBoxResult.Cancel)
                 {
-                    // 可选：取消切换事件
+                    //取消切换事件
                 }
             }
             else

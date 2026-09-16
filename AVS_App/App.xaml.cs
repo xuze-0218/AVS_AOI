@@ -5,7 +5,6 @@ using AVS_Common.Events;
 using AVS_Common.Services;
 using AVS_Core.Services;
 using AVS_Modules_Settings.Views;
-using AVS_Service;
 using AVS_Service.Models;
 using AVS_Service.Services;
 using DryIoc;
@@ -106,10 +105,10 @@ namespace AVS_App
                     var regionManager = Container.Resolve<IRegionManager>();
                     regionManager.RequestNavigate("MainContentRegion", "InspectionView");
                     // 等待 InspectionView 完全加载并注册所有窗口句柄
-                    await WaitForCameraHandlesAsync();
-                    //预加载所有工位的视觉服务
-                    var stationSessionService = Container.Resolve<IStationSessionService>();
-                    await stationSessionService.PreloadAllStationsAsync();  // 等待预加载完成
+                    //await WaitForCameraHandlesAsync();
+                    ////预加载所有工位的视觉服务
+                    //var stationSessionService = Container.Resolve<IStationSessionService>();
+                    //await stationSessionService.PreloadAllStationsAsync();  // 等待预加载完成
 
                     var startupService = Container.Resolve<IApplicationStartupService>();
                     await startupService.InitializeAsync();
@@ -131,20 +130,20 @@ namespace AVS_App
         /// 等待所有相机的窗口句柄注册完成,因为视觉服务初始化需要窗口句柄
         /// </summary>
         /// <returns></returns>
-        private async Task WaitForCameraHandlesAsync()
-        {
-            var registry = Container.Resolve<IWindowHandleRegistry>();
-            var cameraRoles = Container.Resolve<IStationConfigService>().Stations.Select(s => s.CameraRole).Distinct().ToList();
-            var timeout = TimeSpan.FromSeconds(5);
-            var start = DateTime.Now;
-            foreach (var role in cameraRoles)
-            {
-                while (registry.GetHandle(role) == null && DateTime.Now - start < timeout)
-                {
-                    await Task.Delay(50);
-                }
-            }
-        }
+        //private async Task WaitForCameraHandlesAsync()
+        //{
+        //    var registry = Container.Resolve<IWindowHandleRegistry>();
+        //    var cameraRoles = Container.Resolve<IStationConfigService>().Stations.Select(s => s.CameraRole).Distinct().ToList();
+        //    var timeout = TimeSpan.FromSeconds(5);
+        //    var start = DateTime.Now;
+        //    foreach (var role in cameraRoles)
+        //    {
+        //        while (registry.GetHandle(role) == null && DateTime.Now - start < timeout)
+        //        {
+        //            await Task.Delay(50);
+        //        }
+        //    }
+        //}
 
         protected override void OnExit(ExitEventArgs e)
         {
@@ -197,7 +196,7 @@ namespace AVS_App
                 e.Exception.Source == "halcondotnet")
             {
                 e.Handled = true;
-                Environment.Exit(0);
+                Application.Current.Shutdown();
             }
         }
     }

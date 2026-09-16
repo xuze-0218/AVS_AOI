@@ -3,7 +3,10 @@
 
 namespace AVS_Common.Events
 {
-    public class SectionsChangedEvent: PubSubEvent
+    /// <summary>
+    /// 切换sections事件
+    /// </summary>
+    public class SectionsChangedEvent : PubSubEvent
     {
     }
 }
