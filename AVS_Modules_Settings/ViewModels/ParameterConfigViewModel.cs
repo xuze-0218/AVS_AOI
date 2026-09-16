@@ -26,7 +26,7 @@ namespace AVS_Modules_Settings.ViewModels
         private readonly IParametersConfigService _configService;
         private readonly ILogger _logger;
         private bool _isInitialized = false;
-      
+
         private string _lastModuleName = "未分类模块";
 
         // ===== 构造函数 =====
@@ -82,6 +82,7 @@ namespace AVS_Modules_Settings.ViewModels
                     _changedAiSections.Clear();
                 }
                 LoadProductParameters();
+                LoadImageParameters();
                 _logger.Information("参数配置已保存");
             });
 
@@ -211,6 +212,26 @@ namespace AVS_Modules_Settings.ViewModels
                         p.PropertyChanged -= OnParameterPropertyChanged;
             };
 
+            // ---------- 图像参数命令 ----------
+            AddImageCommand = new DelegateCommand(() =>
+            {
+                ImageParameters.Add(new ProductParameter   //
+                {
+                    Category = "Display",
+                    Name = "NewParam",
+                    Description = "",
+                    Value = "0"
+                });
+            });
+
+            DeleteImageCommand = new DelegateCommand<ProductParameter>(p =>
+            {
+                if (p != null)
+                    ImageParameters.Remove(p);
+            });
+
+            SaveImageCommand = new DelegateCommand(() => SaveImageParameters());
+
             Initialize();
         }
 
@@ -227,13 +248,15 @@ namespace AVS_Modules_Settings.ViewModels
 
             ProductParameters = new ObservableCollection<ProductParameter>();
             ProductParametersView = new ListCollectionView(ProductParameters);
-
+            ImageParameters = new ObservableCollection<ProductParameter>();
+            ImageParametersView = new ListCollectionView(ImageParameters);
             RefreshSectionList();
             if (SectionList.Count > 0)
                 SelectedSection = SectionList[0];
 
             LoadPoleGrid();
             LoadProductParameters();
+            LoadImageParameters();
         }
 
         #region 图像保存
@@ -422,11 +445,10 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     _lastModuleName = value ?? _lastModuleName;
                     RefreshFilter();
-
                     RaisePropertyChanged(nameof(DetModelPath));
                     RaisePropertyChanged(nameof(SegModelPaths));
-
                     LoadProductParameters(); // 工位切换，重新加载产品参数
+                    LoadImageParameters();
                 }
             }
         }
@@ -516,7 +538,7 @@ namespace AVS_Modules_Settings.ViewModels
                 else
                 {
                     _configService.UpdateParam(SelectedSection, "SegModelPaths", value);
-                    _changedAiSections.Add(SelectedSection); 
+                    _changedAiSections.Add(SelectedSection);
                 }
                 RaisePropertyChanged();
             }
@@ -826,12 +848,12 @@ namespace AVS_Modules_Settings.ViewModels
             try
             {
                 var sb = new StringBuilder();
-                // 写入表头（可选，便于阅读和解析）
+                // 写入表头
                 sb.AppendLine("参数类别,参数名称,参数说明,参数数值");
 
                 foreach (var p in ProductParameters)
                 {
-                    // 对包含逗号的字段进行简单转义（用双引号包裹）
+                    // 对包含逗号的字段进行简单转义
                     string category = CsvEscape(p.Category);
                     string name = CsvEscape(p.Name);
                     string description = CsvEscape(p.Description);
@@ -1001,6 +1023,148 @@ namespace AVS_Modules_Settings.ViewModels
                 LoadProductParameters();
             }
         }
+        #endregion
+
+        #region 图像参数（复用 ProductParameter 类型 + CsvEscape/ParseCsvLine）
+
+        public ObservableCollection<ProductParameter> ImageParameters { get; private set; }
+        public ICollectionView ImageParametersView { get; private set; }
+
+        private ProductParameter _selectedImageParameter;
+        public ProductParameter SelectedImageParameter
+        {
+            get => _selectedImageParameter;
+            set => SetProperty(ref _selectedImageParameter, value);
+        }
+
+        public DelegateCommand AddImageCommand { get; private set; }
+        public DelegateCommand<ProductParameter> DeleteImageCommand { get; private set; }
+        public DelegateCommand SaveImageCommand { get; private set; }
+
+        private string _imageParamFilePath;
+
+        private string _imageParamFileName;
+        public string ImageParamFileName
+        {
+            get => _imageParamFileName;
+            private set => SetProperty(ref _imageParamFileName, value);
+        }
+
+        /// <summary>保存图像参数：CSV 格式写入 ImageParam{Section}.json，复用 CsvEscape</summary>
+        private void SaveImageParameters()
+        {
+            try
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("参数类别,参数名称,参数说明,参数数值");
+
+                foreach (var p in ImageParameters)
+                {
+                    string category = CsvEscape(p.Category);
+                    string name = CsvEscape(p.Name);
+                    string description = CsvEscape(p.Description);
+                    string value = p.Value.ToString(CultureInfo.InvariantCulture);
+
+                    sb.AppendLine($"{category},{name},{description},{value}");
+                }
+
+                File.WriteAllText(_imageParamFilePath, sb.ToString(), Encoding.UTF8);
+                _logger.Information("图像参数已保存到 {Path}", _imageParamFilePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "保存图像参数失败");
+                MessageBox.Show("保存图像参数失败：" + ex.Message);
+            }
+        }
+
+        /// <summary>加载图像参数：读 ImageParam{Section}.json，复用 ParseCsvLine</summary>
+        private void LoadImageParameters()
+        {
+            ImageParameters.Clear();
+            string section = SelectedSection;
+            if (string.IsNullOrEmpty(section))
+                return;
+
+            // 文件名：ImageParamA.json（A = 当前 Section）
+            string fileName = $"ImageParam{section}.json";
+            _imageParamFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", fileName);
+            ImageParamFileName = fileName.Split('.')[0];
+
+            if (!File.Exists(_imageParamFilePath))
+            {
+                _logger.Warning("图像参数文件不存在: {Path}", _imageParamFilePath);
+                return;
+            }
+
+            try
+            {
+                string[] lines = File.ReadAllLines(_imageParamFilePath, Encoding.UTF8);
+                if (lines.Length == 0)
+                {
+                    _logger.Warning("图像参数文件为空: {Path}", _imageParamFilePath);
+                    return;
+                }
+
+                int startIndex = 0;
+                if (lines[0].StartsWith("参数类别"))
+                    startIndex = 1;
+
+                for (int i = startIndex; i < lines.Length; i++)
+                {
+                    string line = lines[i].Trim();
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    string[] parts = ParseCsvLine(line);  
+                    if (parts.Length < 4)
+                    {
+                        _logger.Warning("图像参数行格式错误，行号 {Line}，内容：{Content}", i + 1, line);
+                        continue;
+                    }
+
+                    var param = new ProductParameter       
+                    {
+                        Category = parts[0],
+                        Name = parts[1],
+                        Description = parts[2],
+                        Value = parts[3]
+                    };
+                    ImageParameters.Add(param);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "加载图像参数失败");
+                MessageBox.Show("图像参数加载失败：" + ex.Message);
+            }
+        }
+
+        /// <summary>图像参数 Tab 激活时调用（与产品参数逻辑对称）</summary>
+        public void OnImageParamTabActivated()
+        {
+            if (IsBaseParamModify)
+            {
+                var result = MessageBox.Show(
+                    "基础参数有未保存的修改，是否保存并刷新图像参数？",
+                    "确认",
+                    MessageBoxButton.YesNoCancel,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    _configService.SaveConfig();
+                    IsBaseParamModify = false;
+                    LoadImageParameters();
+                }
+                // Cancel 时不动
+            }
+            else
+            {
+                LoadImageParameters();
+            }
+        }
+
         #endregion
     }
 }

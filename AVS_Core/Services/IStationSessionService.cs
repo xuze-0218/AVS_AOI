@@ -110,14 +110,15 @@ namespace AVS_Core.Services
             agg.CompletedDimensions++;
             agg.AnyNG |= (payload.DimensionResult != Result.OK);
             agg.TotalElapsedMs += payload.DetectTimeMs;
-            if (agg.CompletedDimensions >= agg.TotalDimensions)
+            int expectedDims = _paramService.GetInt("Global", "InspectDimensionCount", 2);
+            if (agg.CompletedDimensions >= expectedDims)
             {
                 var finalOK = !agg.AnyNG;
                 _eventAggregator.GetEvent<PoleResultEvent>().Publish(new PoleResultPayload
                 {
                     PoleNum = payload.PoleNum,
                     IsOK = finalOK,
-                    DetectTimeMs = agg.TotalElapsedMs / agg.TotalDimensions
+                    DetectTimeMs = agg.TotalElapsedMs / agg.CompletedDimensions
                 });
                 _poleAggregators.TryRemove(payload.PoleNum, out _);
             }
@@ -368,7 +369,7 @@ namespace AVS_Core.Services
                     string segModelPathsStr = _paramService.GetString(moduleName, "SegModelPaths", "");
                     if (string.IsNullOrEmpty(detModelPath) && string.IsNullOrEmpty(segModelPathsStr))
                     {
-                        _logger.Warning("工位 {StationId} 未配置 AI 模型路径，跳过（配置好后可触发重载）", station.StationId);
+                        _logger.Warning("工位 {StationId}未配置AI模型路径，跳过（配置好后可触发重载）", station.StationId);
                         return;
                     }
                     try
@@ -600,7 +601,6 @@ namespace AVS_Core.Services
 
     internal class PoleAggregator
     {
-        public int TotalDimensions { get; set; } = 2;
         public int CompletedDimensions { get; set; }
         public bool AnyNG { get; set; }
         public double TotalElapsedMs { get; set; }

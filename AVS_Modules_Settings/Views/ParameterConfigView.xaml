@@ -329,6 +329,99 @@
                 </Grid>
             </TabItem>
 
+            <TabItem Header="图像参数">
+                <Grid MinHeight="200" Margin="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Margin="0,0,0,5"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        Foreground="#007ACC"
+                        Text="{Binding ImageParamFileName, StringFormat='当前参数文件：{0}'}" />
+
+                    <DataGrid
+                        x:Name="ImageParamGrid"
+                        Grid.Row="1"
+                        HorizontalAlignment="Stretch"
+                        AutoGenerateColumns="False"
+                        CanUserAddRows="False"
+                        CanUserDeleteRows="False"
+                        HeadersVisibility="Column"
+                        ItemsSource="{Binding ImageParametersView}"
+                        SelectedItem="{Binding SelectedImageParameter}"
+                        SelectionMode="Single"
+                        ToolTip="必须设定注释说明，否则后台Halcon程序解析json报错"
+                        ToolTipService.BetweenShowDelay="1"
+                        ToolTipService.InitialShowDelay="1">
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn
+                                Width="Auto"
+                                MinWidth="80"
+                                Binding="{Binding Category}"
+                                Foreground="#007ACC"
+                                Header="类别" />
+                            <DataGridTextColumn
+                                Width="*"
+                                MinWidth="80"
+                                Binding="{Binding Name}"
+                                Header="名称" />
+                            <DataGridTextColumn
+                                Width="*"
+                                MinWidth="100"
+                                Binding="{Binding Description}"
+                                Header="说明" />
+                            <DataGridTextColumn
+                                Width="*"
+                                MinWidth="60"
+                                Binding="{Binding Value}"
+                                Header="数值" />
+                            <DataGridTemplateColumn
+                                Width="Auto"
+                                MinWidth="50"
+                                Header="操作">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Command="{Binding DataContext.DeleteImageCommand, ElementName=ImageParamGrid}"
+                                            CommandParameter="{Binding}"
+                                            Content="Del"
+                                            Foreground="Red" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel
+                        Grid.Row="2"
+                        Margin="0,10,0,0"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal">
+                        <Button
+                            Width="40"
+                            Margin="5,0"
+                            Command="{Binding AddImageCommand}"
+                            Content="+" />
+                        <Button
+                            Width="90"
+                            Margin="5,0"
+                            Background="#FF3C3C3C"
+                            Command="{Binding SaveImageCommand}"
+                            Content="保存配置"
+                            Foreground="White" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
             <TabItem Header="🔢 检测顺序">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>

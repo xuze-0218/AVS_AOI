@@ -145,6 +145,9 @@ namespace AVS_Service.Services
         /// </summary>
         private void InjectDefaultGlobalParams()
         {
+            //相机维度
+            AddDefault("Global", "InspectDimensionCount", "2", ParamOutputType.INT);
+            AddDefault("Global", "CurrentStationID", "焊后检测", ParamOutputType.STRING);
             // ---------- 图像保存路径 ----------
             AddDefault("Global", "ImageSaveDir", "", ParamOutputType.STRING);
             AddDefault("Global", "ImageCompressRatio", "100", ParamOutputType.INT);
@@ -169,7 +172,7 @@ namespace AVS_Service.Services
             AddDefault("Global", "Format3DResult", "jpeg", ParamOutputType.STRING);
             AddDefault("Global", "IsSave3DMask", "false", ParamOutputType.BOOL);
 
-            AddDefault("Global", "CurrentStationID", "焊后检测", ParamOutputType.STRING);
+           
         }
 
         /// <summary>
