@@ -13,6 +13,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -116,11 +117,48 @@ namespace AVS_Core.Services
             procCall.Dispose();
             hStep.Dispose();
 
+            if (result.Length < 3)
+            {
+                _logger.Error("[2D标定] ResultArray 长度不足: {Len}", result.Length);
+                return Task.FromResult("02,+0000000+0000000");
+            }
             string calibrateResult = result[0].D == 1 ? "01" : "02";
-            string boardCenterX = DoubleToString(result[1].D, 8);
-            string boardCenterY = DoubleToString(result[2].D, 8);
-            _paramService.UpdateParam(_stationId, "Fx", result[3].D.ToString(), ParamOutputType.FLOAT);
-            _paramService.UpdateParam(_stationId, "Fy", result[4].D.ToString(), ParamOutputType.FLOAT);
+            double boardCenterXValue = result[1].D;
+            double boardCenterYValue = result[2].D;
+            string boardCenterX = DoubleToString(boardCenterXValue, 8);
+            string boardCenterY = DoubleToString(boardCenterYValue, 8);
+
+            if (result.Length > 4 && result[3].D > 0 && result[4].D > 0)
+            {
+                _paramService.UpdateParam(_stationId, "Fx", result[3].D.ToString(), ParamOutputType.FLOAT);
+                _paramService.UpdateParam(_stationId, "Fy", result[4].D.ToString(), ParamOutputType.FLOAT);
+            }
+            else
+            {
+                _logger.Warning("[2D标定] fx/fy 未更新（长度={Len}, fx={Fx}, fy={Fy}）",
+                    result.Length, result.Length > 3 ? result[3].D : -1, result.Length > 4 ? result[4].D : -1);
+            }
+
+            if (calibrateResult == "01")
+            {
+                _paramService.UpdateParam(_stationId, "CornerX01", boardCenterXValue.ToString(), ParamOutputType.FLOAT);
+                _paramService.UpdateParam(_stationId, "CornerY01", boardCenterYValue.ToString(), ParamOutputType.FLOAT);
+                _paramService.SaveConfig();
+                _logger.Information("[2D标定] 工位 {StationId} 基准中心已更新 X={X:F3}, Y={Y:F3}", _stationId, boardCenterXValue, boardCenterYValue);
+            }
+
+            //保存标定原图
+            SaveCalibOriginImage(image);
+
+            // 写CSV记录（标定：基准 = 当前，偏差全 0）
+            SaveBoardCalibrateRecord(
+                workType: "标定",
+                baseX: boardCenterXValue, baseY: boardCenterYValue,
+                currentX: boardCenterXValue, currentY: boardCenterYValue,
+                deviationX: 0, deviationY: 0, deviation: 0,
+                tolerance: p.PsnTolerance,
+                result: calibrateResult);
+
             string calibrateData = boardCenterX + boardCenterY;
             return Task.FromResult(calibrateResult + "," + calibrateData);
         }
@@ -337,11 +375,67 @@ namespace AVS_Core.Services
             procCall.Dispose();
             hStep.Dispose();
 
-            string calibrateResult = result[0].D == 1 ? "01" : "02";
-            string boardCenterX = DoubleToString(result[1].D, 8);
-            string boardCenterY = DoubleToString(result[2].D, 8);
-            string calibrateData = boardCenterX + boardCenterY;
+            if (result.Length < 3)
+            {
+                _logger.Error("[2D点检] ResultArray 长度不足: {Len}", result.Length);
+                return Task.FromResult("02,+0000000+0000000");
+            }
 
+            string checkResult = result[0].D == 1 ? "01" : "02";
+            double boardCenterXValue = result[1].D;
+            double boardCenterYValue = result[2].D;
+            string boardCenterX = DoubleToString(boardCenterXValue, 8);
+            string boardCenterY = DoubleToString(boardCenterYValue, 8);
+
+            //读取基准中心
+            double baseCenterX = p.CornerX01;
+            double baseCenterY = p.CornerY01;
+            double tolerance = p.PsnTolerance;
+
+            bool hasBaseCenter = Math.Abs(baseCenterX) > 0.000001 || Math.Abs(baseCenterY) > 0.000001;
+
+            double deviationX = 0, deviationY = 0, deviation = 0;
+            string calibrateResult;
+
+            if (!hasBaseCenter)
+            {
+                calibrateResult = "02";
+                _logger.Warning("[2D点检] 工位 {StationId} 未保存基准中心，请先执行标定", _stationId);
+            }
+            else if (checkResult != "01")
+            {
+                calibrateResult = "02";
+                _logger.Warning("[2D点检] 工位 {StationId} Check2d 定位/测量失败", _stationId);
+            }
+            else if (tolerance <= 0)
+            {
+                calibrateResult = "02";
+                _logger.Warning("[2D点检] 工位 {StationId} 容差未设置", _stationId);
+            }
+            else
+            {
+                //计算偏差
+                deviationX = boardCenterXValue - baseCenterX;
+                deviationY = boardCenterYValue - baseCenterY;
+                deviation = Math.Sqrt(deviationX * deviationX + deviationY * deviationY);
+
+                calibrateResult = deviation <= tolerance ? "01" : "02";
+
+                _logger.Information(
+                    "[2D点检] 工位 {StationId} 基准({BX:F3},{BY:F3}) 当前({CX:F3},{CY:F3}) 偏差({DX:F3},{DY:F3})={D:F3} 阈值={T:F3} 结果={R}",
+                    _stationId, baseCenterX, baseCenterY, boardCenterXValue, boardCenterYValue,
+                    deviationX, deviationY, deviation, tolerance, calibrateResult);
+            }
+
+            // 保存CSV记录
+            SaveBoardCalibrateRecord(
+                workType: "点检",
+                baseX: baseCenterX, baseY: baseCenterY,
+                currentX: boardCenterXValue, currentY: boardCenterYValue,
+                deviationX, deviationY, deviation,
+                tolerance,
+                result: calibrateResult);
+            string calibrateData = boardCenterX + boardCenterY;
             return Task.FromResult(calibrateResult + "," + calibrateData);
         }
 
@@ -389,6 +483,80 @@ namespace AVS_Core.Services
             _logger.Information("{StationId}工位2D视觉初始化成功", _stationId);
         }
 
+        /// <summary>
+        /// 保存标定原图到 {ImageSaveDir}\标定图片\2D\
+        /// </summary>
+        private void SaveCalibOriginImage(HObject image)
+        {
+            try
+            {
+                if (image == null || !image.IsInitialized()) return;
+                string baseDir = _paramService.GetString("Global", "ImageSaveDir", "");
+                if (string.IsNullOrWhiteSpace(baseDir))
+                    baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images");
+                string dir = Path.Combine(baseDir, "标定图片", "2D");
+                Directory.CreateDirectory(dir);
+                string format = _paramService.GetString(_stationId, "Format2DOriginal", "bmp");
+                string ext = format.Contains("bmp") ? ".bmp" : ".jpg";
+                string path = Path.Combine(dir, $"Calib2D_{_stationId}_{DateTime.Now:yyyyMMdd_HHmmss_fff}{ext}");
+                HOperatorSet.WriteImage(image, format == "bmp" ? "bmp" : "jpeg 100", 0, path);
+                _logger.Information("[2D标定] 原图已保存: {Path}", path);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "[2D标定] 保存标定原图失败");
+            }
+        }
+
+        /// <summary>
+        /// 写标定块记录 CSV：{CsvSaveDir}\2D标定块\{日期}\_BoardCalibrateRecord.csv
+        /// </summary>
+        private void SaveBoardCalibrateRecord(
+            string workType, double baseX, double baseY,
+            double currentX, double currentY,
+            double deviationX, double deviationY, double deviation,
+            double tolerance, string result)
+        {
+            try
+            {
+                string csvRoot = _paramService.GetString("Global", "CsvSaveDir", "");
+                if (string.IsNullOrWhiteSpace(csvRoot))
+                    csvRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Csv");
+
+                string dateStr = DateTime.Now.ToString("yyyy_MM_dd");
+                string dir = Path.Combine(csvRoot, "2D标定块", dateStr);
+                Directory.CreateDirectory(dir);
+
+                string csvPath = Path.Combine(dir, "_BoardCalibrateRecord.csv");
+                bool isNewFile = !File.Exists(csvPath);
+
+                var sb = new StringBuilder();
+                if (isNewFile)
+                {
+                    sb.AppendLine("时间,相机,类型,基准X,基准Y,当前X,当前Y,偏差X,偏差Y,总偏差,阈值,结果");
+                }
+
+                sb.AppendLine(string.Join(",",
+                    DateTime.Now.ToString("yyyy_MM_dd HH:mm:ss.fff"),
+                    _stationId,
+                    workType,
+                    baseX.ToString("0.000"),
+                    baseY.ToString("0.000"),
+                    currentX.ToString("0.000"),
+                    currentY.ToString("0.000"),
+                    deviationX.ToString("0.000"),
+                    deviationY.ToString("0.000"),
+                    deviation.ToString("0.000"),
+                    tolerance.ToString("0.000"),
+                    result == "01" ? "OK" : "NG"));
+
+                File.AppendAllText(csvPath, sb.ToString(), Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "[2D标定] 写标定块 CSV 失败");
+            }
+        }
         private string DoubleToString(double detectValue, int len)
         {
             // NaN/Infinity 保护

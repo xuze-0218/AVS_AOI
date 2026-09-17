@@ -28,7 +28,7 @@ namespace AVS_Core.Services
             var engine = new HDevEngine();
             string procFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
             engine.SetProcedurePath(procFolder);
-            //engine.StartDebugServer();//仅debug模式下使用，可以调试halcon程序
+            engine.StartDebugServer();//仅debug模式下使用，可以调试halcon程序
             return engine;
         });
 

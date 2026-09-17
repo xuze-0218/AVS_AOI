@@ -174,6 +174,9 @@ namespace AVS_Modules_Settings.ViewModels
                 }
             });
 
+            SetAsStartCommand = new DelegateCommand<PoleCircleItem>(item => SetRowEndpoint(item, asStart: true));
+            SetAsEndCommand = new DelegateCommand<PoleCircleItem>(item => SetRowEndpoint(item, asStart: false));
+
             SaveToConfigCommand = new DelegateCommand(() =>
             {
                 SaveToConfig();
@@ -598,6 +601,8 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand ClearRowCommand { get; }
         public DelegateCommand SaveToConfigCommand { get; }
         public DelegateCommand<PoleCircleItem> SelectPoleCommand { get; }
+        public DelegateCommand<PoleCircleItem> SetAsStartCommand { get; }
+        public DelegateCommand<PoleCircleItem> SetAsEndCommand { get; }
 
         public void BeginEditPole(PoleCircleItem item)
         {
@@ -619,38 +624,95 @@ namespace AVS_Modules_Settings.ViewModels
 
             item.IsEditing = false;
 
-            if (int.TryParse(newValue, out int num))
-            {
-                item.PoleNumber = num;
-
-                var rowItems = PoleItems.Where(p => p.Row == item.Row)
-                                        .OrderBy(p => p.Col)
-                                        .ToList();
-                if (rowItems.Count > 0)
-                {
-                    foreach (var p in rowItems)
-                    {
-                        p.IsStartPoint = false;
-                        p.IsEndPoint = false;
-                    }
-
-                    var first = rowItems.FirstOrDefault(p => p.PoleNumber.HasValue);
-                    var last = rowItems.LastOrDefault(p => p.PoleNumber.HasValue);
-                    if (first != null) first.IsStartPoint = true;
-                    if (last != null && last != first) last.IsEndPoint = true;
-                }
-                TryAutoFill(item.Row);
-            }
-            else
+            if (!int.TryParse(newValue, out int num))
             {
                 MessageBox.Show("请输入有效的整数序号。", "输入无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
+
+            item.PoleNumber = num;
+
+            var rowItems = PoleItems.Where(p => p.Row == item.Row)
+                                    .OrderBy(p => p.Col)
+                                    .ToList();
+
+            if (rowItems.Count > 0)
+            {
+                // 已经存在手动设定的起点/终点时，不再自动推导
+                bool hasStart = rowItems.Any(p => p.IsStartPoint);
+                bool hasEnd = rowItems.Any(p => p.IsEndPoint);
+
+                if (!hasStart || !hasEnd)
+                {
+                    var leftmost = rowItems.First();   // 本行最左列
+                    var rightmost = rowItems.Last();    // 本行最右列
+
+                    // 只有编辑的格恰好落在左端/右端时，才自动设起终点
+                    if (item == leftmost && item.PoleNumber.HasValue)
+                    {
+                        foreach (var p in rowItems) p.IsStartPoint = false;
+                        item.IsStartPoint = true;
+                    }
+
+                    if (item == rightmost && item.PoleNumber.HasValue)
+                    {
+                        foreach (var p in rowItems) p.IsEndPoint = false;
+                        item.IsEndPoint = true;
+                    }
+                }
+            }
+
+            TryAutoFill(item.Row);
         }
 
         public void CancelEditPole(PoleCircleItem item)
         {
             if (item == null) return;
             item.IsEditing = false;
+        }
+
+        /// <summary>
+        /// 右键菜单：把某个圆设为本行起点/终点，另一个端点自动成为对端。
+        /// 只有行的最左或最右端才能被设为起点/终点。
+        /// </summary>
+        private void SetRowEndpoint(PoleCircleItem item, bool asStart)
+        {
+            if (item == null || PoleItems == null) return;
+
+            var rowItems = PoleItems.Where(p => p.Row == item.Row)
+                                    .OrderBy(p => p.Col)
+                                    .ToList();
+            if (rowItems.Count < 2) return;
+
+            var leftmost = rowItems.First();
+            var rightmost = rowItems.Last();
+
+            if (item != leftmost && item != rightmost)
+            {
+                MessageBox.Show("起点/终点只能设置在行的两端。", "提示",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 清掉本行所有起终点标记
+            foreach (var p in rowItems)
+            {
+                p.IsStartPoint = false;
+                p.IsEndPoint = false;
+            }
+
+            var opposite = (item == leftmost) ? rightmost : leftmost;
+
+            if (asStart)
+            {
+                item.IsStartPoint = true;
+                opposite.IsEndPoint = true;
+            }
+            else
+            {
+                item.IsEndPoint = true;
+                opposite.IsStartPoint = true;
+            }
         }
 
         private void GenerateEmptyGrid()
@@ -678,13 +740,23 @@ namespace AVS_Modules_Settings.ViewModels
             GridCols = order.Col;
 
             GenerateEmptyGrid();
+
             for (int r = 0; r < order.Row; r++)
             {
                 int totalSteps = order.Col - 1;
                 if (totalSteps <= 0) continue;
 
-                int mdiff = Math.Abs(order.End[r] - order.Start[r]) / totalSteps;
-                if (order.End[r] - order.Start[r] < 0) mdiff = -mdiff;
+                bool reversed = order.RowReversed != null
+                             && r < order.RowReversed.Length
+                             && order.RowReversed[r];
+
+                // 从左到右两个端点的极柱号
+                int leftVal = reversed ? order.End[r] : order.Start[r];
+                int rightVal = reversed ? order.Start[r] : order.End[r];
+
+                int diff = rightVal - leftVal;
+                int mdiff = Math.Abs(diff) / totalSteps;
+                if (diff < 0) mdiff = -mdiff;
 
                 for (int c = 0; c < order.Col; c++)
                 {
@@ -692,9 +764,20 @@ namespace AVS_Modules_Settings.ViewModels
                     if (index >= PoleItems.Count) break;
 
                     var item = PoleItems[index];
-                    item.PoleNumber = order.Start[r] + mdiff * c;
-                    if (c == 0) item.IsStartPoint = true;
-                    if (c == order.Col - 1) item.IsEndPoint = true;
+                    item.PoleNumber = leftVal + mdiff * c;
+
+                    // 左端
+                    if (c == 0)
+                    {
+                        if (reversed) item.IsEndPoint = true;
+                        else item.IsStartPoint = true;
+                    }
+                    // 右端
+                    if (c == order.Col - 1)
+                    {
+                        if (reversed) item.IsStartPoint = true;
+                        else item.IsEndPoint = true;
+                    }
                 }
             }
         }
@@ -772,25 +855,33 @@ namespace AVS_Modules_Settings.ViewModels
                 Row = GridRows,
                 Col = GridCols,
                 Start = new int[GridRows],
-                End = new int[GridRows]
+                End = new int[GridRows],
+                RowReversed = new bool[GridRows]
             };
 
             for (int r = 0; r < GridRows; r++)
             {
                 var rowItems = PoleItems.Where(p => p.Row == r)
-                                        .OrderBy(p => p.Col)
                                         .Where(p => p.PoleNumber.HasValue)
                                         .ToList();
-                if (rowItems.Count > 0)
-                {
-                    order.Start[r] = rowItems.First().PoleNumber.Value;
-                    order.End[r] = rowItems.Last().PoleNumber.Value;
-                }
-                else
+
+                if (rowItems.Count == 0)
                 {
                     order.Start[r] = 0;
                     order.End[r] = 0;
+                    order.RowReversed[r] = false;
+                    continue;
                 }
+
+                // 优先按起终点标记取端点；没标记时退化为"左起右终"
+                var startItem = rowItems.FirstOrDefault(p => p.IsStartPoint)
+                             ?? rowItems.OrderBy(p => p.Col).First();
+                var endItem = rowItems.FirstOrDefault(p => p.IsEndPoint)
+                             ?? rowItems.OrderBy(p => p.Col).Last();
+
+                order.Start[r] = startItem.PoleNumber.Value;
+                order.End[r] = endItem.PoleNumber.Value;
+                order.RowReversed[r] = startItem.Col > endItem.Col;   // 起点在右则标记反向
             }
 
             orders[RecipeIndex] = order;
@@ -1050,7 +1141,7 @@ namespace AVS_Modules_Settings.ViewModels
             private set => SetProperty(ref _imageParamFileName, value);
         }
 
-        /// <summary>保存图像参数：CSV 格式写入 ImageParam{Section}.json，复用 CsvEscape</summary>
+        /// <summary>保存图像参数</summary>
         private void SaveImageParameters()
         {
             try
@@ -1078,7 +1169,7 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        /// <summary>加载图像参数：读 ImageParam{Section}.json，复用 ParseCsvLine</summary>
+        /// <summary>加载图像参数</summary>
         private void LoadImageParameters()
         {
             ImageParameters.Clear();
@@ -1116,14 +1207,14 @@ namespace AVS_Modules_Settings.ViewModels
                     if (string.IsNullOrWhiteSpace(line))
                         continue;
 
-                    string[] parts = ParseCsvLine(line);  
+                    string[] parts = ParseCsvLine(line);   // ← 复用产品参数的解析
                     if (parts.Length < 4)
                     {
                         _logger.Warning("图像参数行格式错误，行号 {Line}，内容：{Content}", i + 1, line);
                         continue;
                     }
 
-                    var param = new ProductParameter       
+                    var param = new ProductParameter       // ← 复用 ProductParameter 类型
                     {
                         Category = parts[0],
                         Name = parts[1],
@@ -1140,7 +1231,7 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        /// <summary>图像参数 Tab 激活时调用（与产品参数逻辑对称）</summary>
+        /// <summary>图像参数Tab激活时调用（与产品参数逻辑对称）</summary>
         public void OnImageParamTabActivated()
         {
             if (IsBaseParamModify)

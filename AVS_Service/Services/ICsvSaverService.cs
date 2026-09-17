@@ -228,7 +228,7 @@ namespace AVS_Service.Services
 
         private string BuildCsvPath(string subDir, string dateStr, BarShape shape)
         {
-            string baseDir = _paramService.GetString("", "CsvSaveDir", "");
+            string baseDir = _paramService.GetString("Global", "CsvSaveDir", "");
             if (string.IsNullOrWhiteSpace(baseDir))
                 baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DefaultCsvSaveDir);
 

@@ -16,6 +16,6 @@ namespace AVS_Service.Events
     {
         public int PoleNum { get; set; }
         public bool IsOK { get; set; }
-        public double DetectTimeMs { get; set; } 
+        public double DetectTimeMs { get; set; }
     }
 }

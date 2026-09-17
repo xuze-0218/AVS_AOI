@@ -16,8 +16,8 @@ namespace AVS_Service.Events
     public class VisionDimensionResultPayload
     {
         public int PoleNum { get; set; }
-        public Result DimensionResult { get; set; }   
+        public Result DimensionResult { get; set; }
         public double DetectTimeMs { get; set; }
-        public VisionDimension Dimension { get; set; } 
+        public VisionDimension Dimension { get; set; }
     }
 }

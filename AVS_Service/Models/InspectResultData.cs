@@ -34,7 +34,7 @@ namespace AVS_Service.Models
         /// <summary>
         /// 使用Result2D / Result3D,这个结果不可信
         /// </summary>
-        public Result ResultSummary { get; set; } =Result.None;
+        public Result ResultSummary { get; set; } = Result.None;
 
         //3D结果
         public Result Result3D { get; set; }
@@ -71,7 +71,7 @@ namespace AVS_Service.Models
         public string Dump3DPath { get; set; }
 
         //焊缝类型是否为方条形（true=方条形，false=圆形）
-        public bool IsSquareBar { get; set; }
+        public bool IsSquareBar { get; set; } = false;
 
         public BarShape Shape => IsSquareBar ? BarShape.SquareBar : BarShape.Circle;
 

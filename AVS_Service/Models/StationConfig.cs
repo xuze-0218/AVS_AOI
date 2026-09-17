@@ -61,7 +61,7 @@ namespace AVS_Service.Models
             set => SetProperty(ref _dimension, value);
         }
 
-
+      
 
         /// <summary>
         ///共享模型Key，多个工位可共用同一套AI模型。为空时默认使用 StationId</summary>

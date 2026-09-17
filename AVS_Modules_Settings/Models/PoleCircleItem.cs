@@ -20,42 +20,60 @@ namespace AVS_Modules_Settings.Models
         public bool IsStartPoint
         {
             get => _isStartPoint;
-            set => SetProperty(ref _isStartPoint, value);
+            set
+            {
+                if (SetProperty(ref _isStartPoint, value))
+                    RaisePropertyChanged(nameof(StrokeColor));
+            }
         }
 
         private bool _isEndPoint;
         public bool IsEndPoint
         {
             get => _isEndPoint;
-            set => SetProperty(ref _isEndPoint, value);
+            set
+            {
+                if (SetProperty(ref _isEndPoint, value))
+                    RaisePropertyChanged(nameof(StrokeColor));
+            }
         }
 
         private PoleResultStatus _status = PoleResultStatus.Unchecked;
         public PoleResultStatus Status
         {
             get => _status;
-            set => SetProperty(ref _status, value);
+            set
+            {
+                if (SetProperty(ref _status, value))
+                    RaisePropertyChanged(nameof(FillColor));
+            }
         }
 
-        // 颜色绑定
-        public Brush CircleColor
+        // ===== 填充色：表达检测结果 =====
+        public Brush FillColor
+        {
+            get
+            {
+                switch (Status)
+                {
+                    case PoleResultStatus.OK: return Brushes.LimeGreen;
+                    case PoleResultStatus.NG: return Brushes.Red;
+                    default: return Brushes.LightGray;
+                }
+            }
+        }
+
+        // ===== 边框色：表达拓扑角色 =====
+        public Brush StrokeColor
         {
             get
             {
                 if (IsStartPoint) return Brushes.Orange;
                 if (IsEndPoint) return Brushes.Orchid;
-
-                switch (Status)
-                {
-                    case PoleResultStatus.OK:
-                        return Brushes.LimeGreen;
-                    case PoleResultStatus.NG:
-                        return Brushes.Red;
-                    default:
-                        return Brushes.LightGray;
-                }
+                return Brushes.Gray;   // 普通极柱也给个灰边框，方便选中加粗时看得见
             }
         }
+
         private bool _isSelected;
         public bool IsSelected
         {
@@ -63,12 +81,14 @@ namespace AVS_Modules_Settings.Models
             set
             {
                 if (SetProperty(ref _isSelected, value))
-                    RaisePropertyChanged(nameof(CircleColor));  // 选中高亮
+                    RaisePropertyChanged(nameof(StrokeThickness));
             }
         }
 
-        private bool _isEditing;
+        // ===== 边框粗细：表达选中 =====
+        public double StrokeThickness => IsSelected ? 4.0 : 2.0;
 
+        private bool _isEditing;
         public bool IsEditing
         {
             get => _isEditing;

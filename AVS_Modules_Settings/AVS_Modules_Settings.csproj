@@ -25,7 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AVS_Common\AVS_Common.csproj" />
     <ProjectReference Include="..\AVS_Drivers\AVS_Drivers.csproj" />
-    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
+    <ProjectReference Include="..\AVS_Service\AVS_Service.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="halcondotnet">

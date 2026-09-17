@@ -55,7 +55,7 @@ namespace AVS_Core.Services
                 _protocolEngine.ClearVariables();
 
                 ///此处stationId为工位名，如焊后检测
-                string stationId = _paramService.GetString("Global", "CurrentStationID", "Station01");
+                string stationId = _paramService.GetString("Global", "CurrentStationID", "焊后检测");
                 // 解析公共头，提取功能码
                 var headerConfig = _configRepo.GetCommonHeaderConfig(stationId);
                 _protocolEngine.ParseInput(rawMessage, headerConfig);
@@ -230,7 +230,7 @@ namespace AVS_Core.Services
         private string HandleCalibResult(string stationId, SessionConfig config)
         {
             string calibResult = _sessionService.GetResultData(stationId);
-            if (string.IsNullOrEmpty(calibResult) || calibResult.Length < 16)
+            if (string.IsNullOrEmpty(calibResult) || calibResult.Length < 18)
             {
                 _logger.Error("标定结果数据无效: {Data}", calibResult ?? "null");
                 return CreateErrorResponse(config, "Invalid calibration result");

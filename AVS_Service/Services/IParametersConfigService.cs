@@ -145,40 +145,42 @@ namespace AVS_Service.Services
         /// </summary>
         private void InjectDefaultGlobalParams()
         {
-            //相机维度
-            AddDefault("Global", "InspectDimensionCount", "2", ParamOutputType.INT);
             AddDefault("Global", "CurrentStationID", "焊后检测", ParamOutputType.STRING);
+            //相机维度
+            AddDefault("Global", "InspectDimensionCount", "2", ParamOutputType.INT, "相机维度");
+            // ---------- CSV保存路径 ----------
+            AddDefault("Global", "CsvSaveDir", "", ParamOutputType.STRING,"Csv保存路径");
             // ---------- 图像保存路径 ----------
-            AddDefault("Global", "ImageSaveDir", "", ParamOutputType.STRING);
-            AddDefault("Global", "ImageCompressRatio", "100", ParamOutputType.INT);
-            AddDefault("Global", "SaveOrnImgDays", "30", ParamOutputType.INT);
-            AddDefault("Global", "SaveRenImgDays", "30", ParamOutputType.INT);
+            AddDefault("Global", "ImageSaveDir", "", ParamOutputType.STRING, "图像保存路径");
+            AddDefault("Global", "ImageCompressRatio", "100", ParamOutputType.INT,"图像压缩比例");
+            AddDefault("Global", "SaveOrnImgDays", "30", ParamOutputType.INT,"保存原始图像天数");
+            AddDefault("Global", "SaveRenImgDays", "30", ParamOutputType.INT, "保存结果图像天数");
 
             // ---------- 2D 相机 ----------
-            AddDefault("Global", "IsSave2DOriginal", "false", ParamOutputType.BOOL);
-            AddDefault("Global", "IsSave2DNGOnly", "false", ParamOutputType.BOOL);
-            AddDefault("Global", "Format2DOriginal", "bmp", ParamOutputType.STRING);
-            AddDefault("Global", "IsSave2DResult", "true", ParamOutputType.BOOL);
-            AddDefault("Global", "Format2DResult", "jpeg", ParamOutputType.STRING);
-            AddDefault("Global", "IsSave2DMask", "false", ParamOutputType.BOOL);
+            AddDefault("Global", "IsSave2DOriginal", "false", ParamOutputType.BOOL, "仅保存原图 (2D)");
+            AddDefault("Global", "IsSave2DNGOnly", "false", ParamOutputType.BOOL, "仅保存NG图像 (2D)");
+            AddDefault("Global", "Format2DOriginal", "bmp", ParamOutputType.STRING, "原始图像格式 (2D)");
+            AddDefault("Global", "IsSave2DResult", "true", ParamOutputType.BOOL, "是否保存结果图像 (2D)");
+            AddDefault("Global", "Format2DResult", "jpeg", ParamOutputType.STRING, "结果图像格式 (2D)");
+            AddDefault("Global", "IsSave2DMask", "false", ParamOutputType.BOOL, "是否保存Mask图像 (2D)");
 
             // ---------- 3D 相机 ----------
-            AddDefault("Global", "IsSave3DNGOnly", "false", ParamOutputType.BOOL);
-            AddDefault("Global", "IsSave3DDepth", "true", ParamOutputType.BOOL);
-            AddDefault("Global", "Format3DDepth", "tiff", ParamOutputType.STRING);
-            AddDefault("Global", "IsSave3DIntensity", "true", ParamOutputType.BOOL);
-            AddDefault("Global", "Format3DIntensity", "bmp", ParamOutputType.STRING);
-            AddDefault("Global", "IsSave3DResult", "true", ParamOutputType.BOOL);
-            AddDefault("Global", "Format3DResult", "jpeg", ParamOutputType.STRING);
-            AddDefault("Global", "IsSave3DMask", "false", ParamOutputType.BOOL);
+            AddDefault("Global", "IsSave3DNGOnly", "false", ParamOutputType.BOOL, "仅保存NG图像 (3D)");
+            AddDefault("Global", "IsSave3DDepth", "true", ParamOutputType.BOOL, "是否保存深度图像 (3D)");
+            AddDefault("Global", "Format3DDepth", "tiff", ParamOutputType.STRING, "深度图像格式 (3D)");
+            AddDefault("Global", "IsSave3DIntensity", "true", ParamOutputType.BOOL, "是否保存亮度图像 (3D)");
+            AddDefault("Global", "Format3DIntensity", "bmp", ParamOutputType.STRING, "亮度图像格式 (3D)");
+            AddDefault("Global", "IsSave3DResult", "true", ParamOutputType.BOOL, "是否保存结果图像 (3D)");
+            AddDefault("Global", "Format3DResult", "jpeg", ParamOutputType.STRING, "结果图像格式 (3D)");
+            AddDefault("Global", "IsSave3DMask", "false", ParamOutputType.BOOL, "是否保存Mask图像 (3D)");
 
-           
+
         }
 
         /// <summary>
         /// 若指定模块+名称不存在则添加；存在则不覆盖。
         /// </summary>
-        private void AddDefault(string module, string name, string value, ParamOutputType type)
+        private void AddDefault(string module, string name, string value, ParamOutputType type, string note = "")
         {
             if (ConfigParams.Any(p => p.ModuleName == module && p.Name == name))
                 return;
@@ -188,6 +190,7 @@ namespace AVS_Service.Services
                 ModuleName = module,
                 Name = name,
                 Expression = value,
+                Note = note,
                 OutputType = type,
             });
         }
@@ -230,6 +233,9 @@ namespace AVS_Service.Services
                 Fx = GetDouble(stationId, "Fx", 0.014),
                 Fy = GetDouble(stationId, "Fy", 0.014),
                 Fz = GetDouble(stationId, "Fz", 0.005),
+                CornerX01 = GetDouble(stationId, "CornerX01", 0),
+                CornerY01 = GetDouble(stationId, "CornerY01", 0),
+                PsnTolerance = GetDouble(stationId, "PsnTolerance", 0.5),
                 RecipePath = GetString(stationId, "RecipePath"),
                 AngleStart = GetDouble(stationId, "AngleStart", 0),
                 AngleExtent = GetDouble(stationId, "AngleExtent", 360),

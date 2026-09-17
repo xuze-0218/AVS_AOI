@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
+    <ProjectReference Include="..\AVS_Service\AVS_Service.csproj" />
   </ItemGroup>
 
   <ItemGroup>

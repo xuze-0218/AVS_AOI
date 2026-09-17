@@ -1,39 +1,55 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net48</TargetFramework>
- 
-    <UseWPF>true</UseWPF>
-    <Platforms>AnyCPU;x64</Platforms>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net48</TargetFramework>
 
-  <ItemGroup>
-    <Compile Remove="Modules\**" />
-    <EmbeddedResource Remove="Modules\**" />
-    <None Remove="Modules\**" />
-    <Page Remove="Modules\**" />
-  </ItemGroup>
+		<UseWPF>true</UseWPF>
+		<Platforms>AnyCPU;x64</Platforms>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="HandyControl" Version="3.5.1" />
-    <PackageReference Include="Prism.Core" Version="8.1.97" />
-    <PackageReference Include="Prism.DryIoc" Version="8.1.97" />
-    <PackageReference Include="Prism.Wpf" Version="8.1.97" />
-  </ItemGroup>
+	<ItemGroup>
+		<Compile Remove="Modules\**" />
+		<EmbeddedResource Remove="Modules\**" />
+		<None Remove="Modules\**" />
+		<Page Remove="Modules\**" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\AVS_Common\AVS_Common.csproj" />
-    <ProjectReference Include="..\AVS_Core\AVS_Core.csproj" />
-    <ProjectReference Include="..\AVS_Modules_Data\AVS_Modules_Data.csproj" />
-    <ProjectReference Include="..\AVS_Modules_Settings\AVS_Modules_Settings.csproj" />
-    <ProjectReference Include="..\AVS_VisionService\AVS_Service.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="HandyControl" Version="3.5.1" />
+		<PackageReference Include="Prism.Core" Version="8.1.97" />
+		<PackageReference Include="Prism.DryIoc" Version="8.1.97" />
+		<PackageReference Include="Prism.Wpf" Version="8.1.97" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="halcondotnet">
-      <HintPath>..\AVS_Common\bin\Debug\net48\halcondotnet.dll</HintPath>
-    </Reference>
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\AVS_Common\AVS_Common.csproj" />
+		<ProjectReference Include="..\AVS_Core\AVS_Core.csproj" />
+		<ProjectReference Include="..\AVS_Modules_Data\AVS_Modules_Data.csproj" />
+		<ProjectReference Include="..\AVS_Modules_Settings\AVS_Modules_Settings.csproj" />
+		<ProjectReference Include="..\AVS_Service\AVS_Service.csproj" />
+	</ItemGroup>
+
+	<!-- 从 Core 的输出目录复制原生 DLL 到 App 的输出目录 --><!--
+	<Target Name="CopyNativeDllsFromCore" AfterTargets="Build">
+		<ItemGroup>
+			<CoreNativeDlls Include="..\AVS_Core\bin\$(Platform)\$(Configuration)\$(TargetFramework)\NativeLibs\**\*.dll" />
+		</ItemGroup>
+
+		<Copy SourceFiles="@(CoreNativeDlls)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" ContinueOnError="true" />
+
+		<Message Text="[CopyNativeDllsFromCore] 已复制 @(CoreNativeDlls-&gt;Count()) 个 DLL 到 $(OutputPath)" Importance="high" />
+	</Target>-->
+
+	<ItemGroup>
+		<Reference Include="halcondotnet">
+			<HintPath>..\AVS_Common\bin\Debug\net48\halcondotnet.dll</HintPath>
+		</Reference>
+		<Reference Include="System.Security" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Folder Include="Properties\" />
+	</ItemGroup>
 
 </Project>

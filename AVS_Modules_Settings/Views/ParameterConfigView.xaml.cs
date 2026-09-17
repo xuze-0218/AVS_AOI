@@ -98,5 +98,34 @@ namespace AVS_Modules_Settings.Views
                 }
             }
         }
+
+        private void SetAsStart_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ResolveContextMenuPoleItem(sender);
+            if (item == null) return;
+            (DataContext as ParameterConfigViewModel)?.SetAsStartCommand.Execute(item);
+        }
+
+        private void SetAsEnd_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ResolveContextMenuPoleItem(sender);
+            if (item == null) return;
+            (DataContext as ParameterConfigViewModel)?.SetAsEndCommand.Execute(item);
+        }
+
+        /// <summary>
+        /// 从 ContextMenu 的 PlacementTarget（那个 Grid）拿它绑定的 PoleCircleItem。
+        /// ContextMenu 是独立可视树，不能直接用它自己的 DataContext 走 VM。
+        /// </summary>
+        private PoleCircleItem ResolveContextMenuPoleItem(object sender)
+        {
+            if (sender is MenuItem mi
+                && mi.Parent is ContextMenu cm
+                && cm.PlacementTarget is FrameworkElement fe)
+            {
+                return fe.DataContext as PoleCircleItem;
+            }
+            return null;
+        }
     }
 }

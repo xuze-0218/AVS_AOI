@@ -369,7 +369,7 @@ namespace AVS_Core.Services
                     string segModelPathsStr = _paramService.GetString(moduleName, "SegModelPaths", "");
                     if (string.IsNullOrEmpty(detModelPath) && string.IsNullOrEmpty(segModelPathsStr))
                     {
-                        _logger.Warning("工位 {StationId}未配置AI模型路径，跳过（配置好后可触发重载）", station.StationId);
+                        _logger.Warning("工位 {StationId} 未配置 AI 模型路径，跳过（配置好后可触发重载）", station.StationId);
                         return;
                     }
                     try

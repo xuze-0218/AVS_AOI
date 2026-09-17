@@ -584,7 +584,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             try
             {
-                CurrentStationId = _paramConfig.GetString("Global", "CurrentStationID", "Station01");
+                CurrentStationId = _paramConfig.GetString("Global", "CurrentStationID", "焊后检测");
                 List<StationProtocolConfig> allStations = new List<StationProtocolConfig>();
                 if (File.Exists(_configPath))
                 {

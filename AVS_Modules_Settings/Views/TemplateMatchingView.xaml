@@ -6,7 +6,7 @@
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     d:DesignHeight="600"
-    d:DesignWidth="300"
+    d:DesignWidth="600"
     mc:Ignorable="d">
 
     <StackPanel Background="AliceBlue">

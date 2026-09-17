@@ -136,7 +136,7 @@ namespace AVS_Core.Services
                     if (_detHandles.ContainsKey(modelId))
                     {
                         _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已存在，先卸载旧模型", modelId);
-                        DisposeHandles(_detHandles, modelId); 
+                        DisposeHandles(_detHandles, modelId);
                     }
                     var handles = new List<Detector>();
                     foreach (var path in modelPaths)
@@ -299,7 +299,6 @@ namespace AVS_Core.Services
             {
                 using (var mmInput = Halcon2MmMat(imgGray))
                 {
-                    // 修正：Apply 返回 List<SegmentorOutput>
                     List<SegmentorOutput> output;
                     lock (_inferenceLock)
                     {

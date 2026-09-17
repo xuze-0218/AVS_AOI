@@ -12,8 +12,8 @@ namespace AVS_Common.Converts
 {
     /// <summary>
     /// 根据长度类型改变文本颜色
-    /// Dynamic → 蓝色（提醒用户这是动态的）
-    /// Fixed → 黑色
+    /// Dynamic  蓝色（动态的）
+    /// Fixed  黑色
     /// </summary>
     public class LengthTypeForegroundConverter : IValueConverter
     {

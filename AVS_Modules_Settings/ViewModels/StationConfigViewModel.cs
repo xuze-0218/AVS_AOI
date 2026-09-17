@@ -7,7 +7,9 @@ using Prism.Events;
 using Prism.Mvvm;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Windows.Input;
 
 namespace AVS_Modules_Settings.ViewModels
@@ -46,8 +48,8 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         public StationConfigViewModel(
-            IStationConfigService stationConfigService, 
-            ICameraConfigService cameraConfigService, 
+            IStationConfigService stationConfigService,
+            ICameraConfigService cameraConfigService,
             IParametersConfigService paramService,
             IEventAggregator eventAggregator)
         {
@@ -81,7 +83,7 @@ namespace AVS_Modules_Settings.ViewModels
 
                 _stationConfigService.Save();
                 // 保存后刷新原始ID记录
-                InitializeOriginalIds();   
+                InitializeOriginalIds();
                 //通知MainView刷新相机布局
                 _eventAggregator.GetEvent<StationConfigChangedEvent>().Publish();
             });
@@ -113,7 +115,7 @@ namespace AVS_Modules_Settings.ViewModels
                  .Where(m => !string.IsNullOrEmpty(m) && m != "Global")  //排除 Global
                 .Distinct()
                 .OrderBy(m => m)
-                .ToList() ?? new List<string>();          
+                .ToList() ?? new List<string>();
         }
 
         /// <summary>
@@ -160,33 +162,24 @@ namespace AVS_Modules_Settings.ViewModels
                 // 判断参数输出类型
                 ParamOutputType type;
                 if (value is bool)
-                {
                     type = ParamOutputType.BOOL;
-                }
                 else if (value is double || value is float)
-                {
                     type = ParamOutputType.FLOAT;
-                }
                 else if (value is int || value is long || value is short)
-                {
                     type = ParamOutputType.INT;
-                }
-                else
-                {
-                    type = ParamOutputType.STRING;
-                }
-
+                else type = ParamOutputType.STRING;
+                var descAttr = prop.GetCustomAttribute<DescriptionAttribute>();
+                string description = descAttr?.Description;
                 _paramService.ConfigParams.Add(new ParametersConfig
                 {
                     ModuleName = stationId,
                     Name = prop.Name,
                     Expression = expression,
                     InitValue = expression,
-                    Note = $"自动生成的默认参数（{stationId}）",
+                    Note = description,
                     OutputType = type
                 });
             }
-
             _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
         }
 
