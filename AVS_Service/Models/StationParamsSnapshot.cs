@@ -47,6 +47,9 @@ namespace AVS_Service.Models
         [Description("标定块基准中心 Y")]
         public double CornerY01 { get; set; }
 
+        [Description("标定块基准高度 Z")]
+        public double CornerZ01 { get; set; }
+
         [Description("标定块点检位置偏差阈值（像素）")]
         public double PsnTolerance { get; set; } = 0.5;
 

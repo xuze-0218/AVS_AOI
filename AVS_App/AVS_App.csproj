@@ -30,17 +30,6 @@
 		<ProjectReference Include="..\AVS_Service\AVS_Service.csproj" />
 	</ItemGroup>
 
-	<!-- 从 Core 的输出目录复制原生 DLL 到 App 的输出目录 --><!--
-	<Target Name="CopyNativeDllsFromCore" AfterTargets="Build">
-		<ItemGroup>
-			<CoreNativeDlls Include="..\AVS_Core\bin\$(Platform)\$(Configuration)\$(TargetFramework)\NativeLibs\**\*.dll" />
-		</ItemGroup>
-
-		<Copy SourceFiles="@(CoreNativeDlls)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" ContinueOnError="true" />
-
-		<Message Text="[CopyNativeDllsFromCore] 已复制 @(CoreNativeDlls-&gt;Count()) 个 DLL 到 $(OutputPath)" Importance="high" />
-	</Target>-->
-
 	<ItemGroup>
 		<Reference Include="halcondotnet">
 			<HintPath>..\AVS_Common\bin\Debug\net48\halcondotnet.dll</HintPath>

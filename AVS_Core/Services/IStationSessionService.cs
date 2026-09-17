@@ -495,11 +495,11 @@ namespace AVS_Core.Services
             {
                 case I2DVisionProvider p2D:
                     result = isVerification
-                        ? await p2D.ExecuteVerificationAsync(image, new CalibrationParams())
-                        : await p2D.ExecuteCalibrationAsync(image, new CalibrationParams());
+                        ? await p2D.ExecuteVerificationAsync(image)
+                        : await p2D.ExecuteCalibrationAsync(image);
                     break;
                 case I3DVisionProvider p3D:
-                    result = await p3D.ExecuteCalibrationAsync(image, new CalibrationParams());
+                    result = await p3D.ExecuteCalibrationAsync(image);
                     break;
                 default:
                     throw new InvalidOperationException($"未知类型: {state.Provider.GetType()}");

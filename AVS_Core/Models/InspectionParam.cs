@@ -16,13 +16,6 @@
         public string WorkType { get; set; }
     }
 
-    public class CalibrationParams
-    {
-        public string ParamDir { get; set; }
-        public double ResoX { get; set; }
-        public double ResoY { get; set; }
-    }
-
     public class InspectionInitParams
     {
         /// <summary>

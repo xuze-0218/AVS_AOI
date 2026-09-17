@@ -235,6 +235,7 @@ namespace AVS_Service.Services
                 Fz = GetDouble(stationId, "Fz", 0.005),
                 CornerX01 = GetDouble(stationId, "CornerX01", 0),
                 CornerY01 = GetDouble(stationId, "CornerY01", 0),
+                CornerZ01 = GetDouble(stationId, "CornerZ01", 0),
                 PsnTolerance = GetDouble(stationId, "PsnTolerance", 0.5),
                 RecipePath = GetString(stationId, "RecipePath"),
                 AngleStart = GetDouble(stationId, "AngleStart", 0),

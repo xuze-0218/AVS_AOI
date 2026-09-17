@@ -27,15 +27,15 @@ namespace AVS_Core.Services
     public interface I2DVisionProvider : IVisionProvider
     {
         Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param);
-        Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param);
-        Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param);
+        Task<string> ExecuteCalibrationAsync(HObject image);
+        Task<string> ExecuteVerificationAsync(HObject image);
     }
 
     public interface I3DVisionProvider : IVisionProvider
     {
         Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param);
-        Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param);
-        //Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param);
+        Task<string> ExecuteCalibrationAsync(HObject image);
+        Task<string> ExecuteVerificationAsync(HObject image);
     }
 
 
@@ -86,7 +86,7 @@ namespace AVS_Core.Services
         }
 
 
-        public Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
+        public Task<string> ExecuteCalibrationAsync(HObject image)
         {
             var p = _paramService.GetStationParams(_stationId);
             HTuple matchParam = new HTuple();
@@ -344,7 +344,7 @@ namespace AVS_Core.Services
             _backgroundWindow.SetPart(0, 0, height - 1, width - 1);
         }
 
-        public Task<string> ExecuteVerificationAsync(HObject image, CalibrationParams param)
+        public Task<string> ExecuteVerificationAsync(HObject image)
         {
 
             var p = _paramService.GetStationParams(_stationId);
@@ -623,7 +623,7 @@ namespace AVS_Core.Services
             _aiDrive = aiDrive;
         }
 
-        public Task<string> ExecuteCalibrationAsync(HObject image, CalibrationParams param)
+        public Task<string> ExecuteCalibrationAsync(HObject image)
         {
             //读取ROI区域
             var p = _paramService.GetStationParams(_stationId);
@@ -636,14 +636,163 @@ namespace AVS_Core.Services
 
             HOperatorSet.ReadRegion(out HObject roiRegionA, regionNameStrA);
             HOperatorSet.ReadRegion(out HObject roiRegionB, regionNameStrB);
-            double resoX = p.Fx;
-            double resoY = p.Fy;
-            double resoZ = p.Fz;
-            BoardCalibrate(image, roiRegionA, roiRegionB, resoX, resoY, resoZ, out string calibrateResult, out string calibrateData);
-            roiRegionA.Dispose();
-            roiRegionB.Dispose();
-            return Task.FromResult(calibrateResult + "," + calibrateData);
 
+            try
+            {
+                double resoX = p.Fx; double resoY = p.Fy; double resoZ = p.Fz;
+
+                string calibrateResult, calibrateData;
+                double boardHeightValue;
+                BoardCalibrate(image, roiRegionA, roiRegionB, resoX, resoY, resoZ,
+                    out boardHeightValue, out calibrateResult, out calibrateData);
+                if (calibrateResult == "01")
+                {
+                    _paramService.UpdateParam(_stationId, "CornerZ01",
+                        boardHeightValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ParamOutputType.FLOAT);
+                    _paramService.SaveConfig();
+                    _logger.Information("[3D标定] 工位 {StationId} 基准高度 Z={Z:F3}", _stationId, boardHeightValue);
+                }
+                else
+                {
+                    _logger.Warning("[3D标定] 工位 {StationId} 标定失败，不更新基准 Z", _stationId);
+                }
+
+                //保存标定原图
+                SaveCalibOriginImage(image);
+
+                //保存CSV记录
+                SaveBoardCalibrateRecord3D("标定",
+                    baseZ: boardHeightValue, currentZ: boardHeightValue,
+                    deviationZ: 0, tolerance: p.PsnTolerance, result: calibrateResult);
+
+                return Task.FromResult(calibrateResult + "," + calibrateData);
+            }
+            finally
+            {
+                roiRegionA?.Dispose();
+                roiRegionB?.Dispose();
+            }
+        }
+
+        public Task<string> ExecuteVerificationAsync(HObject image)
+        {
+            var p = _paramService.GetStationParams(_stationId);
+            string recipePath = p.RecipePath;
+            if (string.IsNullOrEmpty(recipePath))
+                recipePath = AppDomain.CurrentDomain.BaseDirectory;
+
+            string regionNameStrA = Path.Combine(recipePath, $"Region{_stationId}_4.hobj");
+            string regionNameStrB = Path.Combine(recipePath, $"Region{_stationId}_5.hobj");
+
+            HOperatorSet.ReadRegion(out HObject roiRegionA, regionNameStrA);
+            HOperatorSet.ReadRegion(out HObject roiRegionB, regionNameStrB);
+
+            try
+            {
+                double resoX = p.Fx, resoY = p.Fy, resoZ = p.Fz;
+                string calibrateResult, calibrateData;
+                double boardHeightValue;
+                BoardCalibrate(image, roiRegionA, roiRegionB, resoX, resoY, resoZ,
+                    out boardHeightValue, out calibrateResult, out calibrateData);
+
+                //读基准 + 判定
+                double baseHeight = p.CornerZ01;
+                double tolerance = p.PsnTolerance;
+                bool hasBaseHeight = Math.Abs(baseHeight) > 0.000001;
+
+                double deviationZ = 0;
+                string finalResult;
+
+                if (!hasBaseHeight)
+                {
+                    finalResult = "02";
+                    _logger.Warning("[3D点检] 工位 {StationId} 未保存基准高度，请先执行标定", _stationId);
+                }
+                else if (calibrateResult != "01")
+                {
+                    finalResult = "02";
+                    _logger.Warning("[3D点检] 工位 {StationId} 测量失败", _stationId);
+                }
+                else if (tolerance <= 0)
+                {
+                    finalResult = "02";
+                    _logger.Warning("[3D点检] 工位 {StationId} 容差未设置", _stationId);
+                }
+                else
+                {
+                    deviationZ = boardHeightValue - baseHeight;
+                    finalResult = Math.Abs(deviationZ) <= tolerance ? "01" : "02";
+                    _logger.Information(
+                        "[3D点检] 工位 {StationId} 基准Z={BZ:F3} 当前Z={CZ:F3} 偏差={DZ:F3} 阈值={T:F3} 结果={R}",
+                        _stationId, baseHeight, boardHeightValue, deviationZ, tolerance, finalResult);
+                }
+                SaveBoardCalibrateRecord3D("点检",
+                    baseZ: baseHeight, currentZ: boardHeightValue,
+                    deviationZ: deviationZ, tolerance: tolerance, result: finalResult);
+                string resultData = DoubleToString(boardHeightValue, 8) + "+0000000";
+                return Task.FromResult(finalResult + "," + resultData);
+            }
+            finally
+            {
+                roiRegionA?.Dispose();
+                roiRegionB?.Dispose();
+            }
+        }
+
+        private void SaveCalibOriginImage(HObject image)
+        {
+            try
+            {
+                if (image == null || !image.IsInitialized()) return;
+                string baseDir = _paramService.GetString("Global", "ImageSaveDir", "");
+                if (string.IsNullOrWhiteSpace(baseDir))
+                    baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images");
+                string dir = Path.Combine(baseDir, "标定图片", "3D");
+                Directory.CreateDirectory(dir);
+
+                var camSetting = _cameraConfigService.AllSettings
+                    .FirstOrDefault(s => s.CameraRole == _stationConfig.GetStation(_stationId).CameraRole);
+                bool isLmi = camSetting != null && (CameraBrand)camSetting.CameraType == CameraBrand.LMI3D;
+                string ext = isLmi ? ".png" : ".tiff";
+                string format = isLmi ? "png" : "tiff";
+                string path = Path.Combine(dir, $"Calib3D_{_stationId}_{DateTime.Now:yyyyMMdd_HHmmss_fff}{ext}");
+                HOperatorSet.WriteImage(image, format, 0, path);
+                _logger.Information("[3D标定] 原图已保存: {Path}", path);
+            }
+            catch (Exception ex) { _logger.Error(ex, "[3D标定] 保存原图失败"); }
+        }
+
+        private void SaveBoardCalibrateRecord3D(string workType,
+            double baseZ, double currentZ, double deviationZ, double tolerance, string result)
+        {
+            try
+            {
+                string csvRoot = _paramService.GetString("Global", "CsvSaveDir", "");
+                if (string.IsNullOrWhiteSpace(csvRoot))
+                    csvRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Csv");
+                string dir = Path.Combine(csvRoot, "3D标定块", DateTime.Now.ToString("yyyy_MM_dd"));
+                Directory.CreateDirectory(dir);
+
+                string csvPath = Path.Combine(dir, "_BoardCalibrateRecord.csv");
+                bool isNew = !File.Exists(csvPath);
+                var sb = new StringBuilder();
+                if (isNew)
+                    sb.AppendLine("时间,相机,类型,基准Z,当前Z,偏差Z,阈值,结果");
+
+                sb.AppendLine(string.Join(",",
+                    DateTime.Now.ToString("yyyy_MM_dd HH:mm:ss.fff"),
+                    _stationId,
+                    workType,
+                    baseZ.ToString("0.000"),
+                    currentZ.ToString("0.000"),
+                    deviationZ.ToString("0.000"),
+                    tolerance.ToString("0.000"),
+                    result == "01" ? "OK" : "NG"));
+
+                File.AppendAllText(csvPath, sb.ToString(), Encoding.UTF8);
+            }
+            catch (Exception ex) { _logger.Error(ex, "[3D标定] 写CSV失败"); }
         }
 
         public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
@@ -823,9 +972,9 @@ namespace AVS_Core.Services
                 mask01?.Dispose();
                 mask02?.Dispose();
                 mask03?.Dispose();
-                mask01Img.Dispose();
-                mask02Img.Dispose();
-                mask03Img.Dispose();
+                mask01Img?.Dispose();
+                mask02Img?.Dispose();
+                mask03Img?.Dispose();
                 resultImage?.Dispose();
             }
 
@@ -908,7 +1057,7 @@ namespace AVS_Core.Services
             }
         }
 
-        private void BoardCalibrate(HObject img, HObject roiA, HObject roiB, double resoX, double resoY, double resoZ, out string result, out string resultData)
+        private void BoardCalibrate(HObject img, HObject roiA, HObject roiB, double resoX, double resoY, double resoZ, out double heightValue, out string result, out string resultData)
         {
 
             HTuple highDiff = null;
@@ -918,10 +1067,9 @@ namespace AVS_Core.Services
             }
             catch (Exception)
             {
-                result = "02";
-                resultData = "";
-                throw;
+                result = "02"; resultData = ""; throw;
             }
+            heightValue = highDiff.D;
             result = "01";
             resultData = DoubleToString(highDiff.D, 8) + "+0000000";
         }
