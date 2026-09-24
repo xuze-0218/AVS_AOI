@@ -125,7 +125,7 @@ namespace AVS_Core.Services
         {
             if (string.IsNullOrEmpty(modelId) || modelPaths == null || modelPaths.Length == 0)
             {
-                _logger?.Warning("[AiDrive] LoadDetModel: stationId 或 modelPaths 无效");
+                _logger?.Warning("LoadDetModel: stationId 或 modelPaths 无效");
                 return false;
             }
 
@@ -135,7 +135,7 @@ namespace AVS_Core.Services
                 {
                     if (_detHandles.ContainsKey(modelId))
                     {
-                        _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已存在，先卸载旧模型", modelId);
+                        _logger?.Information("工位 {StationId} 检测模型已存在，先卸载旧模型", modelId);
                         DisposeHandles(_detHandles, modelId);
                     }
                     var handles = new List<Detector>();
@@ -143,12 +143,12 @@ namespace AVS_Core.Services
                         handles.Add(new Detector(path, _deviceName, _deviceId));
                     _detHandles[modelId] = handles;
                 }
-                _logger?.Information("[AiDrive] 工位 {StationId} 加载 {Count} 个检测模型完成", modelId, modelPaths.Length);
+                _logger?.Information("工位 {StationId} 加载 {Count} 个检测模型完成", modelId, modelPaths.Length);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 加载检测模型失败", modelId);
+                _logger?.Error(ex, "工位 {StationId} 加载检测模型失败", modelId);
                 return false;
             }
         }
@@ -156,13 +156,13 @@ namespace AVS_Core.Services
         public void UnloadDetModel(string modelId)
         {
             lock (_lock) DisposeHandles(_detHandles, modelId);
-            _logger?.Information("[AiDrive] 工位 {StationId} 检测模型已卸载", modelId);
+            _logger?.Information("工位 {StationId} 检测模型已卸载", modelId);
         }
 
         public void UnloadSegModel(string modelId)
         {
             lock (_lock) DisposeHandles(_segHandles, modelId);
-            _logger?.Information("[AiDrive] 工位 {StationId} 分割模型已卸载", modelId);
+            _logger?.Information("工位 {StationId} 分割模型已卸载", modelId);
         }
 
         // ========== 推理接口 ==========
@@ -203,7 +203,7 @@ namespace AVS_Core.Services
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 分割推理失败 (modelIndex={Index})", modelId, modelIndex);
+                _logger?.Error(ex, "工位 {StationId} 分割推理失败 (modelIndex={Index})", modelId, modelIndex);
                 HOperatorSet.GenEmptyObj(out imgMask);
             }
         }
@@ -243,12 +243,12 @@ namespace AVS_Core.Services
                         output = detector.Apply(mmInput.Mats);
                     }
                     swInfer.Stop();
-                    _logger?.Information("[AI检测] 模型ID={ModelId} 图像转换耗时: {ConvertMs} ms, 推理耗时: {InferMs} ms",
+                    _logger?.Information("模型ID={ModelId} 图像转换耗时: {ConvertMs} ms, 推理耗时: {InferMs} ms",
                         modelId, swConvert.ElapsedMilliseconds, swInfer.ElapsedMilliseconds);
 
                     if (output == null || output.Count == 0 || output[0].Results == null)
                     {
-                        _logger?.Debug("[AiDrive] 工位 {StationId} 检测输出为空", modelId);
+                        _logger?.Debug("工位 {StationId} 检测输出为空", modelId);
                         return;
                     }
 
@@ -279,7 +279,7 @@ namespace AVS_Core.Services
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 工位 {StationId} 检测推理失败 (modelIndex={Index})", modelId, modelIndex);
+                _logger?.Error(ex, "工位 {StationId} 检测推理失败 (modelIndex={Index})", modelId, modelIndex);
                 targetLabels = multiTarget ? new int[2] { -1, -1 } : new int[1] { -1 };
                 targetRect = new HTuple();
             }
@@ -299,6 +299,7 @@ namespace AVS_Core.Services
             {
                 using (var mmInput = Halcon2MmMat(imgGray))
                 {
+                    // 修正：Apply 返回 List<SegmentorOutput>
                     List<SegmentorOutput> output;
                     lock (_inferenceLock)
                     {
@@ -307,7 +308,7 @@ namespace AVS_Core.Services
 
                     if (output == null || output.Count == 0 || output[0].Mask == null || output[0].Mask.Length == 0)
                     {
-                        _logger?.Warning("[AiDrive] 3D分割输出无效");
+                        _logger?.Warning("3D分割输出无效");
                         return;
                     }
 
@@ -318,7 +319,7 @@ namespace AVS_Core.Services
 
                     if (maskData.Length < width * height)
                     {
-                        _logger?.Error("[AiDrive] 3D分割Mask数据长度不足");
+                        _logger?.Error("3D分割Mask数据长度不足");
                         return;
                     }
 
@@ -359,7 +360,7 @@ namespace AVS_Core.Services
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AiDrive] 3D分割推理失败");
+                _logger?.Error(ex, "3D分割推理失败");
                 HOperatorSet.GenEmptyObj(out imgMask);
                 HOperatorSet.GenEmptyObj(out mask01);
                 HOperatorSet.GenEmptyObj(out mask02);
@@ -385,7 +386,7 @@ namespace AVS_Core.Services
                 DisposeHandles(_segHandles, modelId);
                 DisposeHandles(_detHandles, modelId);
             }
-            _logger?.Information("[AiDrive] 工位 {StationId} 模型已卸载", modelId);
+            _logger?.Information("工位 {StationId} 模型已卸载", modelId);
         }
 
         public void Dispose()
@@ -402,7 +403,7 @@ namespace AVS_Core.Services
                 _segHandles.Clear();
                 _detHandles.Clear();
             }
-            _logger?.Information("[AiDrive] AiDriveService 已释放所有资源");
+            _logger?.Information("AiDriveService 已释放所有资源");
         }
 
         // ========== 内部辅助方法 ==========
@@ -422,12 +423,12 @@ namespace AVS_Core.Services
             handle = null;
             if (!storage.TryGetValue(stationId, out var handles))
             {
-                _logger?.Warning("[AiDrive] 工位 {StationId} {Type} 模型未加载", stationId, typeof(T).Name);
+                _logger?.Warning("工位 {StationId} {Type} 模型未加载", stationId, typeof(T).Name);
                 return false;
             }
             if (index < 0 || index >= handles.Count)
             {
-                _logger?.Error("[AiDrive] 工位 {StationId} {Type} 模型索引 {Index} 越界 (总数={Count})",
+                _logger?.Error("工位 {StationId} {Type} 模型索引 {Index} 越界 (总数={Count})",
                     stationId, typeof(T).Name, index, handles.Count);
                 return false;
             }

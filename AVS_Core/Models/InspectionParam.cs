@@ -2,9 +2,6 @@
 {
     public class InspectionParams
     {
-        public double Score { get; set; }
-        public bool IsAiCheck { get; set; }
-
         /// <summary>
         /// 模组名称（用于综合检测CSV的模组码列）
         /// </summary>

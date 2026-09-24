@@ -80,13 +80,20 @@ namespace AVS_Core.Services
         private readonly ConcurrentDictionary<int, PoleAggregator> _poleAggregators = new ConcurrentDictionary<int, PoleAggregator>();
         private readonly SemaphoreSlim _preloadLock = new SemaphoreSlim(1, 1);
         //private Task _preloadTask; // 后台预加载任务
-
-
         private readonly ConcurrentDictionary<string, SessionState> _sessions = new ConcurrentDictionary<string, SessionState>();
         /// <summary>
         /// 视觉服务缓存
         /// </summary>
         private readonly ConcurrentDictionary<string, IVisionProvider> _providers = new ConcurrentDictionary<string, IVisionProvider>();
+
+        // 尾部补齐段：带+号，和旧版 SetInspectMsg 的补零段对齐
+        private static readonly string ZeroField = "+0000000";
+        private static string PadSegment() => "00" + string.Concat(Enumerable.Repeat(ZeroField, 6));
+
+        // 超时/异常段：纯0
+        private static string EmptySegment() => "00" + new string('0', 48);
+        private static string ErrorSegment() => "02" + new string('0', 48);
+
         public StationSessionService(IContainerProvider containerProvider, IStationConfigService stationConfigService,
             IParametersConfigService paramService, ILogger logger, IAiDriveService aiDriveService,
             ICsvSaverService csvService, IEventAggregator eventAggregator, IImageSaveService imageSaveService)
@@ -294,6 +301,15 @@ namespace AVS_Core.Services
                 _logger.Warning("无效会话或非检测模式，工位 {StationId}", stationId);
                 return GenerateEmptyResult(msgPoleCapacity);
             }
+            int expected = state.PoleOrder.Length;
+            int received = state.ReceivedCount;
+            bool hasFrameLoss = received < expected;
+            if (hasFrameLoss)
+            {
+                _logger.Error("工位 {StationId} 丢帧！预期 {Expected} 张，实收 {Received} 张，缺失 {Miss} 张，本批结果可能错位",
+                    stationId, expected, received, expected - received);
+                // return string.Concat(Enumerable.Repeat("02" + new string('0', 48), msgPoleCapacity));
+            }
             int requestedCount = endPole - startPole + 1;
             if (requestedCount > msgPoleCapacity)
             {
@@ -301,11 +317,14 @@ namespace AVS_Core.Services
                 requestedCount = msgPoleCapacity;
             }
             var results = new List<string>();
-            for (int pole = startPole; pole <= endPole; pole++)
+            int actualCount = Math.Min(endPole - startPole + 1, msgPoleCapacity);
+            int actualEnd = startPole + actualCount - 1;
+            for (int pole = startPole; pole <= actualEnd; pole++)
             {
                 if (pole < 0 || pole >= state.ResultSources.Length)
                 {
-                    results.Add("00" + new string('0', 48));
+                    //results.Add("00" + new string('0', 48));
+                    results.Add(PadSegment()); //非全0，带 + 号
                     continue;
                 }
                 var tcs = state.ResultSources[pole];

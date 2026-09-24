@@ -34,11 +34,6 @@ namespace AVS_App
             return Container.Resolve<MainWindow>();
         }
 
-        protected override void InitializeShell(Window shell)
-        {
-
-        }
-
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
             //注册导航
@@ -46,6 +41,8 @@ namespace AVS_App
             containerRegistry.RegisterForNavigation<StationConfigView>();
             containerRegistry.RegisterForNavigation<ParameterConfigView>();
             containerRegistry.RegisterForNavigation<TempAndCaliDebugView>();
+            containerRegistry.RegisterForNavigation<TemplateMatchingView>();
+            containerRegistry.RegisterForNavigation<CaliperMeasureView>();
             containerRegistry.RegisterForNavigation<ProtocolConfigView>();
             containerRegistry.RegisterForNavigation<CameraDebugView>();
             containerRegistry.RegisterForNavigation<PlcDebugView>();

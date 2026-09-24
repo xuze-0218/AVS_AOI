@@ -246,7 +246,7 @@ namespace AVS_Service.Services
         {
             if (IsValidImage(mask))
             {
-                string format = "jpg 100";
+                string format = "jpg";
                 string subDir = "ResultImage\\Masklmage";
                 SaveImageAsync(data, mask, dimension, subDir, suffix, format, defectFolder);
             }
@@ -256,7 +256,7 @@ namespace AVS_Service.Services
         {
             if (IsValidImage(mask))
             {
-                string format = "jpg 100";
+                string format = "jpg";
                 string subDir = "ResultImage\\Masklmage";
                 SaveImageAsync(data, mask, dimension, subDir, suffix, format, defectFolder);
             }

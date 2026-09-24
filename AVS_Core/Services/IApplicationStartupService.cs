@@ -100,7 +100,32 @@ namespace AVS_Core.Services
                     await StartStationsAsync(stationsSnapshot).ConfigureAwait(false);
                 }).ConfigureAwait(false);
                 StartCameraInitialization();
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (_backgroundInitializationTask != null)
+                            await _backgroundInitializationTask.ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "等待相机初始化完成失败");
+                    }
 
+                    int camCount = _cameraConfigService.ConnectedCameras.Count;
+                    bool isReady = camCount > 0;
+                    _logger.Information("应用初始化全部完成，已连接相机 {Count} 台，isReady={Ready}",
+                        camCount, isReady);
+
+                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                    if (dispatcher != null)
+                    {
+                        await dispatcher.InvokeAsync(() =>
+                        {
+                            _eventAggregator.GetEvent<ApplicationStartupCompletedEvent>().Publish(isReady);
+                        }).Task;
+                    }
+                });
             }
             catch (Exception ex)
             {

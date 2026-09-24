@@ -207,8 +207,9 @@ namespace AVS_Core.Services
                 _logger.Error(ex, "工位 {StationId} 获取结果失败", stationId);
                 resultData = string.Concat(Enumerable.Repeat("02" + new string('0', 48), msgPoleCapacity));
             }
-            _protocolEngine.SetVariable("Result", "01");
-            _protocolEngine.SetVariable("ResultData", resultData);
+            //_protocolEngine.SetVariable("Result", "01");
+            //_protocolEngine.SetVariable("ResultData", resultData);
+            _protocolEngine.SetVariable("Result", resultData);
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 

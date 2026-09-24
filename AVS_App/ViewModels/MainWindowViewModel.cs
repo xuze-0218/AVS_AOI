@@ -10,6 +10,7 @@ using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
 using Prism.Regions;
+using Serilog;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace AVS_App.ViewModels
 {
     public class MainWindowViewModel : BindableBase
     {
+        private readonly ILogger _logger;
         private readonly IRegionManager _regionManager;
         private readonly IEventAggregator _eventAggregator;
         private readonly ICommunicationService _communicationService;
@@ -116,9 +118,16 @@ namespace AVS_App.ViewModels
         public DelegateCommand StopAllCommand { get; set; }
         public DelegateCommand LoginCommand { get; set; }
         public ObservableCollection<LogEventModel> LogSource => UiLogSink.LogCollection;
-        public MainWindowViewModel(IRegionManager regionManager, IEventAggregator eventAggregator, ICommunicationService communicationService,
-            IStationConfigService stationConfigService, ICameraConfigService cameraConfigService, ILoginCredentialService loginCredentialService)
+        public MainWindowViewModel(
+            ILogger logger,
+            IRegionManager regionManager,
+            IEventAggregator eventAggregator,
+            ICameraConfigService cameraConfigService,
+            ICommunicationService communicationService,
+            IStationConfigService stationConfigService,
+            ILoginCredentialService loginCredentialService)
         {
+            _logger = logger;
             _regionManager = regionManager;
             _eventAggregator = eventAggregator;
             _cameraConfigService = cameraConfigService;
@@ -146,6 +155,7 @@ namespace AVS_App.ViewModels
                 Application.Current?.Dispatcher.Invoke(RefreshCameraGrabbingStatus);
             };
             eventAggregator.GetEvent<PoleResultEvent>().Subscribe(OnPoleResult, ThreadOption.UIThread);
+            _eventAggregator.GetEvent<ApplicationStartupCompletedEvent>().Subscribe(OnStartupCompleted, ThreadOption.UIThread);
         }
 
         private void OnPoleResult(PoleResultPayload payload)
@@ -155,6 +165,45 @@ namespace AVS_App.ViewModels
             YieldRate = TotalCount == 0 ? 0 : Math.Round((double)OkCount / TotalCount * 100, 1);
         }
 
+        /// <summary>
+        /// 应用初始化完成后自动启动采集
+        /// </summary>
+        private async void OnStartupCompleted(bool isReady)
+        {
+            try
+            {
+                if (!isReady)
+                {
+                    MessageBox.Show(
+                        "应用初始化完成，但未检测到已连接的相机。\n请检查相机连接后手动点击「启动」。",
+                        "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (IsAutoRunning) return;  // 已经在跑，不重复
+
+                //UI渲染等待时间（相机状态刚变更，命令状态需要刷新）
+                await Task.Delay(800);
+
+                // 主动刷新一次状态
+                RefreshCameraStatus();
+                RefreshCameraGrabbingStatus();
+                RefreshCommandStatus();
+
+                if (!CanStartAll())
+                {
+                    _logger.Warning($"CanStartAll=false (IsCameraConnected={IsCameraConnected}, IsBusy={IsBusy})");
+                    return;
+                }
+
+                await ExecuteStartAllAsync();
+                _logger.Information("自动启动完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"[AutoStart] 自动启动异常: {ex.Message}");
+            }
+        }
         private void Navigate(string navigatePath)
         {
             if (!string.IsNullOrEmpty(navigatePath))
@@ -233,7 +282,7 @@ namespace AVS_App.ViewModels
             }
             catch (Exception ex)
             {
-                // 建议记录日志
+                _logger.Error(ex.Message);
             }
             finally
             {
