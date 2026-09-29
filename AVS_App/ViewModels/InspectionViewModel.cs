@@ -66,6 +66,7 @@ namespace AVS_App.ViewModels
 
         private void OnImageReceived(CameraImagePayload payload)
         {
+            //if (payload.IsFromDebug) return;  //调试图像不在实时检测界面显示,可保留
             var targetCam = CameraDisplayList.FirstOrDefault(x => x.PhysicalSN == payload.CameraSN);
             if (targetCam == null)
                 return;

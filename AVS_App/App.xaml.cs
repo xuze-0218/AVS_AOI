@@ -4,12 +4,14 @@ using AVS_Common;
 using AVS_Common.Events;
 using AVS_Common.Services;
 using AVS_Core.Services;
+using AVS_Modules_Settings.ViewModels;
 using AVS_Modules_Settings.Views;
 using AVS_Service.Models;
 using AVS_Service.Services;
 using DryIoc;
 using Prism.DryIoc;
 using Prism.Ioc;
+using Prism.Mvvm;
 using Prism.Regions;
 using Serilog;
 using System;
@@ -34,6 +36,11 @@ namespace AVS_App
             return Container.Resolve<MainWindow>();
         }
 
+        protected override void InitializeShell(Window shell)
+        {
+
+        }
+
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
             //注册导航
@@ -41,12 +48,9 @@ namespace AVS_App
             containerRegistry.RegisterForNavigation<StationConfigView>();
             containerRegistry.RegisterForNavigation<ParameterConfigView>();
             containerRegistry.RegisterForNavigation<TempAndCaliDebugView>();
-            containerRegistry.RegisterForNavigation<TemplateMatchingView>();
-            containerRegistry.RegisterForNavigation<CaliperMeasureView>();
             containerRegistry.RegisterForNavigation<ProtocolConfigView>();
             containerRegistry.RegisterForNavigation<CameraDebugView>();
             containerRegistry.RegisterForNavigation<PlcDebugView>();
-            containerRegistry.RegisterForNavigation<MetrologyView>();
             containerRegistry.RegisterForNavigation<DebugCenterView>();
             containerRegistry.RegisterForNavigation<HistoryQueryView>();
 
@@ -65,7 +69,6 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<IProtocolEngineService, ProtocolEngineService>();
             containerRegistry.RegisterSingleton<ICommunicationService, CommunicationService>();
             containerRegistry.RegisterSingleton<IStationConfigService, StationConfigService>();
-            containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
             containerRegistry.RegisterSingleton<ILoginCredentialService, LoginCredentialService>();
             containerRegistry.RegisterSingleton<ILocalTestService, LocalTestService>();
             containerRegistry.RegisterSingleton<ICsvFileWriter, CsvRw>();
@@ -73,7 +76,8 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<ICsvSaverService, CsvSaverService>();
             containerRegistry.RegisterSingleton<IImageSaveService, ImageSaveService>();
 
-            //containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
+            containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
+            containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
             containerRegistry.RegisterSingleton<IMetrologyService, MetrologyService>();
             containerRegistry.RegisterSingleton<IApplicationStartupService, ApplicationStartupService>();
 
@@ -98,6 +102,10 @@ namespace AVS_App
                     //注册窗口句柄事件
                     WindowHandleEvent.HandleRegistered += (rn, handle) => Container.Resolve<IWindowHandleRegistry>().Register(rn, handle);
                     WindowHandleEvent.HandleUnregistered += (rn) => Container.Resolve<IWindowHandleRegistry>().Unregister(rn);
+                    var engineProvider = Container.Resolve<IHalconEngineProvider>();
+                    engineProvider.GetEngine();
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[App] HALCON 引擎已在 UI 线程初始化, ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
                     //导航到InspectionView
                     var regionManager = Container.Resolve<IRegionManager>();
                     regionManager.RequestNavigate("MainContentRegion", "InspectionView");

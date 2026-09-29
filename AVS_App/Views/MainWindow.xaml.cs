@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using AVS_Service.Services;
+using Prism.Ioc;
+using System.Windows;
 namespace AVS_App.Views
 {
     /// <summary>
@@ -9,7 +11,6 @@ namespace AVS_App.Views
         public MainWindow()
         {
             InitializeComponent();
-        }
-
+        }     
     }
 }

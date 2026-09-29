@@ -7,8 +7,8 @@
     xmlns:halcon="clr-namespace:HalconDotNet;assembly=halcondotnet"
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
     xmlns:prism="http://prismlibrary.com/"
+    xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
     d:DesignHeight="650"
     d:DesignWidth="850"
     prism:ViewModelLocator.AutoWireViewModel="True"
@@ -58,12 +58,11 @@
             BorderThickness="1"
             CornerRadius="3">
             <Grid>
-                <!--<comm:CameraDisplayUnit MinHeight="300" MinWidth="400" DispImage="{Binding CurrentDebugImage}" CameraRoleName="{Binding CameraRoleName}"  />-->
-                <!--<halcon:HSmartWindowControlWPF x:Name="DebugHWindow" HInitWindow="DebugHWindow_HInitWindow"    HKeepAspectRatio="True" />-->
-                <Image Source="{Binding DisplayBitmapSource}" 
-               Stretch="Uniform" 
-               HorizontalAlignment="Center" 
-               VerticalAlignment="Center" />
+                <comm:CameraDisplayUnit
+                    MinWidth="400"
+                    MinHeight="300"
+                    CameraRoleName="{Binding CameraRoleName}"
+                    DispImage="{Binding CurrentDebugImage}" />
                 <TextBlock
                     Margin="10"
                     HorizontalAlignment="Left"
@@ -151,42 +150,41 @@
                     <StackPanel>
                         <StackPanel Margin="5" Orientation="Horizontal">
                             <RadioButton
-                Margin="0,0,15,0"
-                VerticalAlignment="Center"
-                Content="连续模式"
-                IsChecked="{Binding IsContinuousMode}" />
+                                Margin="0,0,15,0"
+                                VerticalAlignment="Center"
+                                Content="连续模式"
+                                IsChecked="{Binding IsContinuousMode}" />
                             <RadioButton
-                VerticalAlignment="Center"
-                Content="触发模式"
-                IsChecked="{Binding IsTriggerMode}" />
+                                VerticalAlignment="Center"
+                                Content="触发模式"
+                                IsChecked="{Binding IsTriggerMode}" />
                         </StackPanel>
 
                         <StackPanel
-            Margin="5"
-            IsEnabled="{Binding IsTriggerMode}"
-            Orientation="Horizontal">
+                            Margin="5"
+                            IsEnabled="{Binding IsTriggerMode}"
+                            Orientation="Horizontal">
                             <TextBlock
-                Width="60"
-                VerticalAlignment="Center"
-                Text="触发源：" />
+                                Width="60"
+                                VerticalAlignment="Center"
+                                Text="触发源：" />
                             <ComboBox
-                Width="165"
-                ItemsSource="{Binding TriggerSources}"
-                SelectedItem="{Binding SelectedTriggerSource}" />
+                                Width="165"
+                                ItemsSource="{Binding TriggerSources}"
+                                SelectedItem="{Binding SelectedTriggerSource}" />
                         </StackPanel>
                         <Button
-            Margin="5"
-            Background="#CCE5FF"
-            BorderBrush="#B8DAFF"
-            Command="{Binding TogglePreviewCommand}"
-            Content="{Binding PreviewButtonText}"
-            Style="{StaticResource ModernButton}" />
-
+                            Margin="5"
+                            Background="#CCE5FF"
+                            BorderBrush="#B8DAFF"
+                            Command="{Binding TogglePreviewCommand}"
+                            Content="{Binding PreviewButtonText}"
+                            Style="{StaticResource ModernButton}" />
                         <Button
-            Margin="5,0,5,5"
-            Command="{Binding SoftTriggerCommand}"
-            Content="发送一次软触发"
-            Style="{StaticResource ModernButton}" />
+                            Margin="5,0,5,5"
+                            Command="{Binding SoftTriggerCommand}"
+                            Content="发送一次软触发"
+                            Style="{StaticResource ModernButton}" />
                     </StackPanel>
                 </GroupBox>
 

@@ -25,15 +25,8 @@ namespace AVS_Service.Services
         /// <param name="metric">度量方式</param>
         /// <param name="optimization">优化方式</param>
         /// <returns>模板句柄</returns>
-        HTuple CreateShapeModel(
-            HObject templateImage,
-            double angleStart,
-            double angleExtent,
-            string numLevels,
-            string contrast,
-            string minContrast,
-            string metric,
-            string optimization);
+        HTuple CreateShapeModel(HObject templateImage, double angleStart, double angleExtent, string numLevels,
+            string contrast, string minContrast, string metric, string optimization);
 
         /// <summary>
         /// 查找形状模板
@@ -49,22 +42,9 @@ namespace AVS_Service.Services
         /// <param name="subPixel">亚像素精度</param>
         /// <param name="numLevels">金字塔层级</param>
         /// <param name="greediness">贪婪度</param>
-        void FindShapeModel(
-            HTuple modelId,
-            double angleStart,
-            double angleExtent,
-            double scaleMin,
-            double scaleMax,
-            double minScore,
-            int numMatches,
-            double maxOverlap,
-            string subPixel,
-            int numLevels,
-            double greediness,
-            out HTuple row,
-            out HTuple col,
-            out HTuple angle,
-            out HTuple score);
+        void FindShapeModel(HTuple modelId, double angleStart, double angleExtent, double scaleMin, double scaleMax, double minScore,
+            int numMatches, double maxOverlap, string subPixel, int numLevels, double greediness,
+            out HTuple row, out HTuple col, out HTuple angle, out HTuple score);
 
         /// <summary>
         /// 保存模板到文件
@@ -80,6 +60,19 @@ namespace AVS_Service.Services
         /// 显示模板匹配结果（含掩膜绘制）
         /// </summary>
         void DisplayResult(HTuple modelId, HTuple row, HTuple col, HTuple angle, HTuple score);
+
+        /// <summary>
+        /// 显示模板特征轮廓点（创建模板后调用）
+        /// </summary>
+        /// <param name="modelId">模板句柄</param>
+        /// <param name="roiRegion">创建模板时用的有效区域（用于取模板原点）</param>
+        /// <param name="featureScale">特征尺度 1~5，1 最密，5 最疏</param>
+        void DisplayModelFeaturePoints(HTuple modelId, HObject roiRegion, int featureScale);
+
+        /// <summary>
+        /// 取模板轮廓点在图像坐标下的采样点（不绘制）
+        /// </summary>
+        bool TryGetModelFeaturePoints(HTuple modelId, HObject roiRegion, int featureScale, out double[] rows, out double[] cols);
     }
 
     public class TemplateMatchingService : ITemplateMatchingService, IDisposable
@@ -99,15 +92,8 @@ namespace AVS_Service.Services
 
         public HObject GetCurrentImage() => _currentImage;
 
-        public HTuple CreateShapeModel(
-            HObject templateImage,
-            double angleStart,
-            double angleExtent,
-            string numLevels,
-            string contrast,
-            string minContrast,
-            string metric,
-            string optimization)
+        public HTuple CreateShapeModel(HObject templateImage, double angleStart, double angleExtent, string numLevels,
+            string contrast, string minContrast, string metric, string optimization)
         {
             if (_modelId != null && _modelId.Length != 0) HOperatorSet.ClearShapeModel(_modelId);
 
@@ -122,61 +108,32 @@ namespace AVS_Service.Services
 
             // 解析 contrast
             HTuple hvContrast;
-            if (contrast == "auto" || string.IsNullOrEmpty(contrast))
+            if (string.IsNullOrWhiteSpace(contrast) || contrast.Trim().ToLower() == "auto")
             {
                 hvContrast = new HTuple("auto");
             }
+            else if (double.TryParse(contrast.Trim(), out double c) && c > 0)
+                hvContrast = new HTuple(c);          //单值
             else
-            {
-                string[] parts = contrast.Split(',');
-                if (parts.Length == 2 &&
-                    int.TryParse(parts[0], out int low) &&
-                    int.TryParse(parts[1], out int high))
-                    hvContrast = new HTuple(low).TupleConcat(new HTuple(high));
-                else
-                    hvContrast = new HTuple("auto");
-            }
+                hvContrast = new HTuple("auto");     // 非法输入回退
 
             // 解析 minContrast
             HTuple hvMinContrast;
             if (minContrast == "auto" || string.IsNullOrEmpty(minContrast))
                 hvMinContrast = new HTuple("auto");
-            else if (int.TryParse(minContrast, out int mc))
+            else if (double.TryParse(minContrast, out double mc))
                 hvMinContrast = new HTuple(mc);
             else
                 hvMinContrast = new HTuple("auto");
 
-            HOperatorSet.CreateShapeModel(
-                templateImage,
-                hvNumLevels,
-                new HTuple(angleStart).TupleRad(),
-                new HTuple(angleExtent).TupleRad(),
-                "auto",
-                optimization,
-                metric,
-                hvContrast,
-                hvMinContrast,
-                out _modelId);
-
+            HOperatorSet.CreateShapeModel(templateImage, hvNumLevels, new HTuple(angleStart).TupleRad(), new HTuple(angleExtent).TupleRad(),
+                "auto", optimization, metric, hvContrast, hvMinContrast, out _modelId);
             return _modelId.Clone();
         }
 
-        public void FindShapeModel(
-            HTuple modelId,
-            double angleStart,
-            double angleExtent,
-            double scaleMin,
-            double scaleMax,
-            double minScore,
-            int numMatches,
-            double maxOverlap,
-            string subPixel,
-            int numLevels,
-            double greediness,
-            out HTuple row,
-            out HTuple col,
-            out HTuple angle,
-            out HTuple score)
+        public void FindShapeModel(HTuple modelId, double angleStart, double angleExtent, double scaleMin,
+            double scaleMax, double minScore, int numMatches, double maxOverlap, string subPixel, int numLevels, double greediness,
+            out HTuple row, out HTuple col, out HTuple angle, out HTuple score)
         {
             row = col = angle = score = new HTuple();
 
@@ -197,6 +154,31 @@ namespace AVS_Service.Services
                 new HTuple(numLevels),
                 greediness,
                 out row, out col, out angle, out HTuple scale, out score);
+        }
+
+
+        public void DisplayModelFeaturePoints(HTuple modelId, HObject roiRegion, int featureScale)
+        {
+            if (_halconWindow == null) return;
+            _halconWindow.ClearWindow();
+            if (_currentImage != null && _currentImage.IsInitialized())
+                _currentImage.DispObj(_halconWindow);
+            // ROI 绿框
+            if (roiRegion != null && roiRegion.IsInitialized() && roiRegion.CountObj() > 0)
+            {
+                _halconWindow.SetDraw("margin");
+                _halconWindow.SetColor("green");
+                _halconWindow.SetLineWidth(2);
+                _halconWindow.DispObj(roiRegion);
+            }
+
+            if (!TryGetModelFeaturePoints(modelId, roiRegion, featureScale, out var rows, out var cols))
+                return;
+            HOperatorSet.GenCrossContourXld(out HObject cross, new HTuple(rows), new HTuple(cols), 4, new HTuple(Math.PI / 4));
+            _halconWindow.SetColor("yellow");
+            _halconWindow.SetLineWidth(1);
+            _halconWindow.DispObj(cross);
+            cross.Dispose();
         }
 
         public void SaveShapeModel(HTuple modelId, string filePath)
@@ -250,6 +232,54 @@ namespace AVS_Service.Services
                 transContour.Dispose();
                 contour.Dispose();
             }
+        }
+
+
+        public bool TryGetModelFeaturePoints(HTuple modelId, HObject roiRegion, int featureScale, out double[] rows, out double[] cols)
+        {
+            rows = null;
+            cols = null;
+
+            if (modelId == null) return false;
+            if (roiRegion == null || !roiRegion.IsInitialized() || roiRegion.CountObj() == 0) return false;
+
+            if (featureScale < 1) featureScale = 1;
+            if (featureScale > 5) featureScale = 5;
+
+            HOperatorSet.GetShapeModelContours(out HObject modelContours, modelId, 1);
+            HOperatorSet.AreaCenter(roiRegion, out _, out HTuple rowRef, out HTuple colRef);
+            HOperatorSet.VectorAngleToRigid(0, 0, 0, rowRef, colRef, 0, out HTuple homMat);
+            HOperatorSet.AffineTransContourXld(modelContours, out HObject contoursAtRoi, homMat);
+
+            HOperatorSet.CountObj(contoursAtRoi, out HTuple n);
+            var allRows = new List<double>();
+            var allCols = new List<double>();
+
+            for (int i = 1; i <= n.I; i++)
+            {
+                HOperatorSet.SelectObj(contoursAtRoi, out HObject one, i);
+                HOperatorSet.GetContourXld(one, out HTuple r, out HTuple c);
+                allRows.AddRange(r.ToDArr());
+                allCols.AddRange(c.ToDArr());
+                one.Dispose();
+            }
+
+            modelContours.Dispose();
+            contoursAtRoi.Dispose();
+
+            if (allRows.Count == 0) return false;
+
+            var sr = new List<double>();
+            var sc = new List<double>();
+            for (int i = 0; i < allRows.Count; i += featureScale)
+            {
+                sr.Add(allRows[i]);
+                sc.Add(allCols[i]);
+            }
+
+            rows = sr.ToArray();
+            cols = sc.ToArray();
+            return rows.Length > 0;
         }
 
         public void Dispose()

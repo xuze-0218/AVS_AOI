@@ -617,7 +617,6 @@ namespace AVS_Core.Services
             ImageQueue?.Dispose();
         }
     }
-
     internal class PoleAggregator
     {
         public int CompletedDimensions { get; set; }

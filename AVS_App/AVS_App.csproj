@@ -34,6 +34,9 @@
 		<Reference Include="halcondotnet">
 			<HintPath>..\AVS_Common\bin\Debug\net48\halcondotnet.dll</HintPath>
 		</Reference>
+		<Reference Include="hdevenginedotnet">
+		  <HintPath>..\AVS_Common\bin\Debug\net48\hdevenginedotnet.dll</HintPath>
+		</Reference>
 		<Reference Include="System.Security" />
 	</ItemGroup>
 

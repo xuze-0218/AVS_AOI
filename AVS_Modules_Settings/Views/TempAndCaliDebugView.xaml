@@ -6,6 +6,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:prism="http://prismlibrary.com/"
+    prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
 
     <UserControl.Resources>
@@ -19,7 +21,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!--  工具栏  -->
+        <!--  ============ 工具栏 ============  -->
         <ToolBar
             Grid.Row="0"
             Padding="2"
@@ -46,46 +48,43 @@
             <Button
                 Margin="2"
                 Command="{Binding SaveRoiCommand}"
-                Content="💾 保存ROI"
-                ToolTip="保存ROI区域到文件" />
+                Content="💾 保存 ROI"
+                ToolTip="保存 ROI 区域到文件" />
             <Button
                 Margin="2"
                 Command="{Binding LoadRoiCommand}"
-                Content="📂 加载ROI"
-                ToolTip="从文件加载ROI" />
+                Content="📂 加载 ROI"
+                ToolTip="从文件加载 ROI" />
             <Button
                 Margin="2"
                 Command="{Binding ClearRoiCommand}"
-                Content="🗑 清除ROI"
-                ToolTip="删除当前ROI" />
+                Content="🗑 清除 ROI"
+                ToolTip="删除当前 ROI" />
             <Separator />
             <Button
                 Margin="2"
                 Command="{Binding ConfirmRoiCommand}"
-                Content="✔ 确认ROI"
+                Content="✔ 确认 ROI"
                 ToolTip="将可拖动红色框转为绿色固定区域" />
-            <!--<Button
-                Margin="2"
-                Command="{Binding SetMetroRefCommand}"
-                Content="📌 设置参考位姿"
-                ToolTip="将当前模板匹配位置设为计量模型参考" />-->
         </ToolBar>
 
-        <!--  主内容区  -->
+        <!--  ============ 主内容区 ============  -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="4*" MinWidth="400" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="340" />
+                <ColumnDefinition
+                    Width="2.2*"
+                    MinWidth="320"
+                    MaxWidth="560" />
             </Grid.ColumnDefinitions>
 
-            <!--  图像显示区（含右键菜单）  -->
+            <!--  图像显示区  -->
             <common:CameraDisplayUnit
                 x:Name="CameraDisplay"
                 Grid.Column="0"
                 DispImage="{Binding CurrentImage}"
-                DispRegion="{Binding CurrentRegionDisplay}"
-                Loaded="CameraDisplay_Loaded">
+                DispRegion="{Binding CurrentRegionDisplay}">
                 <common:CameraDisplayUnit.ContextMenu>
                     <ContextMenu>
                         <MenuItem
@@ -106,52 +105,81 @@
                 </common:CameraDisplayUnit.ContextMenu>
             </common:CameraDisplayUnit>
 
+            <!--  分隔条  -->
             <GridSplitter
                 Grid.Column="1"
                 Width="5"
+                MinWidth="3"
                 HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch" />
+                VerticalAlignment="Stretch"
+                Background="#DDDDDD"
+                Cursor="SizeWE" />
 
-            <!--  右侧参数面板  -->
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="8">
-                    <!--  模板匹配分组  -->
-                    <GroupBox
-                        Margin="0,0,0,8"
-                        Padding="6"
-                        Background="#EBF5FB"
-                        BorderBrush="#2196F3"
-                        Header="📐 模板匹配">
-                        <local:TemplateMatchingView DataContext="{Binding TemplateMatchingVM}" />
-                    </GroupBox>
+            <!--  右侧参数面板：TabControl  ============  -->
+            <TabControl
+                Grid.Column="2"
+                Margin="0"
+                Padding="0"
+                Background="#FAFAFA"
+                BorderBrush="#CCCCCC"
+                BorderThickness="1,0,0,0">
 
-                    <!--  卡尺测量分组  -->
-                    <GroupBox
-                        Margin="0,0,0,8"
-                        Padding="6"
-                        Background="#EBF9F1"
-                        BorderBrush="#4CAF50"
-                        Header="📏 卡尺测量">
-                        <local:MetrologyView DataContext="{Binding MetrologyVM}" />
-                    </GroupBox>
-                </StackPanel>
-            </ScrollViewer>
+                <TabItem Header="📐 模板匹配">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <local:TemplateMatchingView Margin="4" DataContext="{Binding TemplateMatchingVM}" />
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="📏 卡尺测量">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <local:MetrologyView Margin="4" DataContext="{Binding MetrologyVM}" />
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
         </Grid>
 
-        <!--  状态栏  -->
-        <StatusBar Grid.Row="2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-            <StatusBarItem Width="Auto">
-                <TextBlock Text="{Binding StatusMessage}" />
-            </StatusBarItem>
-            <Separator />
-            <StatusBarItem Width="100">
-                <TextBlock Text="{Binding RunTime, StringFormat='耗时: {0}'}" />
-            </StatusBarItem>
-            <Separator />
-            <StatusBarItem Width="80">
-                <TextBlock>
+        <!--  ============ 状态栏 ============  -->
+        <Border
+            Grid.Row="2"
+            Padding="8,3"
+            Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+            BorderBrush="#CCCCCC"
+            BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  状态消息  -->
+                <TextBlock
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    Text="{Binding StatusMessage}"
+                    TextTrimming="CharacterEllipsis" />
+
+                <!--  耗时  -->
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="12,0,0,0"
+                    VerticalAlignment="Center"
+                    Text="{Binding RunTime, StringFormat='耗时: {0}'}" />
+
+                <!--  判定  -->
+                <TextBlock
+                    Grid.Column="2"
+                    Margin="12,0,0,0"
+                    VerticalAlignment="Center"
+                    FontWeight="Bold">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="Gray" />
+                            <Setter Property="Text" Value="—" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsPass}" Value="True">
                                     <Setter Property="Foreground" Value="Green" />
@@ -165,29 +193,33 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
-            </StatusBarItem>
-            <Separator />
-            <StatusBarItem Width="Auto">
-                <TextBlock Text="{Binding RunResult, StringFormat='结果: {0}'}" />
-            </StatusBarItem>
-            <StatusBarItem Margin="0,0,5,0" HorizontalAlignment="Right">
-                <TextBlock VerticalAlignment="Center" Text="行:" />
-            </StatusBarItem>
-            <StatusBarItem>
+
+                <!--  结果  -->
                 <TextBlock
+                    Grid.Column="3"
+                    Margin="12,0,0,0"
+                    VerticalAlignment="Center"
+                    Text="{Binding RunResult, StringFormat='结果: {0}'}" />
+
+                <!--  鼠标坐标  -->
+                <TextBlock
+                    Grid.Column="4"
+                    Margin="20,0,0,0"
+                    VerticalAlignment="Center"
+                    Text="行:" />
+                <TextBlock
+                    Grid.Column="5"
                     Width="60"
                     VerticalAlignment="Center"
                     Text="{Binding CurrentMouseRow, StringFormat=F1}" />
-            </StatusBarItem>
-            <StatusBarItem Margin="0,0,5,0">
-                <TextBlock VerticalAlignment="Center" Text="列:" />
-            </StatusBarItem>
-            <StatusBarItem>
-                <TextBlock
-                    Width="60"
-                    VerticalAlignment="Center"
-                    Text="{Binding CurrentMouseCol, StringFormat=F1}" />
-            </StatusBarItem>
-        </StatusBar>
+                <StackPanel Grid.Column="6" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Text="列:" />
+                    <TextBlock
+                        Width="60"
+                        VerticalAlignment="Center"
+                        Text="{Binding CurrentMouseCol, StringFormat=F1}" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

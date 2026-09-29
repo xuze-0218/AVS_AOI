@@ -101,31 +101,31 @@ namespace AVS_Core.Services
                 }).ConfigureAwait(false);
                 StartCameraInitialization();
                 _ = Task.Run(async () =>
+            {
+                try
                 {
-                    try
-                    {
-                        if (_backgroundInitializationTask != null)
-                            await _backgroundInitializationTask.ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "等待相机初始化完成失败");
-                    }
+                    if (_backgroundInitializationTask != null)
+                        await _backgroundInitializationTask.ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "等待相机初始化完成失败");
+                }
 
-                    int camCount = _cameraConfigService.ConnectedCameras.Count;
-                    bool isReady = camCount > 0;
-                    _logger.Information("应用初始化全部完成，已连接相机 {Count} 台，isReady={Ready}",
-                        camCount, isReady);
+                int camCount = _cameraConfigService.ConnectedCameras.Count;
+                bool isReady = camCount > 0;
+                _logger.Information("应用初始化全部完成，已连接相机 {Count} 台，isReady={Ready}",
+                    camCount, isReady);
 
-                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
-                    if (dispatcher != null)
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher != null)
+                {
+                    await dispatcher.InvokeAsync(() =>
                     {
-                        await dispatcher.InvokeAsync(() =>
-                        {
-                            _eventAggregator.GetEvent<ApplicationStartupCompletedEvent>().Publish(isReady);
-                        }).Task;
-                    }
-                });
+                        _eventAggregator.GetEvent<ApplicationStartupCompletedEvent>().Publish(isReady);
+                    }).Task;
+                }
+            });
             }
             catch (Exception ex)
             {
@@ -267,6 +267,7 @@ namespace AVS_Core.Services
         {
             try
             {
+                if (payload.IsFromDebug) return;
                 _logger.Information("收到相机图像事件: SN={SN}", payload.CameraSN);
                 var camSetting = _cameraConfigService.AllSettings.FirstOrDefault(c => c.SerilalNum == payload.CameraSN);
                 if (camSetting == null)

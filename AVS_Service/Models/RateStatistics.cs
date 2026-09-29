@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace AVS_Service.Models
 {
-    public sealed class RateStatistics
+    public class RateStatistics
     {
         public string Name { get; set; }
         public int Total { get; set; }

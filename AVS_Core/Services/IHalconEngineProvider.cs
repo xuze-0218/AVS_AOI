@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AVS_Core.Services
@@ -18,28 +19,57 @@ namespace AVS_Core.Services
     }
 
 
+    //public class HalconEngineProvider : IHalconEngineProvider, IDisposable
+    //{
+    //    //private readonly object _lock = new object();
+    //    //private HDevEngine _engine;
+    //    //private bool _initialized;
+    //    private readonly Lazy<HDevEngine> _engine = new Lazy<HDevEngine>(() =>
+    //    {
+    //        var engine = new HDevEngine();
+    //        string procFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+    //        engine.SetProcedurePath(procFolder);
+    //        //engine.StartDebugServer();//仅debug模式下使用，可以调试halcon程序
+    //        return engine;
+    //    });
+
+    //    public HDevEngine GetEngine() => _engine.Value;
+
+    //    public void Dispose()
+    //    {
+    //        if (_engine.IsValueCreated)
+    //        {
+    //            _engine.Value.Dispose();
+    //        }
+    //    }
+    //}
+
     public class HalconEngineProvider : IHalconEngineProvider, IDisposable
     {
-        //private readonly object _lock = new object();
-        //private HDevEngine _engine;
-        //private bool _initialized;
         private readonly Lazy<HDevEngine> _engine = new Lazy<HDevEngine>(() =>
         {
             var engine = new HDevEngine();
             string procFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
             engine.SetProcedurePath(procFolder);
-            engine.StartDebugServer();//仅debug模式下使用，可以调试halcon程序
+            //engine.StartDebugServer();
             return engine;
-        });
+        }, LazyThreadSafetyMode.ExecutionAndPublication);
 
-        public HDevEngine GetEngine() => _engine.Value;
+        public HDevEngine GetEngine()
+        {
+            // 若不在 UI 线程，先切到 UI 线程完成首次初始化
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                return dispatcher.Invoke(() => _engine.Value);
+            }
+            return _engine.Value;
+        }
 
         public void Dispose()
         {
             if (_engine.IsValueCreated)
-            {
                 _engine.Value.Dispose();
-            }
         }
     }
 }

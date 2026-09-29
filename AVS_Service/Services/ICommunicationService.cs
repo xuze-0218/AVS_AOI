@@ -382,16 +382,8 @@ namespace AVS_Service.Services
                         ctx.ConnectionId,
                         true);
 
-                    /*
-                     * 不等待 Session
-                     *
-                     * 继续 Accept 新客户端
-                     */
-                    Task.Run(
-                        () => HandleTcpSession(
-                            ctx.ConnectionId,
-                            client,
-                            ctx.Cts.Token));
+
+                    await Task.Run(() => HandleTcpSession(ctx.ConnectionId, client, ctx.Cts.Token));
                 }
                 catch (ObjectDisposedException)
                 {

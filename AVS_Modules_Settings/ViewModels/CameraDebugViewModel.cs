@@ -13,7 +13,6 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -185,19 +184,9 @@ namespace AVS_Modules_Settings.ViewModels
                     _currentDebugImage.Dispose();
                 }
                 SetProperty(ref _currentDebugImage, value);
-                if (_currentDebugImage != null && _currentDebugImage.IsInitialized())
-                {
-                    DisplayBitmapSource = HObjectToBitmapSource(_currentDebugImage);
-                }
             }
         }
 
-        private BitmapSource _displayBitmapSource;
-        public BitmapSource DisplayBitmapSource
-        {
-            get => _displayBitmapSource;
-            set => SetProperty(ref _displayBitmapSource, value);
-        }
         #endregion
         public CameraDebugViewModel(IEventAggregator eventAggregator, ICameraConfigService cameraConfigService, ILogger logger)
         {
@@ -453,73 +442,14 @@ namespace AVS_Modules_Settings.ViewModels
             }
             else
             {
+                // 先停止当前采集
+                _cameraConfigService.StopCameraGrabbing(SelectedDevice);
                 AcquisitionMode mode = IsContinuousMode ? AcquisitionMode.Continuous : AcquisitionMode.SoftTrigger;
-                _cameraConfigService.StartCameraGrabbing(SelectedDevice, mode);
+                _cameraConfigService.StartCameraGrabbing(SelectedDevice, mode, isFromDebug: true);
                 StatusMessage = IsContinuousMode ? "连续采集中..." : "触发采集中，等待触发...";
             }
         }
         #endregion
-        private BitmapSource HObjectToBitmapSource(HObject ho_image)
-        {
-            HObject ho_byteImage = null;
-            try
-            {
-                HOperatorSet.ConvertImageType(ho_image, out ho_byteImage, "byte");
-                HOperatorSet.CountChannels(ho_byteImage, out HTuple channels);
-                HOperatorSet.GetImageSize(ho_byteImage, out HTuple width, out HTuple height);
-
-                int w = width.I;
-                int h = height.I;
-                BitmapSource bitmapSource = null;
-
-                if (channels.I == 1)
-                {
-                    HOperatorSet.GetImagePointer1(ho_byteImage, out HTuple pointer, out HTuple type, out width, out height);
-                    bitmapSource = BitmapSource.Create(w, h, 96, 96, PixelFormats.Gray8, null, pointer.IP, w * h, w);
-                }
-                else if (channels.I >= 3)
-                {
-                    HOperatorSet.GetImagePointer3(ho_byteImage, out HTuple red, out HTuple green, out HTuple blue, out HTuple type, out width, out height);
-                    bitmapSource = ConvertRgbImage(red, green, blue, w, h);
-                }
-
-                bitmapSource?.Freeze(); // 跨线程安全冻结
-                return bitmapSource;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "HObjectToBitmapSource 转换异常");
-                return null;
-            }
-            finally
-            {
-                ho_byteImage?.Dispose();
-            }
-        }
-        private BitmapSource ConvertRgbImage(IntPtr red, IntPtr green, IntPtr blue, int width, int height)
-        {
-            int stride = width * 3;
-            byte[] rgbData = new byte[stride * height];
-
-            unsafe
-            {
-                byte* pR = (byte*)red.ToPointer();
-                byte* pG = (byte*)green.ToPointer();
-                byte* pB = (byte*)blue.ToPointer();
-
-                fixed (byte* pDest = rgbData)
-                {
-                    for (int i = 0; i < width * height; i++)
-                    {
-                        pDest[i * 3 + 2] = pR[i];
-                        pDest[i * 3 + 1] = pG[i];
-                        pDest[i * 3 + 0] = pB[i];
-                    }
-                }
-            }
-
-            return BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr24, null, rgbData, stride);
-        }
         public void Dispose()
         {
             if (_disposed) return;

@@ -48,6 +48,7 @@ namespace AVS_Service.Services
         /// </summary>
         void StartCameraGrabbing(string sn);
         void StartCameraGrabbing(string sn, AcquisitionMode? mode);
+        void StartCameraGrabbing(string sn, AcquisitionMode? mode, bool isFromDebug);
 
         /// <summary>
         /// 停止指定相机的采集（保持连接，幂等）
@@ -233,7 +234,10 @@ namespace AVS_Service.Services
         {
             StartCameraGrabbing(sn, null);
         }
-        public void StartCameraGrabbing(string sn, AcquisitionMode? mode)
+
+        public void StartCameraGrabbing(string sn, AcquisitionMode? mode) => StartCameraGrabbing(sn, mode, false);
+
+        public void StartCameraGrabbing(string sn, AcquisitionMode? mode, bool isFromDebug)
         {
             if (!_connectedCameras.TryGetValue(sn, out var camera)) return;
             if (_grabContexts.ContainsKey(sn)) return; // 已经在运行
@@ -278,7 +282,7 @@ namespace AVS_Service.Services
                 return;
             }
             // 创建抓取上下文
-            var ctx = new CameraGrabContext { Cts = new CancellationTokenSource() };
+            var ctx = new CameraGrabContext { Cts = new CancellationTokenSource(), IsFromDebug = isFromDebug };
             ctx.GrabCallback = ptr =>
             {
                 if (ptr == IntPtr.Zero || ctx.PtrQueue.IsAddingCompleted)
@@ -337,7 +341,8 @@ namespace AVS_Service.Services
                     _eventAggregator.GetEvent<HIntensityImageDisplayEvent>().Publish(new CameraImagePayload
                     {
                         CameraSN = sn,
-                        Image = intensityImage
+                        Image = intensityImage,
+                        IsFromDebug = isFromDebug
                     });
                 }
                 catch (Exception ex)
@@ -358,7 +363,7 @@ namespace AVS_Service.Services
                 {
                     foreach (var image in ctx.PtrQueue.GetConsumingEnumerable(ctx.Cts.Token))
                     {
-                        ProcessImagePointer(camera, image);
+                        ProcessImagePointer(camera, image, ctx.IsFromDebug);
                     }
                 }
                 catch (OperationCanceledException) { }
@@ -379,6 +384,7 @@ namespace AVS_Service.Services
 
             _logger.Debug("相机 {SN} 采集启动成功", sn);
         }
+
         public void StopCameraGrabbing(string sn)
         {
             _logger.Debug("停止相机 {SN} 采集", sn);
@@ -403,7 +409,7 @@ namespace AVS_Service.Services
                         // 调用新的 StopGrabbing 方法，它会移除回调并调用核心停止逻辑
                         camera.StopGrabbing(ctx.GrabCallback);
                     }
-                   
+
                     if (ctx.PtrQueue != null)
                     {
                         while (ctx.PtrQueue.TryTake(out var leftover))
@@ -418,13 +424,15 @@ namespace AVS_Service.Services
                 catch (Exception ex) { _logger.Error(ex, "[StopCameraGrabbing] 停止抓取上下文异常 {SN}", sn); }
             }
         }
+
+
         /// <summary>
         /// 处理图像（HObject 副本），发布事件后释放。
         /// 注意：发布后即 Dispose，订阅者必须在 PublisherThread 上同步 Clone 后再使用。
         /// </summary>
         /// <param name="camera"></param>
         /// <param name="img"></param>
-        private void ProcessImagePointer(ICamera camera, HObject img)
+        private void ProcessImagePointer(ICamera camera, HObject img, bool isFromDebug)
         {
             if (img == null || !img.IsInitialized())
             {
@@ -438,7 +446,8 @@ namespace AVS_Service.Services
                 _eventAggregator.GetEvent<HImageDisplayEvent>().Publish(new CameraImagePayload()
                 {
                     CameraSN = camera.SN,
-                    Image = img
+                    Image = img,
+                    IsFromDebug = isFromDebug
                 });
             }
             catch (Exception ex)
@@ -571,6 +580,10 @@ namespace AVS_Service.Services
         /// <summary>
         /// 保存亮度图订阅委托
         /// </summary>
-        public Action<IntPtr> IntensityHandler;  
+        public Action<IntPtr> IntensityHandler;
+        /// <summary>
+        /// 相机调试模式
+        /// </summary>
+        public bool IsFromDebug;
     }
 }

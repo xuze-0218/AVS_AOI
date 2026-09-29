@@ -1,6 +1,4 @@
-﻿using AVS_Common.Model;
-using AVS_Service;
-using AVS_Service.Models;
+﻿using AVS_Service.Models;
 using AVS_Service.Services;
 using HalconDotNet;
 using Microsoft.Win32;
@@ -34,7 +32,7 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _templateMatchingVM, value);
         }
 
-        private CaliperMeasureViewModel _caliperMeasureVM;
+        //private CaliperMeasureViewModel _caliperMeasureVM;
 
         //public CaliperMeasureViewModel CaliperMeasureVM
         //{
@@ -105,6 +103,7 @@ namespace AVS_Modules_Settings.ViewModels
             get => _halconWindow;
             set
             {
+                if (ReferenceEquals(_halconWindow, value)) return;
                 if (SetProperty(ref _halconWindow, value))
                 {
                     if (TemplateMatchingVM != null) TemplateMatchingVM.HalconWindow = value;
@@ -412,6 +411,7 @@ namespace AVS_Modules_Settings.ViewModels
                 DisplayImagePreserveZoom();
             }
             StatusMessage = "ROI已清除，右键图像重新绘制";
+            TemplateMatchingVM?.ClearModelFeatureDisplay();
         }
         #endregion
 
@@ -566,6 +566,7 @@ namespace AVS_Modules_Settings.ViewModels
             _currentRoi.Region?.Dispose();
             _currentRoi.Region = new HObject();
             StatusMessage = "绘图已清除，右键图像重新绘制";
+            TemplateMatchingVM?.ClearModelFeatureDisplay();
         }
 
         private void OnConfirmRoi()

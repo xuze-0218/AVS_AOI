@@ -5,12 +5,95 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:prism="http://prismlibrary.com/"
     d:DesignHeight="600"
     d:DesignWidth="600"
+    prism:ViewModelLocator.AutoWireViewModel="True"
     mc:Ignorable="d">
 
+    <UserControl.Resources>
+
+        <!--  ================= 参数行 =================  -->
+        <Style x:Key="ParamLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+
+        <Style x:Key="ParamTextBox" TargetType="TextBox">
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="ParamComboBox" TargetType="ComboBox">
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="InlineCheckBox" TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,2,10,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--  ================= Expander =================  -->
+        <Style x:Key="ParamExpander" TargetType="Expander">
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <!--  ================= 按钮 =================  -->
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="MinWidth" Value="80" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#757575" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style
+            x:Key="PrimaryActionButton"
+            BasedOn="{StaticResource ActionButton}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#1976D2" />
+        </Style>
+
+        <Style
+            x:Key="SuccessActionButton"
+            BasedOn="{StaticResource ActionButton}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#388E3C" />
+        </Style>
+
+        <Style
+            x:Key="WarningActionButton"
+            BasedOn="{StaticResource ActionButton}"
+            TargetType="Button">
+            <Setter Property="Background" Value="#FF9800" />
+        </Style>
+
+        <Style
+            x:Key="DangerSmallButton"
+            BasedOn="{StaticResource ActionButton}"
+            TargetType="Button">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Background" Value="#FF6666" />
+            <Setter Property="Padding" Value="6,2" />
+        </Style>
+
+        <!--  ================= 两列参数网格模板 =================  -->
+        <!--  统一列宽 = 95 / *  -->
+        <Style x:Key="ParamGrid" TargetType="Grid">
+            <Setter Property="Margin" Value="4" />
+        </Style>
+
+    </UserControl.Resources>
+
     <StackPanel Background="AliceBlue">
-        <!--  状态消息  -->
+
+        <!--  ============ 状态消息 ============  -->
         <Border
             Margin="0,0,0,6"
             Padding="6"
@@ -24,7 +107,7 @@
                 TextWrapping="Wrap" />
         </Border>
 
-        <!--  掩膜编辑  -->
+        <!--  ============ 掩膜编辑 ============  -->
         <GroupBox
             Margin="0,0,0,6"
             Padding="6"
@@ -32,451 +115,485 @@
             BorderBrush="#7B68EE"
             Header="🎭 掩膜编辑">
             <StackPanel>
+
+                <!--  开关行  -->
                 <WrapPanel Margin="0,0,0,4">
                     <CheckBox
-                        Margin="2"
                         Content="掩膜编辑"
-                        IsChecked="{Binding IsMaskEditing}" />
+                        IsChecked="{Binding IsMaskEditing}"
+                        Style="{StaticResource InlineCheckBox}" />
                     <CheckBox
-                        Margin="2"
                         Content="擦除模式"
-                        IsChecked="{Binding IsEraseMode}" />
+                        IsChecked="{Binding IsEraseMode}"
+                        Style="{StaticResource InlineCheckBox}" />
                     <Button
-                        Margin="2"
-                        Padding="4,2"
-                        Background="#FF6666"
                         Command="{Binding ClearMaskCommand}"
                         Content="清除掩膜"
-                        FontSize="11"
-                        Foreground="White" />
+                        Style="{StaticResource DangerSmallButton}" />
                 </WrapPanel>
+
+                <!--  擦除参数  -->
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="75" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
+
                     <TextBlock
                         Grid.Row="0"
                         Grid.Column="0"
-                        VerticalAlignment="Center"
+                        Style="{StaticResource ParamLabel}"
                         Text="擦除大小:" />
                     <Slider
                         Grid.Row="0"
                         Grid.Column="1"
-                        Margin="2"
+                        Margin="0,2"
+                        VerticalAlignment="Center"
                         IsSnapToTickEnabled="True"
                         Maximum="50"
                         Minimum="1"
                         TickFrequency="1"
                         Value="{Binding EraserSize}" />
+
                     <TextBlock
                         Grid.Row="1"
                         Grid.Column="0"
-                        VerticalAlignment="Center"
+                        Style="{StaticResource ParamLabel}"
                         Text="擦除类型:" />
                     <ComboBox
                         Grid.Row="1"
                         Grid.Column="1"
-                        Height="24"
-                        Margin="2"
                         ItemsSource="{Binding EraserTypes}"
-                        SelectedItem="{Binding EraserType}" />
+                        SelectedItem="{Binding EraserType}"
+                        Style="{StaticResource ParamComboBox}" />
                 </Grid>
             </StackPanel>
         </GroupBox>
 
-        <!--  操作按钮  -->
+        <!--  ============ 操作按钮 ============  -->
         <WrapPanel Margin="0,0,0,6">
             <Button
-                Width="80"
-                Margin="2"
-                Background="#1976D2"
                 Command="{Binding CreateModelCommand}"
                 Content="创建模板"
-                FontSize="11"
-                Foreground="White" />
+                Style="{StaticResource PrimaryActionButton}" />
             <Button
-                Width="80"
-                Margin="2"
-                Background="#388E3C"
                 Command="{Binding FindModelCommand}"
                 Content="查找模板"
-                FontSize="11"
-                Foreground="White" />
+                Style="{StaticResource SuccessActionButton}" />
             <Button
-                Width="90"
-                Margin="2"
-                Background="#FF9800"
                 Command="{Binding DataContext.SetMetroRefCommand, RelativeSource={RelativeSource AncestorType=local:TempAndCaliDebugView}}"
                 Content="设为计量参考"
-                FontSize="11"
-                Foreground="White"
+                Style="{StaticResource WarningActionButton}"
                 ToolTip="将当前匹配结果设为计量模型的参考位姿" />
             <Button
-                Width="80"
-                Margin="2"
-                Background="#757575"
                 Command="{Binding SaveModelCommand}"
                 Content="保存模板"
-                FontSize="11"
-                Foreground="White" />
-
+                Style="{StaticResource ActionButton}" />
             <Button
-                Width="80"
-                Margin="2"
-                Background="#757575"
                 Command="{Binding LoadModelCommand}"
                 Content="加载模板"
-                FontSize="11"
-                Foreground="White" />
+                Style="{StaticResource ActionButton}" />
         </WrapPanel>
 
-        <!--  创建模板参数  -->
+        <!--  ============ 创建模板参数 ============  -->
         <Expander
-            Margin="0,0,0,4"
             Header="创建模板"
-            IsExpanded="False">
+            IsExpanded="False"
+            Style="{StaticResource ParamExpander}">
+            <StackPanel>
+                <Grid Style="{StaticResource ParamGrid}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="95" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="起始角度(°):" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Style="{StaticResource ParamTextBox}"
+                        Text="{Binding CmAngleStart, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="角度范围(°):" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Style="{StaticResource ParamTextBox}"
+                        Text="{Binding CmAngleExtent, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="度量方式:" />
+                    <ComboBox
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        ItemsSource="{Binding MetricOptions}"
+                        SelectedItem="{Binding CmMetric}"
+                        Style="{StaticResource ParamComboBox}" />
+
+                    <TextBlock
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="对比度:" />
+                    <TextBox
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Style="{StaticResource ParamTextBox}"
+                        Text="{Binding CmContrast, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="填 'auto' 或单个数字（如 30）" />
+
+                    <TextBlock
+                        Grid.Row="4"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="最小对比度:" />
+                    <TextBox
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        Style="{StaticResource ParamTextBox}"
+                        Text="{Binding CmMinContrast, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <!--  金字塔层级  -->
+                    <TextBlock
+                        Grid.Row="5"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="金字塔层级:" />
+                    <TextBox
+                        Grid.Row="5"
+                        Grid.Column="1"
+                        Style="{StaticResource ParamTextBox}"
+                        Text="{Binding CmNumLevels, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <!--  特征尺度  -->
+                    <TextBlock
+                        Grid.Row="6"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="特征尺度:" />
+                    <Grid
+                        Grid.Row="6"
+                        Grid.Column="1"
+                        Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="28" />
+                        </Grid.ColumnDefinitions>
+
+                        <Slider
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True"
+                            Maximum="5"
+                            Minimum="1"
+                            TickFrequency="1"
+                            TickPlacement="BottomRight"
+                            Value="{Binding FeatureScale, Mode=TwoWay}" />
+
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Text="{Binding FeatureScale}"
+                            TextAlignment="Right" />
+                    </Grid>
+                </Grid>
+
+                <!--  优化选项  -->
+                <StackPanel Margin="4,0,4,4">
+                    <TextBlock
+                        Margin="0,4,0,0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="优化方式:" />
+                    <ComboBox
+                        ItemsSource="{Binding OptimizationOptions}"
+                        SelectedItem="{Binding CmOptimization}"
+                        Style="{StaticResource ParamComboBox}" />
+
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+
+        <!--  ============ 查找模板参数 ============  -->
+        <Expander
+            Header="查找模板"
+            IsExpanded="False"
+            Style="{StaticResource ParamExpander}">
+            <Grid Style="{StaticResource ParamGrid}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="95" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="起始角度(°):" />
+                <TextBox
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmAngleStart, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="角度范围(°):" />
+                <TextBox
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmAngleExtent, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="2"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="缩放 Min:" />
+                <TextBox
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmScaleMin, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="3"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="缩放 Max:" />
+                <TextBox
+                    Grid.Row="3"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmScaleMax, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="4"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="匹配数量:" />
+                <TextBox
+                    Grid.Row="4"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmNumMatches, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="5"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="最小分数:" />
+                <TextBox
+                    Grid.Row="5"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmMinScore, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="6"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="最大重叠:" />
+                <TextBox
+                    Grid.Row="6"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmMaxOverlap, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="7"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="贪婪度:" />
+                <TextBox
+                    Grid.Row="7"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmGreediness, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="8"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="亚像素:" />
+                <ComboBox
+                    Grid.Row="8"
+                    Grid.Column="1"
+                    ItemsSource="{Binding SubPixelOptions}"
+                    SelectedItem="{Binding FmSubPixel}"
+                    Style="{StaticResource ParamComboBox}" />
+
+                <TextBlock
+                    Grid.Row="9"
+                    Grid.Column="0"
+                    Style="{StaticResource ParamLabel}"
+                    Text="金字塔层级:" />
+                <TextBox
+                    Grid.Row="9"
+                    Grid.Column="1"
+                    Style="{StaticResource ParamTextBox}"
+                    Text="{Binding FmNumLevels, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+        </Expander>
+
+        <!--  ============ 显示选项 ============  -->
+        <Expander
+            Header="显示选项"
+            IsExpanded="False"
+            Style="{StaticResource ParamExpander}">
+            <WrapPanel Margin="4">
+                <CheckBox
+                    Content="XLD 轮廓模式"
+                    IsChecked="{Binding IsModeXld}"
+                    Style="{StaticResource InlineCheckBox}" />
+                <CheckBox
+                    Content="显示十字"
+                    IsChecked="{Binding IsCross}"
+                    Style="{StaticResource InlineCheckBox}" />
+                <CheckBox
+                    Content="显示 ROI"
+                    IsChecked="{Binding IsDispRoi}"
+                    Style="{StaticResource InlineCheckBox}" />
+            </WrapPanel>
+        </Expander>
+
+        <!--  ============ 判定条件 ============  -->
+        <Expander
+            Header="判定条件"
+            IsExpanded="False"
+            Style="{StaticResource ParamExpander}">
             <StackPanel Margin="4">
+
+                <CheckBox
+                    Content="分数判定"
+                    IsChecked="{Binding IsScoreJudge}"
+                    Style="{StaticResource InlineCheckBox}" />
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="95" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="分数下限:" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Style="{StaticResource ParamTextBox}"
+                        Text="{Binding LowScore, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Style="{StaticResource ParamLabel}"
+                        Text="分数上限:" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Style="{StaticResource ParamTextBox}"
+                        Text="{Binding HighScore, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+
+                <CheckBox
+                    Content="数量判定"
+                    IsChecked="{Binding IsNumsJudge}"
+                    Style="{StaticResource InlineCheckBox}" />
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="95" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock
                         Grid.Row="0"
                         Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="起始角度(°):" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding CmAngleStart, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="角度范围(°):" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding CmAngleExtent, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="2"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="度量方式:" />
-                    <ComboBox
-                        Grid.Row="2"
-                        Grid.Column="1"
-                        Margin="2"
-                        ItemsSource="{Binding MetricOptions}"
-                        SelectedItem="{Binding CmMetric}" />
-                    <TextBlock
-                        Grid.Row="3"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="对比度低:" />
-                    <TextBox
-                        Grid.Row="3"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding CmContrastLow, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="4"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="对比度高:" />
-                    <TextBox
-                        Grid.Row="4"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding CmContrastHigh, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="5"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="最小对比度:" />
-                    <TextBox
-                        Grid.Row="5"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding CmMinContrast, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="6"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="金字塔层级:" />
-                    <TextBox
-                        Grid.Row="6"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding CmNumLevels, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-                <StackPanel Margin="0,4">
-                    <TextBlock Text="优化方式:" />
-                    <ComboBox ItemsSource="{Binding OptimizationOptions}" SelectedItem="{Binding CmOptimization}" />
-                    <CheckBox
-                        Margin="0,2"
-                        Content="自动NumLevels"
-                        IsChecked="{Binding CmIsNumLevels}" />
-                    <CheckBox
-                        Margin="0,2"
-                        Content="自动Contrast"
-                        IsChecked="{Binding CmIsContrast}" />
-                    <CheckBox
-                        Margin="0,2"
-                        Content="自动MinContrast"
-                        IsChecked="{Binding CmIsMinContrast}" />
-                    <TextBlock Text="最小边界:" />
-                    <TextBox Text="{Binding CmMinBorder, UpdateSourceTrigger=PropertyChanged}" />
-                </StackPanel>
-            </StackPanel>
-        </Expander>
-
-        <!--  查找模板参数  -->
-        <Expander
-            Margin="0,0,0,4"
-            Header="查找模板"
-            IsExpanded="False">
-            <StackPanel Margin="4">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="85" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="起始角度(°):" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmAngleStart, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="角度范围(°):" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmAngleExtent, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="2"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="缩放Min:" />
-                    <TextBox
-                        Grid.Row="2"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmScaleMin, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="3"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="缩放Max:" />
-                    <TextBox
-                        Grid.Row="3"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmScaleMax, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="4"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="匹配数量:" />
-                    <TextBox
-                        Grid.Row="4"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmNumMatches, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="5"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="最小分数:" />
-                    <TextBox
-                        Grid.Row="5"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmMinScore, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="6"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="最大重叠:" />
-                    <TextBox
-                        Grid.Row="6"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmMaxOverlap, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="7"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="贪婪度:" />
-                    <TextBox
-                        Grid.Row="7"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmGreediness, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="8"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="亚像素:" />
-                    <ComboBox
-                        Grid.Row="8"
-                        Grid.Column="1"
-                        Margin="2"
-                        ItemsSource="{Binding SubPixelOptions}"
-                        SelectedItem="{Binding FmSubPixel}" />
-                    <TextBlock
-                        Grid.Row="9"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="金字塔层级:" />
-                    <TextBox
-                        Grid.Row="9"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding FmNumLevels, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-            </StackPanel>
-        </Expander>
-
-        <!--  显示选项  -->
-        <Expander
-            Margin="0,0,0,4"
-            Header="显示选项"
-            IsExpanded="False">
-            <StackPanel Margin="4">
-                <CheckBox Content="XLD轮廓模式" IsChecked="{Binding IsModeXld}" />
-                <CheckBox Content="显示十字" IsChecked="{Binding IsCross}" />
-                <CheckBox Content="显示ROI" IsChecked="{Binding IsDispRoi}" />
-            </StackPanel>
-        </Expander>
-
-        <!--  判定条件  -->
-        <Expander
-            Margin="0,0,0,4"
-            Header="判定条件"
-            IsExpanded="False">
-            <StackPanel Margin="4">
-                <CheckBox Content="分数判定" IsChecked="{Binding IsScoreJudge}" />
-                <Grid Margin="0,2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="85" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="分数下限:" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding LowScore, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Text="分数上限:" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2"
-                        Text="{Binding HighScore, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-                <CheckBox
-                    Margin="0,4,0,0"
-                    Content="数量判定"
-                    IsChecked="{Binding IsNumsJudge}" />
-                <Grid Margin="0,2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="85" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
+                        Style="{StaticResource ParamLabel}"
                         Text="数量下限:" />
                     <TextBox
                         Grid.Row="0"
                         Grid.Column="1"
-                        Margin="2"
+                        Style="{StaticResource ParamTextBox}"
                         Text="{Binding LowNums, UpdateSourceTrigger=PropertyChanged}" />
+
                     <TextBlock
                         Grid.Row="1"
                         Grid.Column="0"
-                        VerticalAlignment="Center"
+                        Style="{StaticResource ParamLabel}"
                         Text="数量上限:" />
                     <TextBox
                         Grid.Row="1"
                         Grid.Column="1"
-                        Margin="2"
+                        Style="{StaticResource ParamTextBox}"
                         Text="{Binding HighNums, UpdateSourceTrigger=PropertyChanged}" />
                 </Grid>
             </StackPanel>
         </Expander>
 
-        <!--  模板路径  -->
-        <StackPanel Margin="0,4">
-            <TextBlock Text="模板路径:" />
-            <TextBox IsReadOnly="True" Text="{Binding ModelPath, UpdateSourceTrigger=PropertyChanged}" />
+        <!--  ============ 模板路径 ============  -->
+        <StackPanel Margin="0,4,0,0">
+            <TextBlock Style="{StaticResource ParamLabel}" Text="模板路径:" />
+            <TextBox
+                IsReadOnly="True"
+                Style="{StaticResource ParamTextBox}"
+                Text="{Binding ModelPath, UpdateSourceTrigger=PropertyChanged}" />
         </StackPanel>
 
-        <!--  匹配结果表格  -->
+        <!--  ============ 匹配结果 ============  -->
         <TextBlock
-            Margin="0,4,0,2"
+            Margin="0,8,0,2"
             FontWeight="Bold"
             Text="匹配结果:" />
         <DataGrid
-            MaxHeight="150"
+            MaxHeight="180"
             AutoGenerateColumns="False"
             CanUserAddRows="False"
             CanUserDeleteRows="False"
@@ -496,7 +613,7 @@
                     Binding="{Binding Col, StringFormat=F2}"
                     Header="Col" />
                 <DataGridTextColumn
-                    Width="50"
+                    Width="55"
                     Binding="{Binding Angle, StringFormat=F2}"
                     Header="Angle" />
                 <DataGridTextColumn

@@ -3,6 +3,7 @@
 	<PropertyGroup>
 		<TargetFramework>net48</TargetFramework>
 		<UseWPF>true</UseWPF>
+		 <UseWindowsForms>true</UseWindowsForms> 
 		<ImplicitUsings>disable</ImplicitUsings>
 		<Nullable>disable</Nullable>
 	</PropertyGroup>
@@ -24,6 +25,7 @@
     <Reference Include="halcondotnet">
       <HintPath>bin\Debug\net48\halcondotnet.dll</HintPath>
     </Reference>
+    <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
 
 </Project>

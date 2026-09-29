@@ -450,12 +450,16 @@ namespace AVS_Core.Services
             if (string.IsNullOrEmpty(_cameraSN))
                 _logger.Warning("未找到相机角色 {Role} 对应的相机SN，处理图事件可能无法匹配UI", config.CameraRole);
 
-            // 创建后台窗口（初始大小可任意,之后会按图像调整,这里传入localhost可以为任意非空字符）
-            //_backgroundWindow = new HWindow(0, 0, 512, 512, 0, "buffer", "localhost");
-            //_backgroundWindow.SetColor("green");
-            //_backgroundWindow.SetLineWidth(2);
+            ////创建后台窗口（初始大小可任意,之后会按图像调整,这里传入localhost可以为任意非空字符）
+            //if (_backgroundWindow == null || !_backgroundWindow.IsInitialized())
+            //{
+            //    _backgroundWindow = new HWindow(0, 0, 512, 512, 0, "buffer", "localhost");
+            //    _backgroundWindow.SetColor("green");
+            //    _backgroundWindow.SetLineWidth(2);
+            //}
+            //_windowHandle = _backgroundWindow;   //后续所有 HALCON 过程都走 buffer
 
-            _engineProvider.GetEngine(); // 确保Halcon引擎已初始化
+            //_engineProvider.GetEngine(); // 确保Halcon引擎已初始化
             var p = _paramService.GetStationParams(_stationId);
 
             paramDir = p.IsSquareBarWeldMark
@@ -467,7 +471,6 @@ namespace AVS_Core.Services
             loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
             loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
             loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-            //这里先注释，报错了
             loadCall.Execute();
             loadCall.Dispose();
             loadProc.Dispose();
@@ -987,7 +990,7 @@ namespace AVS_Core.Services
             _stationId = config.StationId;
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole);
-            _engineProvider.GetEngine();
+            //_engineProvider.GetEngine();
 
             var p = _paramService.GetStationParams(_stationId);
             paramDir = p.IsSquareBarWeldMark
@@ -1020,7 +1023,7 @@ namespace AVS_Core.Services
                     loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
                     loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
                     loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-                    loadCall.Execute();
+                    //loadCall.Execute();
                 }
 
                 // 初始化 Crop3d

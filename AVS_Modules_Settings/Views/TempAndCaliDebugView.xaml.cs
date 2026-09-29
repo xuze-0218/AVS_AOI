@@ -1,4 +1,6 @@
 ﻿using AVS_Modules_Settings.ViewModels;
+using HalconDotNet;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,23 +17,69 @@ namespace AVS_Modules_Settings.Views
         private TempAndCaliDebugViewModel _viewModel;
         private TemplateMatchingViewModel _tmVM => _viewModel?.TemplateMatchingVM;
 
+        /// <summary>
+        /// 窗口事件先于 VM 到达时的缓存
+        /// </summary>
+        private HWindow _pendingWindow;
         public TempAndCaliDebugView()
         {
             InitializeComponent();
+            this.Loaded += OnViewLoaded;
+        }
+
+        protected override void OnInitialized(EventArgs e)
+        {
+            base.OnInitialized(e);
             this.DataContextChanged += OnDataContextChanged;
+            if (DataContext is TempAndCaliDebugViewModel vm)
+                ApplyViewModel(vm);
+            CameraDisplay.HalconWindowReady += OnHalconWindowReady;
+            if (CameraDisplay.HalconWindow != null)
+                OnHalconWindowReady(CameraDisplay.HalconWindow);
+        }
+        private void OnViewLoaded(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel == null && DataContext is TempAndCaliDebugViewModel vm)
+                ApplyViewModel(vm);
+
+            if (_viewModel != null && _viewModel.HalconWindow == null)
+            {
+                var hw = CameraDisplay.HalconWindow ?? _pendingWindow;
+                if (hw != null)
+                    _viewModel.SetHalconWindow(hw);
+            }
+        }
+
+        private void OnHalconWindowReady(HWindow hw)
+        {
+        
+            _pendingWindow = hw;                 // 先缓存，任何时机都存
+            _viewModel?.SetHalconWindow(hw);     // 有VM就直接合并
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
+          
             if (e.OldValue is TempAndCaliDebugViewModel oldVm)
                 UnsubscribeEvents(oldVm);
             if (e.NewValue is TempAndCaliDebugViewModel vm)
-            {
-                _viewModel = vm;
-                _viewModel.SetHalconWindow(CameraDisplay.HalconWindow);
-                SubscribeEvents(vm);
-                UpdateMoveContentState();
-            }
+                ApplyViewModel(vm);
+            else
+                _viewModel = null;
+        }
+
+        private void ApplyViewModel(TempAndCaliDebugViewModel vm)
+        {
+            _viewModel = vm;
+
+            // 优先用 CameraDisplay 当前的；否则用事件缓存下来的
+            var hw = CameraDisplay.HalconWindow ?? _pendingWindow;
+            if (hw != null)
+                vm.SetHalconWindow(hw);
+            // 如果两个都还没有，就等 HalconWindowReady 事件
+
+            SubscribeEvents(vm);
+            UpdateMoveContentState();
         }
 
         private void SubscribeEvents(TempAndCaliDebugViewModel vm)
@@ -41,7 +89,8 @@ namespace AVS_Modules_Settings.Views
             CameraDisplay.MouseMove += OnMouseMove;
             CameraDisplay.MouseRightButtonDown += OnMouseRightDown;
             // 监听协调器的 IsCustomMode 变化（多边形绘制）
-            vm.PropertyChanged += OnCoordinatorPropertyChanged;
+            if (vm != null)
+                vm.PropertyChanged += OnCoordinatorPropertyChanged;
             // 也监听子 VM 的 IsCustomMode 变化（掩膜编辑）
             if (_tmVM != null)
                 _tmVM.PropertyChanged += OnTmPropertyChanged;
@@ -74,7 +123,7 @@ namespace AVS_Modules_Settings.Views
         private void UpdateMoveContentState()
         {
             if (_viewModel == null) return;
-            // 多边形绘制 或 掩膜编辑 → 禁用平移
+            // 多边形绘制 或 掩膜编辑  禁用平移
             CameraDisplay.HMoveContent = !_viewModel.IsCustomMode;
         }
 

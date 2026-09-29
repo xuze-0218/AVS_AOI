@@ -44,6 +44,34 @@ namespace AVS_Modules_Settings.ViewModels
         private bool _isMouseDown;
         private bool _isEraseMode;
 
+
+        private int _featureScale = 1;
+        /// <summary>
+        /// 特征尺度 1-5：1 最密，5 最疏
+        /// </summary>
+        public int FeatureScale
+        {
+            get => _featureScale;
+            set
+            {
+                if (SetProperty(ref _featureScale, value))
+                {
+                    // 已创建模板 + 缓存区域有效 + 当前 ROI 仍存在，才重画
+                    if (_currentModelId != null
+                        && _lastCreateRegion != null
+                        && _lastCreateRegion.IsInitialized()
+                        && _lastCreateRegion.CountObj() > 0
+                        && ActiveRoi?.Region != null
+                        && ActiveRoi.Region.IsInitialized()
+                        && ActiveRoi.Region.CountObj() > 0)
+                    {
+                        _templateMatchingService.DisplayModelFeaturePoints(
+                            _currentModelId, _lastCreateRegion, value);
+                    }
+                }
+            }
+        }
+
         public bool IsMaskEditing
         {
             get => _isMaskEditing;
@@ -82,7 +110,17 @@ namespace AVS_Modules_Settings.ViewModels
         public HObject CurrentImage
         {
             get => _currentImage;
-            set => SetProperty(ref _currentImage, value);
+            set
+            {
+                if (SetProperty(ref _currentImage, value))
+                {
+                    _lastCreateRegion?.Dispose();
+                    _lastCreateRegion = null;
+                    // 如果希望"换图后旧模型失效"：
+                    // _currentModelId = null;
+                    // FindModelCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         // ===== ROI 区域（由协调器传入） =====
@@ -101,8 +139,15 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
-        /// <summary>当前活跃的 ROI 对象引用（由协调器注入），供独立操作时同步 DrawingObject 和绘制 Region</summary>
+        /// <summary>
+        /// 绘制的 ROI（矩形/圆/矩形2等,不含掩膜,拖动、确认 ROI 时会同步
+        /// </summary>
         public HObjectRegion ActiveRoi { get; set; }
+
+        /// <summary>
+        ///创建模板那一刻用的有效区域 = ROI - 掩膜
+        /// </summary>
+        private HObject _lastCreateRegion;
 
         /// <summary>当前是否处于自定义交互模式（掩膜编辑），用于禁用 HMoveContent</summary>
         public bool IsCustomMode => IsMaskEditing;
@@ -124,12 +169,16 @@ namespace AVS_Modules_Settings.ViewModels
         private string _cmMetric;
         public string CmMetric { get => _cmMetric; set => SetProperty(ref _cmMetric, value); }
 
-        private string _cmContrastLow = "30";
-        public string CmContrastLow { get => _cmContrastLow; set => SetProperty(ref _cmContrastLow, value); }
 
-        private string _cmContrastHigh = "200";
-        public string CmContrastHigh { get => _cmContrastHigh; set => SetProperty(ref _cmContrastHigh, value); }
-
+        private string _cmContrast = "auto";
+        /// <summary>
+        /// 对比度：填 "auto" 或单个数字（如 30）；数字越大，要求的边缘对比越强
+        /// </summary>
+        public string CmContrast
+        {
+            get => _cmContrast;
+            set => SetProperty(ref _cmContrast, value);
+        }
         private string _cmMinContrast = "5";
         public string CmMinContrast { get => _cmMinContrast; set => SetProperty(ref _cmMinContrast, value); }
 
@@ -138,18 +187,6 @@ namespace AVS_Modules_Settings.ViewModels
 
         private string _cmOptimization;
         public string CmOptimization { get => _cmOptimization; set => SetProperty(ref _cmOptimization, value); }
-
-        private bool _cmIsNumLevels;
-        public bool CmIsNumLevels { get => _cmIsNumLevels; set => SetProperty(ref _cmIsNumLevels, value); }
-
-        private bool _cmIsContrast;
-        public bool CmIsContrast { get => _cmIsContrast; set => SetProperty(ref _cmIsContrast, value); }
-
-        private bool _cmIsMinContrast;
-        public bool CmIsMinContrast { get => _cmIsMinContrast; set => SetProperty(ref _cmIsMinContrast, value); }
-
-        private string _cmMinBorder = "0";
-        public string CmMinBorder { get => _cmMinBorder; set => SetProperty(ref _cmMinBorder, value); }
 
         private string _fmAngleStart = "0";
         public string FmAngleStart { get => _fmAngleStart; set => SetProperty(ref _fmAngleStart, value); }
@@ -228,6 +265,8 @@ namespace AVS_Modules_Settings.ViewModels
 
         private HTuple _currentModelId = null;
 
+     
+
         // ===== 命令 =====
         public DelegateCommand CreateModelCommand { get; }
         public DelegateCommand FindModelCommand { get; }
@@ -245,7 +284,7 @@ namespace AVS_Modules_Settings.ViewModels
             ModelRegion.GenEmptyObj();
 
             MetricOptions = new List<string> { "use_polarity", "ignore_global_polarity", "ignore_local_polarity", "ignore_color_polarity" };
-            OptimizationOptions = new List<string> { "none", "point_reduction_low", "point_reduction_medium", "point_reduction_high", "pregeneration", "no_pregeneration" };
+            OptimizationOptions = new List<string> { "auto", "point_reduction_low", "point_reduction_medium", "point_reduction_high", "pregeneration", "no_pregeneration" };
             SubPixelOptions = new List<string> { "none", "interpolation", "least_squares", "least_squares_high", "least_squares_very_high" };
 
             CmMetric = MetricOptions[0];
@@ -366,6 +405,8 @@ namespace AVS_Modules_Settings.ViewModels
             if (IsMaskEditing)
                 RefreshDisplayWithMask();
             StatusMessage = "掩膜已清除";
+            _lastCreateRegion?.Dispose();
+            _lastCreateRegion = null;
         }
 
         private void RefreshDisplayWithMask()
@@ -373,7 +414,7 @@ namespace AVS_Modules_Settings.ViewModels
             if (_halconWindow == null) return;
             DisplayImagePreserveZoom();
 
-            // 绘制当前 ROI 轮廓（绿色边框），让用户看清掩膜与ROI的关系
+            // 绘制当前 ROI 轮廓（绿色边框）
             if (ActiveRoi?.Region != null && ActiveRoi.Region.IsInitialized() && ActiveRoi.Region.CountObj() > 0)
             {
                 _halconWindow.SetDraw("margin");
@@ -399,6 +440,8 @@ namespace AVS_Modules_Settings.ViewModels
                 _halconWindow.SetLineWidth(1);
                 _halconWindow.DispObj(_accumulatedEraseRegion);
             }
+            //叠加模板轮廓点（画在最上层）
+            OverlayModelFeaturePoints();
         }
 
         private void DisplayImagePreserveZoom()
@@ -420,38 +463,28 @@ namespace AVS_Modules_Settings.ViewModels
 
             // 优先用 ActiveRoi 的 Region，回退到旧的 _modelRegion
             HObject roiRegion = (ActiveRoi?.Region != null && ActiveRoi.Region.IsInitialized() && ActiveRoi.Region.CountObj() > 0)
-                ? ActiveRoi.Region
-                : _modelRegion;
+                ? ActiveRoi.Region : _modelRegion;
             HObject finalRegion = ApplyMaskToRegion(roiRegion);
-
             if (finalRegion == null || !finalRegion.IsInitialized() || finalRegion.CountObj() == 0)
             {
                 StatusMessage = "无有效区域，请先绘制 ROI";
                 return;
             }
-
             try
             {
                 HOperatorSet.ReduceDomain(CurrentImage, finalRegion, out HObject templateImage);
 
                 double.TryParse(CmAngleStart, out double angleStart);
                 double.TryParse(CmAngleExtent, out double angleExtent);
-
-                string numLevels = CmIsNumLevels ? "auto" : CmNumLevels;
-                string contrast = CmIsContrast ? "auto" : $"{CmContrastLow},{CmContrastHigh}";
-                string minContrast = CmIsMinContrast ? "auto" : CmMinContrast;
-
-                _currentModelId = _templateMatchingService.CreateShapeModel(
-                    templateImage,
-                    angleStart, angleExtent,
-                    numLevels,
-                    contrast,
-                    minContrast,
-                    CmMetric,
-                    CmOptimization);
+                //string minContrastStr = CmMinContrast;
+                _currentModelId = _templateMatchingService.CreateShapeModel(templateImage, angleStart, angleExtent,
+                    CmNumLevels, CmContrast, CmMinContrast, CmMetric, CmOptimization);
 
                 StatusMessage = "模板创建成功";
                 FindModelCommand.RaiseCanExecuteChanged();
+                _lastCreateRegion?.Dispose();
+                _lastCreateRegion = finalRegion.Clone();
+                _templateMatchingService.DisplayModelFeaturePoints(_currentModelId, finalRegion, FeatureScale);
             }
             catch (Exception ex)
             {
@@ -462,13 +495,10 @@ namespace AVS_Modules_Settings.ViewModels
         private HObject ApplyMaskToRegion(HObject roiRegion)
         {
             if (roiRegion == null || !roiRegion.IsInitialized() || roiRegion.CountObj() == 0)
-                return new HObject();
-
+                return null;
             if (_accumulatedMaskRegion == null || !_accumulatedMaskRegion.IsInitialized() || _accumulatedMaskRegion.CountObj() == 0)
                 return roiRegion.Clone();
-
-            HObject result;
-            HOperatorSet.Difference(roiRegion, _accumulatedMaskRegion, out result);
+            HOperatorSet.Difference(roiRegion, _accumulatedMaskRegion, out HObject result);
             return result;
         }
 
@@ -561,6 +591,64 @@ namespace AVS_Modules_Settings.ViewModels
                 }
                 catch (Exception ex) { StatusMessage = $"加载失败：{ex.Message}"; }
             }
+        }
+
+        /// <summary>
+        /// 清除模板特征显示
+        /// </summary>
+        public void ClearModelFeatureDisplay()
+        {
+            _lastCreateRegion?.Dispose();
+            _lastCreateRegion = null;
+
+            // 可选：把图像重绘一次，把残留的点擦掉
+            if (_halconWindow != null && _currentImage != null && _currentImage.IsInitialized())
+            {
+                _halconWindow.ClearWindow();
+                _currentImage.DispObj(_halconWindow);
+            }
+        }
+
+
+        /// <summary>
+        /// 在当前窗口上叠加显示模板轮廓点（不清屏，供掩膜编辑等叠加场景用）
+        /// </summary>
+        private void OverlayModelFeaturePoints()
+        {
+            if (_halconWindow == null) return;
+            if (_currentModelId == null) return;
+
+            var refRegion = GetFeatureRefRegion();   // 前面提到过的 fallback
+            if (refRegion == null) return;
+
+            if (!_templateMatchingService.TryGetModelFeaturePoints(
+                    _currentModelId, refRegion, FeatureScale,
+                    out var rows, out var cols))
+                return;
+
+            HOperatorSet.GenCrossContourXld(out HObject cross,
+                new HTuple(rows), new HTuple(cols),
+                4, new HTuple(Math.PI / 4));
+
+            _halconWindow.SetColor("yellow");
+            _halconWindow.SetLineWidth(1);
+            _halconWindow.DispObj(cross);
+            cross.Dispose();
+        }
+
+        private HObject GetFeatureRefRegion()
+        {
+            if (_lastCreateRegion != null
+                && _lastCreateRegion.IsInitialized()
+                && _lastCreateRegion.CountObj() > 0)
+                return _lastCreateRegion;
+
+            if (ActiveRoi?.Region != null
+                && ActiveRoi.Region.IsInitialized()
+                && ActiveRoi.Region.CountObj() > 0)
+                return ActiveRoi.Region;
+
+            return null;
         }
         #endregion
     }

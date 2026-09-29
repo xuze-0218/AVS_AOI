@@ -136,7 +136,7 @@ namespace AVS_Service.Services
             };
     }
 
-    public sealed class CsvFormatError
+    public class CsvFormatError
     {
         public string FilePath { get; set; }
         public int LineNumber { get; set; }

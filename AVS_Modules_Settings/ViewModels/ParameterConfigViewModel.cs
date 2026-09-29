@@ -964,7 +964,7 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         // CSV转义：如果字段包含逗号、引号或换行，用双引号包裹并替换内部引号
-        private static string CsvEscape(string field)
+        private  string CsvEscape(string field)
         {
             if (string.IsNullOrEmpty(field))
                 return string.Empty;
@@ -1039,7 +1039,7 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         // 解析CSV行，支持双引号转义
-        private static string[] ParseCsvLine(string line)
+        private  string[] ParseCsvLine(string line)
         {
             var fields = new List<string>();
             bool inQuotes = false;

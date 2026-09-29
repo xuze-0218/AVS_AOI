@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace AVS_Service.Models
 {
-    public sealed class CsvSchema
+    public class CsvSchema
     {
         public string Name { get; set; }
         public VisionDimension DataType { get; set; }

@@ -9,7 +9,7 @@ namespace AVS_Service.Models
     /// <summary>
     /// 查询筛选因子
     /// </summary>
-    public sealed class FactorOption
+    public class FactorOption
     {
         public string Name { get; private set; }
         public VisionDimension DataType { get; private set; }

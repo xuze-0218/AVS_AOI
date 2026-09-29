@@ -12,12 +12,9 @@ namespace AVS_Common
     /// </summary>
     public partial class CameraDisplayUnit : UserControl
     {
-        private bool _isRegistered = false;
         public HWindow HalconWindow { get; private set; }
 
-        /// <summary>
-        /// 暴露 HSmartWindowControlWPF 控件引用，以便外部进行精确的窗口坐标到图像坐标转换
-        /// </summary>
+        public event Action<HWindow> HalconWindowReady;
         public HSmartWindowControlWPF HsmartWindowControl => HsmartWindow;
 
         public bool HMoveContent
@@ -29,19 +26,19 @@ namespace AVS_Common
         public CameraDisplayUnit()
         {
             InitializeComponent();
-            SizeChanged += OnSizeChanged;
             HsmartWindow.HInitWindow += OnHInitWindow;
             Loaded += OnLoaded;
-            Unloaded += OnUnloaded;
+            SizeChanged += OnSizeChanged;
             DataContextChanged += OnDataContextChanged;
         }
 
-        private void OnHInitWindow(object sender, EventArgs e)
+        #region 触发入口
+
+        private void OnHInitWindow(object sender, EventArgs e) => AcquireHalconWindow();
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            if (HsmartWindow?.HalconWindow == null) return;
-            HalconWindow = HsmartWindow.HalconWindow;
-            _isRegistered = false;
-            TryRegister();
+            AcquireHalconWindow();
             UpdateDisplay();
         }
 
@@ -49,62 +46,60 @@ namespace AVS_Common
         {
             if (e.NewSize.Width > 0 && e.NewSize.Height > 0)
             {
+                AcquireHalconWindow();   // 尺寸就绪时补一次，兜底 HInitWindow 早触发的场景
                 UpdateDisplay();
             }
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            TryRegister();
-        }
+            => AcquireHalconWindow();
 
-        private void OnUnloaded(object sender, RoutedEventArgs e)
-        {
-            _isRegistered = false;
-        }
+        #endregion
 
-        private void OnLoaded(object sender, RoutedEventArgs e)
+        #region 窗口获取与注册
+        /// <summary>
+        ///访问HsmartWindow.HalconWindow, 只在IsLoaded且尺寸有效时才真正访问
+        /// 已获取到有效窗口后直接返回。
+        /// </summary>
+        private void AcquireHalconWindow()
         {
-            TryRegister();
-            UpdateDisplay();
-        }
-        private void TryRegister()
-        {
-            if (_isRegistered) return;
-
-            string roleName = CameraRoleName;
-            if (string.IsNullOrEmpty(roleName) && DataContext is CameraDisplayItem item)
-            {
-                roleName = item.CameraRoleName;
-            }
-            if (HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0)
-                return;
+            if (!IsLoaded) return;
+            if (HsmartWindow == null) return;
+            if (HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0) return;
 
             try
             {
-                var hWindow = HsmartWindow.HalconWindow;
-                if (hWindow == null || !hWindow.IsInitialized()) return;
+                var hw = HsmartWindow.HalconWindow;
+                if (hw == null || !hw.IsInitialized()) return;
 
-                HalconWindow = hWindow;
+                //句柄没变就不广播
+                if (ReferenceEquals(HalconWindow, hw)) return;
 
-                // 只有角色名有效时才注册
-                if (!string.IsNullOrEmpty(roleName))
-                {
-                    WindowHandleEvent.RaiseHandleRegistered(roleName, hWindow);
-                    _isRegistered = true;  // 仅在注册成功后标记
-                }
-                else
-                {
-                    // 角色名为空时，仅缓存句柄，但不标记为已注册，以便后续角色名有效时再次尝试
-                    _isRegistered = false;
-                }
+                HalconWindow = hw;
+                TryRegisterHandle();
+                HalconWindowReady?.Invoke(hw);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"TryRegister failed: {ex.Message}");
-                _isRegistered = false;
+                System.Diagnostics.Debug.WriteLine($"AcquireHalconWindow failed: {ex.Message}");
             }
         }
+
+        private void TryRegisterHandle()
+        {
+            if (HalconWindow == null || !HalconWindow.IsInitialized()) return;
+
+            string roleName = CameraRoleName;
+            if (string.IsNullOrEmpty(roleName) && DataContext is CameraDisplayItem item)
+                roleName = item.CameraRoleName;
+            if (string.IsNullOrEmpty(roleName)) return;
+
+            WindowHandleEvent.RaiseHandleRegistered(roleName, HalconWindow);
+        }
+
+        #endregion
+
+        #region 依赖属性
 
         public HObject DispImage
         {
@@ -121,7 +116,6 @@ namespace AVS_Common
             get { return (HObject)GetValue(DispRegionProperty); }
             set { SetValue(DispRegionProperty, value); }
         }
-
         public static readonly DependencyProperty DispRegionProperty =
             DependencyProperty.Register("DispRegion", typeof(HObject), typeof(CameraDisplayUnit),
                 new PropertyMetadata(null, OnHObjectChanged));
@@ -131,61 +125,39 @@ namespace AVS_Common
             get => (string)GetValue(CameraRoleNameProperty);
             set => SetValue(CameraRoleNameProperty, value);
         }
-
         public static readonly DependencyProperty CameraRoleNameProperty =
-    DependencyProperty.Register(
-        nameof(CameraRoleName),
-        typeof(string),
-        typeof(CameraDisplayUnit),
-        new PropertyMetadata(null, OnCameraRoleNameChanged));
+            DependencyProperty.Register(nameof(CameraRoleName), typeof(string), typeof(CameraDisplayUnit),
+                new PropertyMetadata(null, OnCameraRoleNameChanged));
 
         private static void OnCameraRoleNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            var control = (CameraDisplayUnit)d;
-            if (!string.IsNullOrEmpty(control.CameraRoleName) && control.IsLoaded &&
-                control.HsmartWindow.ActualWidth > 0 && control.HsmartWindow.ActualHeight > 0)
-            {
-                // 角色名已变化，重新注册窗口句柄
-                control._isRegistered = false;
-                control.TryRegister();
-            }
-        }
-
+            => ((CameraDisplayUnit)d).AcquireHalconWindow();
         private static void OnHObjectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
+            => ((CameraDisplayUnit)d).UpdateDisplay();
+        #endregion
 
-            var control = d as CameraDisplayUnit;
-            control.UpdateDisplay();
-        }
 
+        #region 图像显示
         private void UpdateDisplay()
         {
-            // 窗口尚未完成布局或尺寸无效时，直接访问 HsmartWindow.HalconWindow
-            // 会触发 HALCON 内部 HInitializeWindow → open_window，若 size=0 则抛出
-            if (!IsLoaded || HsmartWindow.ActualWidth <= 0 || HsmartWindow.ActualHeight <= 0) return;
-            if (HalconWindow == null || !HalconWindow.IsInitialized()) return;  // 不主动获取
-
-            HWindow hw = HalconWindow;
-            if (hw == null || !hw.IsInitialized())
-                return;
+            if (HalconWindow == null || !HalconWindow.IsInitialized()) return;
 
             try
             {
-                hw.ClearWindow();
+                HalconWindow.ClearWindow();
 
                 if (DispImage != null && DispImage.IsInitialized())
                 {
                     HOperatorSet.GetImageSize(DispImage, out HTuple width, out HTuple height);
-                    SetPartKeepAspectRatio(hw, (int)width, (int)height);
-                    hw.DispObj(DispImage);
+                    SetPartKeepAspectRatio(HalconWindow, (int)width, (int)height);
+                    HalconWindow.DispObj(DispImage);
                 }
 
                 if (DispRegion != null && DispRegion.IsInitialized() && DispRegion.CountObj() > 0)
                 {
-                    hw.SetColor("green");
-                    hw.SetLineWidth(2);
-                    hw.SetDraw("margin");
-                    hw.DispObj(DispRegion);
+                    HalconWindow.SetColor("green");
+                    HalconWindow.SetLineWidth(2);
+                    HalconWindow.SetDraw("margin");
+                    HalconWindow.DispObj(DispRegion);
                 }
             }
             catch (Exception ex)
@@ -193,11 +165,6 @@ namespace AVS_Common
                 System.Diagnostics.Debug.WriteLine($"UpdateDisplay failed: {ex.Message}");
             }
         }
-
-        /// <summary>
-        /// 根据窗口实际尺寸和图像尺寸，计算等比例显示的 SetPart 区域，
-        /// 使图像始终等比例居中显示
-        /// </summary>
         private void SetPartKeepAspectRatio(HWindow hw, int imageWidth, int imageHeight)
         {
             double winWidth = HsmartWindow.ActualWidth;
@@ -209,7 +176,6 @@ namespace AVS_Common
 
             if (imgRatio > winRatio)
             {
-                // 图像比窗口更宽：宽度填满，上下留黑边
                 double dispHeight = imageWidth / winRatio;
                 double offset = (dispHeight - imageHeight) / 2.0;
                 row1 = -offset;
@@ -219,7 +185,6 @@ namespace AVS_Common
             }
             else
             {
-                // 图像比窗口更高（或相等）：高度填满，左右留黑边
                 double dispWidth = imageHeight * winRatio;
                 double offset = (dispWidth - imageWidth) / 2.0;
                 row1 = 0;
@@ -230,6 +195,7 @@ namespace AVS_Common
 
             hw.SetPart((int)row1, (int)col1, (int)row2, (int)col2);
         }
+        #endregion
 
         private void TestButton_Click(object sender, RoutedEventArgs e)
         {
@@ -240,9 +206,11 @@ namespace AVS_Common
                 var inspectItem = new MenuItem { Header = "检测测试" };
                 inspectItem.Command = item.InspectTestCommand;
                 menu.Items.Add(inspectItem);
+
                 var calibItem = new MenuItem { Header = "标定测试" };
                 calibItem.Command = item.CalibTestCommand;
                 menu.Items.Add(calibItem);
+
                 menu.PlacementTarget = TestButton;
                 menu.IsOpen = true;
             }
