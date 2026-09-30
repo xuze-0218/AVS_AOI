@@ -1,4 +1,5 @@
-﻿using AVS_Service;
+﻿using AVS_Modules_Settings.Models;
+using AVS_Service;
 using AVS_Service.Models;
 using AVS_Service.Services;
 using HalconDotNet;
@@ -129,6 +130,13 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _caliperResults, value);
         }
 
+        private ObservableCollection<GeometryResultItem> _geometryResults = new ObservableCollection<GeometryResultItem>();
+        public ObservableCollection<GeometryResultItem> GeometryResults
+        {
+            get => _geometryResults;
+            set => SetProperty(ref _geometryResults, value);
+        }
+
         private string _statusMessage;
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
@@ -183,6 +191,8 @@ namespace AVS_Modules_Settings.ViewModels
                 _metrologyService.SetImage(CurrentImage);
                 _metrologyService.ApplyMetrologyModel(modelHandle, out HObject measures, out HObject resultContours);
                 DisplayResults(measures, resultContours);
+                //几何拟合结果
+                ExtractGeometryResults(modelHandle);
                 // 从计量模型提取结果
                 ExtractEdgePoints(modelHandle, out var rows, out var cols, out var amplitudes);
                 FillResults(rows, cols, amplitudes);
@@ -274,16 +284,6 @@ namespace AVS_Modules_Settings.ViewModels
                 if (HalconWindow != null)
                 {
                     HOperatorSet.SetLineWidth(HalconWindow, 1);
-                    if (ShowMeasures)
-                    {
-                        HOperatorSet.SetColor(HalconWindow, "cyan");
-                        //HOperatorSet.DispObj(measureHandle, HalconWindow); // 不能直接 DispObj measureHandle，需要取轮廓
-                        //                                                   // 正确获取测量轮廓并显示：
-                        HObject measureContours;
-                        HOperatorSet.GenMeasureRectangle2(row, col, phi, length1, length2,
-                            width, height, SelectedInterpolation, out HTuple tmpHandle);
-                        // 或者用 get_metrology_object_measures 类似，但这里简单处理：不显示测量线，只显示结果点
-                    }
                     if (ShowResultContour && rowEdgeFirst.Length > 0)
                     {
                         HOperatorSet.SetColor(HalconWindow, "lime green");
@@ -398,39 +398,6 @@ namespace AVS_Modules_Settings.ViewModels
                 StatusMessage = $"加载失败：{ex.Message}";
             }
         }
-
-        //private void ExtractEdgePoints(HTuple modelHandle, out HTuple rows, out HTuple cols, out HTuple amplitudes)
-        //{
-        //    rows = new HTuple(); cols = new HTuple(); amplitudes = new HTuple();
-        //    try
-        //    {
-        //        // 获取所有测量对象索引
-        //        HOperatorSet.GetMetrologyObjectIndices(modelHandle, out HTuple indices);
-        //        if (indices.Length == 0) return;
-
-        //        for (int i = 0; i < indices.Length; i++)
-        //        {
-        //            HTuple idx = indices[i];
-        //            HOperatorSet.GetMetrologyObjectResult(modelHandle, idx, "all", "num_instances", new HTuple(), out HTuple numInst);
-        //            int n = numInst.I;
-        //            if (n > 0)
-        //            {
-        //                HOperatorSet.GetMetrologyObjectResult(modelHandle, idx, "all", "result_type", "row", out HTuple rowOut);
-        //                HOperatorSet.GetMetrologyObjectResult(modelHandle, idx, "all", "result_type", "column", out HTuple colOut);
-        //                HOperatorSet.GetMetrologyObjectResult(modelHandle, idx, "all", "result_type", "amplitude", out HTuple ampOut);
-        //                rows = rows.TupleConcat(rowOut);
-        //                cols = cols.TupleConcat(colOut);
-        //                amplitudes = amplitudes.TupleConcat(ampOut);
-        //            }
-        //        }
-        //    }
-        //    catch (HalconException ex)
-        //    {
-        //        System.Diagnostics.Debug.WriteLine($"ExtractEdgePoints error: {ex.Message}");
-        //    }
-        //}
-
-
         private void ExtractEdgePoints(HTuple modelHandle, out HTuple rows, out HTuple cols, out HTuple amplitudes)
         {
             rows = new HTuple(); cols = new HTuple(); amplitudes = new HTuple();
@@ -474,6 +441,96 @@ namespace AVS_Modules_Settings.ViewModels
             }
         }
 
+        /// <summary>
+        /// 提取每个卡尺对象的几何拟合结果
+        /// </summary>
+        /// <param name="modelHandle"></param>
+        private void ExtractGeometryResults(HTuple modelHandle)
+        {
+            var list = new ObservableCollection<GeometryResultItem>();
+            try
+            {
+                HOperatorSet.GetMetrologyObjectIndices(modelHandle, out HTuple indices);
+                if (indices == null || indices.Length == 0)
+                {
+                    GeometryResults = list;
+                    return;
+                }
+
+                for (int i = 0; i < indices.Length; i++)
+                {
+                    HTuple idx = indices[i];
+                    var item = new GeometryResultItem { Index = i + 1 };
+
+                    HOperatorSet.GetMetrologyObjectParam(modelHandle, idx, "object_type", out HTuple objType);
+                    item.ObjectType = objType?.S ?? string.Empty;
+
+                    switch (item.ObjectType.ToLower())
+                    {
+                        case "circle":
+                            item.CenterRow = GetFirstResult(modelHandle, idx, "row");
+                            item.CenterCol = GetFirstResult(modelHandle, idx, "column");
+                            item.Size1 = GetFirstResult(modelHandle, idx, "radius");
+                            break;
+
+                        case "ellipse":
+                            item.CenterRow = GetFirstResult(modelHandle, idx, "row");
+                            item.CenterCol = GetFirstResult(modelHandle, idx, "column");
+                            item.Size1 = GetFirstResult(modelHandle, idx, "radius1");
+                            item.Size2 = GetFirstResult(modelHandle, idx, "radius2");
+                            item.AngleDeg = RadToDeg(GetFirstResult(modelHandle, idx, "phi"));
+                            break;
+
+                        case "rectangle2":
+                        case "rectangle":
+                            item.CenterRow = GetFirstResult(modelHandle, idx, "row");
+                            item.CenterCol = GetFirstResult(modelHandle, idx, "column");
+                            item.Size1 = GetFirstResult(modelHandle, idx, "length1");
+                            item.Size2 = GetFirstResult(modelHandle, idx, "length2");
+                            item.AngleDeg = RadToDeg(GetFirstResult(modelHandle, idx, "phi"));
+                            break;
+
+                        case "line":
+                            double rb = GetFirstResult(modelHandle, idx, "row_begin");
+                            double cb = GetFirstResult(modelHandle, idx, "column_begin");
+                            double re = GetFirstResult(modelHandle, idx, "row_end");
+                            double ce = GetFirstResult(modelHandle, idx, "column_end");
+                            item.CenterRow = (rb + re) * 0.5;
+                            item.CenterCol = (cb + ce) * 0.5;
+                            double dx = ce - cb;
+                            double dy = re - rb;
+                            item.Size1 = Math.Sqrt(dx * dx + dy * dy);
+                            item.AngleDeg = Math.Atan2(dy, dx) * 180.0 / Math.PI;
+                            break;
+                    }
+
+                    // RMS 用来判断边缘质量（越小越好）
+                    item.RMS = GetFirstResult(modelHandle, idx, "rms");
+
+                    list.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ExtractGeometryResults error: {ex.Message}");
+            }
+            GeometryResults = list;
+        }
+
+        private double GetFirstResult(HTuple modelHandle, HTuple idx, string resultName)
+        {
+            try
+            {
+                HOperatorSet.GetMetrologyObjectResult(modelHandle, idx, "all", "result_type", resultName, out HTuple result);
+                return (result != null && result.Length > 0) ? result[0].D : 0;
+            }
+            catch (HalconException)
+            {
+                return 0;
+            }
+        }
+
+        private double RadToDeg(double rad) => rad * 180.0 / Math.PI;
         private HTuple GenConstantTuple(double value, int count)
         {
             HTuple t = new HTuple();

@@ -1,12 +1,17 @@
-﻿using AVS_Service.Models;
+﻿using AVS_Common.Events;
+using AVS_Service.Models;
 using AVS_Service.Services;
 using HalconDotNet;
 using Microsoft.Win32;
 using Prism.Commands;
+using Prism.Events;
 using Prism.Mvvm;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace AVS_Modules_Settings.ViewModels
@@ -23,6 +28,9 @@ namespace AVS_Modules_Settings.ViewModels
         //private readonly ICaliperService _caliperService;
         private readonly IMetrologyService _metrologyService;
         private HWindow _halconWindow;
+        private readonly ICameraConfigService _cameraService;
+        private readonly IStationConfigService _stationConfigService;
+        private readonly IEventAggregator _eventAggregator;
 
         #region 子ViewModel
         private TemplateMatchingViewModel _templateMatchingVM;
@@ -48,15 +56,20 @@ namespace AVS_Modules_Settings.ViewModels
         #endregion
 
         #region 构造函数
-        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService, IMetrologyService metrologyService/*, ICaliperService caliperService*/)
+        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService,
+            IMetrologyService metrologyService,
+            ICameraConfigService cameraService,
+            IStationConfigService stationConfigService,
+            IEventAggregator eventAggregator
+            )
         {
             _matchingService = matchingService;
-            //_caliperService = caliperService;
+            _cameraService = cameraService;
+            _stationConfigService = stationConfigService;
+            _eventAggregator = eventAggregator;
 
             TemplateMatchingVM = new TemplateMatchingViewModel(matchingService);
-            //CaliperMeasureVM = new CaliperMeasureViewModel(caliperService);
             MetrologyVM = new MetrologyViewModel(metrologyService);
-
             MetrologyVM.RequestMatch = () =>
             {
                 TemplateMatchingVM.FindModelCommand?.Execute();
@@ -70,7 +83,6 @@ namespace AVS_Modules_Settings.ViewModels
             };
             // 将当前 ROI 对象引用注入子 ViewModel，使模板匹配/掩膜编辑可独立同步 DrawingObject
             TemplateMatchingVM.ActiveRoi = _currentRoi;
-            //CaliperMeasureVM.CurrentRoi = _currentRoi;
             MetrologyVM.CurrentRoi = _currentRoi;
 
             // ===== 命令 =====
@@ -90,7 +102,9 @@ namespace AVS_Modules_Settings.ViewModels
             DrawPolygonCommand = new DelegateCommand(StartPolygonDraw);
             ClearDrawingCommand = new DelegateCommand(ClearDrawing);
             ConfirmRoiCommand = new DelegateCommand(OnConfirmRoi);
-
+            GrabFromCameraCommand = new DelegateCommand(async () => await OnGrabFromCameraAsync());
+            LoadAvailableStations();
+            _eventAggregator.GetEvent<HImageDisplayEvent>().Subscribe(OnFrameReceived, ThreadOption.PublisherThread, false);
             // ===== 初始化多边形数据 =====
             _polygonTempRows = new List<double>();
             _polygonTempCols = new List<double>();
@@ -98,6 +112,30 @@ namespace AVS_Modules_Settings.ViewModels
         #endregion
 
         #region 公共属性 - 图像与Halcon窗口
+
+        public ObservableCollection<StationConfig> AvailableStations { get; } = new ObservableCollection<StationConfig>();
+
+        private StationConfig _selectedStation;
+        public StationConfig SelectedStation
+        {
+            get => _selectedStation;
+            set => SetProperty(ref _selectedStation, value);
+        }
+
+        // 帧缓存 最新一帧的克隆
+        private readonly object _frameLock = new object();
+        private readonly Dictionary<string, HObject> _latestFrames = new Dictionary<string, HObject>();
+
+        // 当前相机角色名
+        private string _cameraRoleName;
+        public string CameraRoleName
+        {
+            get => _cameraRoleName;
+            set => SetProperty(ref _cameraRoleName, value);
+        }
+
+        // CameraRole → SerialNumber 缓存，避免每次都遍历 AllSettings
+        private readonly Dictionary<string, string> _roleToSn = new Dictionary<string, string>();
         public HWindow HalconWindow
         {
             get => _halconWindow;
@@ -141,19 +179,11 @@ namespace AVS_Modules_Settings.ViewModels
         private HObjectRegion _currentRoi = new HObjectRegion();
         public HObjectRegion CurrentRoi => _currentRoi;
 
-        // 在原有类内部添加
         private string _imagePath;
         public string ImagePath
         {
             get => _imagePath;
             set => SetProperty(ref _imagePath, value);
-        }
-
-        private string _cameraRoleName;
-        public string CameraRoleName
-        {
-            get => _cameraRoleName;
-            set => SetProperty(ref _cameraRoleName, value);
         }
 
         private double _currentMouseRow;
@@ -240,6 +270,7 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand ClearDrawingCommand { get; }
         public DelegateCommand ConfirmRoiCommand { get; }
         public DelegateCommand SetMetroRefCommand { get; }
+        public DelegateCommand GrabFromCameraCommand { get; }
         #endregion
 
         #region Halcon窗口设置
@@ -412,6 +443,120 @@ namespace AVS_Modules_Settings.ViewModels
             }
             StatusMessage = "ROI已清除，右键图像重新绘制";
             TemplateMatchingVM?.ClearModelFeatureDisplay();
+        }
+
+        private void LoadAvailableStations()
+        {
+            AvailableStations.Clear();
+            _roleToSn.Clear();
+
+            foreach (var setting in _cameraService.AllSettings)
+            {
+                if (string.IsNullOrEmpty(setting.SerilalNum)) continue;
+                if (!_cameraService.ConnectedCameras.ContainsKey(setting.SerilalNum)) continue;
+
+                var station = _stationConfigService.GetStationByCameraRole(setting.CameraRole);
+                if (station == null) continue;
+
+                _roleToSn[setting.CameraRole] = setting.SerilalNum;
+                AvailableStations.Add(station);
+            }
+
+            SelectedStation = AvailableStations.FirstOrDefault();
+            StatusMessage = AvailableStations.Count > 0
+                ? $"检测到 {AvailableStations.Count} 个可用工位"
+                : "未检测到已连接相机";
+        }
+
+        private async Task OnGrabFromCameraAsync()
+        {
+            var station = SelectedStation;
+            if (station == null)
+            {
+                StatusMessage = "请先在工具栏选择工位";
+                return;
+            }
+
+            if (!_roleToSn.TryGetValue(station.CameraRole, out string sn))
+            {
+                StatusMessage = $"工位 {station.StationId} 的相机 {station.CameraRole} 未连接";
+                return;
+            }
+
+            // 1) 缓存里有 → 直接取
+            HObject frame = TryGetLatestFrame(sn);
+
+            // 2) 缓存空 → 尝试软触发 + 等待
+            if (frame == null)
+            {
+                if (!_cameraService.ExecuteSoftTrigger(sn))
+                {
+                    StatusMessage = $"相机 {sn} 无缓存帧，且软触发失败（可能为硬触发模式）";
+                    return;
+                }
+
+                StatusMessage = "已触发，等待图像...";
+                for (int i = 0; i < 20; i++)
+                {
+                    await Task.Delay(100);
+                    frame = TryGetLatestFrame(sn);
+                    if (frame != null) break;
+                }
+            }
+
+            if (frame == null)
+            {
+                StatusMessage = "相机取图超时（2 秒内未收到图像）";
+                return;
+            }
+
+            CurrentImage = frame;         // 生命周期按你现有 OnLoadImage 的写法来
+            ImagePath = $"CAM:{station.StationId}";
+            CameraRoleName = station.CameraRole;
+            StatusMessage = $"已从相机取图：{station.StationId} ({station.CameraRole})";
+            RedrawImage();
+        }
+
+
+        /// <summary>
+        /// 订阅 HImageDisplayEvent，缓存每台相机的最新一帧。
+        /// ★ 必须同步 Clone —— ProcessImagePointer 在 Publish 之后会 Dispose 原图。
+        /// </summary>
+        private void OnFrameReceived(CameraImagePayload payload)
+        {
+            if (payload?.Image == null || !payload.Image.IsInitialized()) return;
+            if (string.IsNullOrEmpty(payload.CameraSN)) return;
+
+            try
+            {
+                HObject copy = payload.Image.Clone();
+                lock (_frameLock)
+                {
+                    if (_latestFrames.TryGetValue(payload.CameraSN, out var old))
+                        old?.Dispose();
+                    _latestFrames[payload.CameraSN] = copy;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"OnFrameReceived 克隆失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 取缓存帧（返回克隆，调用方负责释放
+        /// </summary>
+        /// <param name="sn"></param>
+        /// <returns></returns>
+        private HObject TryGetLatestFrame(string sn)
+        {
+            if (string.IsNullOrEmpty(sn)) return null;
+            lock (_frameLock)
+            {
+                if (_latestFrames.TryGetValue(sn, out var cached) && cached.IsInitialized())
+                    return cached.Clone();
+            }
+            return null;
         }
         #endregion
 

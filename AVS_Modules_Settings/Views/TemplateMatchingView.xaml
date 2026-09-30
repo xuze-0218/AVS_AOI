@@ -84,7 +84,6 @@
         </Style>
 
         <!--  ================= 两列参数网格模板 =================  -->
-        <!--  统一列宽 = 95 / *  -->
         <Style x:Key="ParamGrid" TargetType="Grid">
             <Setter Property="Margin" Value="4" />
         </Style>
@@ -113,7 +112,7 @@
             Padding="6"
             Background="#F3F0FF"
             BorderBrush="#7B68EE"
-            Header="🎭 掩膜编辑">
+            Header="掩膜编辑">
             <StackPanel>
 
                 <!--  开关行  -->
@@ -474,110 +473,6 @@
             </Grid>
         </Expander>
 
-        <!--  ============ 显示选项 ============  -->
-        <Expander
-            Header="显示选项"
-            IsExpanded="False"
-            Style="{StaticResource ParamExpander}">
-            <WrapPanel Margin="4">
-                <CheckBox
-                    Content="XLD 轮廓模式"
-                    IsChecked="{Binding IsModeXld}"
-                    Style="{StaticResource InlineCheckBox}" />
-                <CheckBox
-                    Content="显示十字"
-                    IsChecked="{Binding IsCross}"
-                    Style="{StaticResource InlineCheckBox}" />
-                <CheckBox
-                    Content="显示 ROI"
-                    IsChecked="{Binding IsDispRoi}"
-                    Style="{StaticResource InlineCheckBox}" />
-            </WrapPanel>
-        </Expander>
-
-        <!--  ============ 判定条件 ============  -->
-        <Expander
-            Header="判定条件"
-            IsExpanded="False"
-            Style="{StaticResource ParamExpander}">
-            <StackPanel Margin="4">
-
-                <CheckBox
-                    Content="分数判定"
-                    IsChecked="{Binding IsScoreJudge}"
-                    Style="{StaticResource InlineCheckBox}" />
-                <Grid Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="95" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        Style="{StaticResource ParamLabel}"
-                        Text="分数下限:" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Style="{StaticResource ParamTextBox}"
-                        Text="{Binding LowScore, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        Style="{StaticResource ParamLabel}"
-                        Text="分数上限:" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Style="{StaticResource ParamTextBox}"
-                        Text="{Binding HighScore, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-
-                <CheckBox
-                    Content="数量判定"
-                    IsChecked="{Binding IsNumsJudge}"
-                    Style="{StaticResource InlineCheckBox}" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="95" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <TextBlock
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        Style="{StaticResource ParamLabel}"
-                        Text="数量下限:" />
-                    <TextBox
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        Style="{StaticResource ParamTextBox}"
-                        Text="{Binding LowNums, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <TextBlock
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        Style="{StaticResource ParamLabel}"
-                        Text="数量上限:" />
-                    <TextBox
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Style="{StaticResource ParamTextBox}"
-                        Text="{Binding HighNums, UpdateSourceTrigger=PropertyChanged}" />
-                </Grid>
-            </StackPanel>
-        </Expander>
-
         <!--  ============ 模板路径 ============  -->
         <StackPanel Margin="0,4,0,0">
             <TextBlock Style="{StaticResource ParamLabel}" Text="模板路径:" />
@@ -593,7 +488,6 @@
             FontWeight="Bold"
             Text="匹配结果:" />
         <DataGrid
-            MaxHeight="180"
             AutoGenerateColumns="False"
             CanUserAddRows="False"
             CanUserDeleteRows="False"

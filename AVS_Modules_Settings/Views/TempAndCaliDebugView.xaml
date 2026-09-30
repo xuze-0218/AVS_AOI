@@ -31,6 +31,20 @@
                 Command="{Binding LoadImageCommand}"
                 Content="📁 加载图像"
                 ToolTip="选择图像文件" />
+
+            <Separator />
+            <ComboBox
+                Width="160"
+                Margin="2"
+                DisplayMemberPath="StationId"
+                ItemsSource="{Binding AvailableStations}"
+                SelectedItem="{Binding SelectedStation}"
+                ToolTip="选择工位（对应一台已连接相机）" />
+            <Button
+                Margin="2"
+                Command="{Binding GrabFromCameraCommand}"
+                Content="📷 相机取图"
+                ToolTip="从选中工位的相机抓取一帧" />
             <Separator />
             <Button
                 Margin="2"

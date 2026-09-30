@@ -218,33 +218,6 @@ namespace AVS_Modules_Settings.ViewModels
         private string _fmNumLevels = "0";
         public string FmNumLevels { get => _fmNumLevels; set => SetProperty(ref _fmNumLevels, value); }
 
-        private bool _isModeXld;
-        public bool IsModeXld { get => _isModeXld; set => SetProperty(ref _isModeXld, value); }
-
-        private bool _isCross;
-        public bool IsCross { get => _isCross; set => SetProperty(ref _isCross, value); }
-
-        private bool _isDispRoi;
-        public bool IsDispRoi { get => _isDispRoi; set => SetProperty(ref _isDispRoi, value); }
-
-        private bool _isScoreJudge;
-        public bool IsScoreJudge { get => _isScoreJudge; set => SetProperty(ref _isScoreJudge, value); }
-
-        private string _lowScore;
-        public string LowScore { get => _lowScore; set => SetProperty(ref _lowScore, value); }
-
-        private string _highScore;
-        public string HighScore { get => _highScore; set => SetProperty(ref _highScore, value); }
-
-        private bool _isNumsJudge;
-        public bool IsNumsJudge { get => _isNumsJudge; set => SetProperty(ref _isNumsJudge, value); }
-
-        private string _lowNums;
-        public string LowNums { get => _lowNums; set => SetProperty(ref _lowNums, value); }
-
-        private string _highNums;
-        public string HighNums { get => _highNums; set => SetProperty(ref _highNums, value); }
-
         private string _modelPath;
         public string ModelPath { get => _modelPath; set => SetProperty(ref _modelPath, value); }
 
@@ -264,8 +237,6 @@ namespace AVS_Modules_Settings.ViewModels
         public List<string> SubPixelOptions { get; }
 
         private HTuple _currentModelId = null;
-
-     
 
         // ===== 命令 =====
         public DelegateCommand CreateModelCommand { get; }

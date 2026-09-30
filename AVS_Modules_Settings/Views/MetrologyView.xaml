@@ -352,5 +352,52 @@
                     Header="对间距" />
             </DataGrid.Columns>
         </DataGrid>
+        <!--  ============ 几何拟合结果 ============  -->
+        <TextBlock
+            Margin="0,8,0,2"
+            FontWeight="Bold"
+            Text="几何拟合结果:" />
+        <DataGrid
+            MaxHeight="180"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            CanUserDeleteRows="False"
+            IsReadOnly="True"
+            ItemsSource="{Binding GeometryResults}">
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Width="30"
+                    Binding="{Binding Index}"
+                    Header="#" />
+                <DataGridTextColumn
+                    Width="50"
+                    Binding="{Binding TypeLabel}"
+                    Header="类型" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding CenterRow, StringFormat=F2}"
+                    Header="中心Y" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding CenterCol, StringFormat=F2}"
+                    Header="中心X" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding Size1, StringFormat=F3}"
+                    Header="尺寸1" />
+                <DataGridTextColumn
+                    Width="60"
+                    Binding="{Binding Size2, StringFormat=F3}"
+                    Header="尺寸2" />
+                <DataGridTextColumn
+                    Width="55"
+                    Binding="{Binding AngleDeg, StringFormat=F2}"
+                    Header="角度°" />
+                <DataGridTextColumn
+                    Width="55"
+                    Binding="{Binding RMS, StringFormat=F3}"
+                    Header="RMS" />
+            </DataGrid.Columns>
+        </DataGrid>
     </StackPanel>
 </UserControl>
