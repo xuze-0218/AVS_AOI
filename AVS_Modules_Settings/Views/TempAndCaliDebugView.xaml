@@ -46,6 +46,56 @@
                 Content="📷 相机取图"
                 ToolTip="从选中工位的相机抓取一帧" />
             <Separator />
+            <CheckBox
+                Margin="4,0,2,0"
+                VerticalAlignment="Center"
+                Content="🔆 增强"
+                IsChecked="{Binding EnableEnhance}"
+                ToolTip="所有算法使用增强后的图像" />
+            <Separator />
+            <TextBlock
+                Margin="8,0,2,0"
+                VerticalAlignment="Center"
+                Text="Mult:" />
+            <Slider
+                Width="120"
+                Margin="0,0,4,0"
+                VerticalAlignment="Center"
+                LargeChange="0.5"
+                Maximum="5"
+                Minimum="0.5"
+                SmallChange="0.1"
+                TickFrequency="0.1"
+                TickPlacement="BottomRight"
+                ToolTip="scale_image 的乘数系数"
+                Value="{Binding EnhanceMult, Delay=80}" />
+            <TextBlock
+                Width="30"
+                Margin="0,0,4,0"
+                VerticalAlignment="Center"
+                Text="{Binding EnhanceMult, StringFormat=F2}" />
+
+            <!--  Add 滑块  -->
+            <TextBlock
+                Margin="4,0,2,0"
+                VerticalAlignment="Center"
+                Text="Add:" />
+            <Slider
+                Width="120"
+                Margin="0,0,4,0"
+                VerticalAlignment="Center"
+                LargeChange="20"
+                Maximum="200"
+                Minimum="-200"
+                SmallChange="5"
+                TickFrequency="10"
+                TickPlacement="BottomRight"
+                ToolTip="scale_image 的偏移系数"
+                Value="{Binding EnhanceAdd, Delay=80}" />
+            <TextBlock
+                Width="40"
+                VerticalAlignment="Center"
+                Text="{Binding EnhanceAdd, StringFormat=F0}" />
             <Button
                 Margin="2"
                 Command="{Binding RunCommand}"

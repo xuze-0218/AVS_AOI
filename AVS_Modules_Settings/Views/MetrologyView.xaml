@@ -84,6 +84,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -94,8 +95,16 @@
                     Content="测量"
                     Style="{StaticResource PrimaryActionButton}" />
 
-                <TextBlock
+                <Button
                     Grid.Column="1"
+                    Margin="0,0,8,0"
+                    Command="{Binding CalcResolutionCommand}"
+                    Content="📏 计算分辨率"
+                    Style="{StaticResource SmallActionButton}"
+                    ToolTip="计算相机分辨率" />
+
+                <TextBlock
+                    Grid.Column="2"
                     VerticalAlignment="Center"
                     FontSize="11"
                     Text="{Binding StatusMessage}"
@@ -116,7 +125,7 @@
                         Content="边缘对模式"
                         IsChecked="{Binding UseEdgePairs}"
                         Style="{StaticResource InlineCheckBox}"
-                        ToolTip="仅对矩形2有效" />
+                        ToolTip="仅对矩形2有效；启用后输出边缘对宽度，不产生几何拟合结果" />
                     <CheckBox
                         Content="跟随模板"
                         IsChecked="{Binding IsFollowModel}"

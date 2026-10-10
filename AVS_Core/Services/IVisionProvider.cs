@@ -58,7 +58,7 @@ namespace AVS_Core.Services
         private readonly ICameraConfigService _cameraConfigService;
         private readonly IImageSaveService _imageSaveService;
         private string paramDir = string.Empty;
-        private HDevProcedureCall _cropCall, _measureCall;
+        private HDevProcedureCall _cropCall, _measureCall, _caliCall;
 
         public TwoDVisionProvider(ILogger logger,
             IStationConfigService stationConfig,
@@ -104,17 +104,15 @@ namespace AVS_Core.Services
             HOperatorSet.TupleConcat(matchParam, p.Fy, out matchParam);
 
             HDevProcedure hStep = new HDevProcedure();
-            hStep.LoadProcedure("Cali2d");
-            var procCall = new HDevProcedureCall(hStep);
 
-            procCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
-            procCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-            procCall.SetInputCtrlParamTuple("SearchParam", matchParam);
-            procCall.SetInputCtrlParamTuple("ParamDir", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"));
-            procCall.SetInputIconicParamObject("Image", image);
-            procCall.Execute();
-            HTuple result = procCall.GetOutputCtrlParamTuple("ResultArray");
-            procCall.Dispose();
+            _caliCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
+            _caliCall.SetInputCtrlParamTuple("ParamSide", _stationId);
+            _caliCall.SetInputCtrlParamTuple("SearchParam", matchParam);
+            _caliCall.SetInputCtrlParamTuple("ParamDir", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"));
+            _caliCall.SetInputIconicParamObject("Image", image);
+            _caliCall.Execute();
+            HTuple result = _caliCall.GetOutputCtrlParamTuple("ResultArray");
+            //_caliCall.Dispose();
             hStep.Dispose();
 
             if (result.Length < 3)
@@ -251,6 +249,7 @@ namespace AVS_Core.Services
                     string data04 = DoubleToString(resultArray[8].D, 8);//爆孔数量
                     string data05 = DoubleToString(resultArray[10].D, 8);//焊缝外径
                     string data06 = DoubleToString(resultArray[12].D, 8);//虚焊面积
+                    result = resultArray[0].D == 0 ? "01" : "02";
                     measureResults = result + data01 + data02 + data03 + data04 + data05 + data06;
 
                 }
@@ -482,6 +481,10 @@ namespace AVS_Core.Services
             var measureProcName = p.IsCirWeldMark ? "Measure2d" : "MeasureSB2D";
             var measureProc = new HDevProcedure(measureProcName);
             _measureCall = new HDevProcedureCall(measureProc);
+
+            //标定
+            var caliProc = new HDevProcedure("Cali2d");
+            _caliCall = new HDevProcedureCall(caliProc);
             await Task.CompletedTask;
             _logger.Information("{StationId}工位2D视觉初始化成功", _stationId);
         }
@@ -696,8 +699,7 @@ namespace AVS_Core.Services
                 double resoX = p.Fx, resoY = p.Fy, resoZ = p.Fz;
                 string calibrateResult, calibrateData;
                 double boardHeightValue;
-                BoardCalibrate(image, roiRegionA, roiRegionB, resoX, resoY, resoZ,
-                    out boardHeightValue, out calibrateResult, out calibrateData);
+                BoardCalibrate(image, roiRegionA, roiRegionB, resoX, resoY, resoZ, out boardHeightValue, out calibrateResult, out calibrateData);
 
                 //读基准 + 判定
                 double baseHeight = p.CornerZ01;

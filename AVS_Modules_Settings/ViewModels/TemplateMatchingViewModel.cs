@@ -1,4 +1,3 @@
-using AVS_Service;
 using HalconDotNet;
 using Microsoft.Win32;
 using Prism.Commands;
@@ -8,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using AVS_Service.Models;
 using AVS_Service.Services;
+using System.IO;
 
 namespace AVS_Modules_Settings.ViewModels
 {
@@ -47,26 +47,26 @@ namespace AVS_Modules_Settings.ViewModels
 
         private int _featureScale = 1;
         /// <summary>
-        /// 特征尺度 1-5：1 最密，5 最疏
+        /// 特征尺度 1-15：1 最密，15 最疏
         /// </summary>
         public int FeatureScale
         {
             get => _featureScale;
             set
             {
-                if (SetProperty(ref _featureScale, value))
+                int v = Math.Max(1, Math.Min(15, value));
+                if (SetProperty(ref _featureScale, v))
                 {
-                    // 已创建模板 + 缓存区域有效 + 当前 ROI 仍存在，才重画
+                    // 已创建模板 → 提示需要重新创建
+                    if (_currentModelId != null)
+                        StatusMessage = "特征尺度已更改，请重新创建模板使新尺度生效";
+                    // 显示层同步重绘（用缓存的 XLD）
                     if (_currentModelId != null
-                        && _lastCreateRegion != null
-                        && _lastCreateRegion.IsInitialized()
-                        && _lastCreateRegion.CountObj() > 0
-                        && ActiveRoi?.Region != null
-                        && ActiveRoi.Region.IsInitialized()
-                        && ActiveRoi.Region.CountObj() > 0)
+                        && _lastCreateRegion != null && _lastCreateRegion.IsInitialized() && _lastCreateRegion.CountObj() > 0
+                        && ActiveRoi?.Region != null && ActiveRoi.Region.IsInitialized() && ActiveRoi.Region.CountObj() > 0)
                     {
-                        _templateMatchingService.DisplayModelFeaturePoints(
-                            _currentModelId, _lastCreateRegion, value);
+                        RebuildFeatureCrossCache();
+                        RefreshDisplayWithMask();
                     }
                 }
             }
@@ -116,6 +116,8 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     _lastCreateRegion?.Dispose();
                     _lastCreateRegion = null;
+                    _cachedFeatureCross?.Dispose();
+                    _cachedFeatureCross = null;
                     // 如果希望"换图后旧模型失效"：
                     // _currentModelId = null;
                     // FindModelCommand.RaiseCanExecuteChanged();
@@ -148,6 +150,11 @@ namespace AVS_Modules_Settings.ViewModels
         ///创建模板那一刻用的有效区域 = ROI - 掩膜
         /// </summary>
         private HObject _lastCreateRegion;
+
+        /// <summary>
+        /// 缓存的特征点十字 XLD，供掩膜编辑每帧叠加时直接 DispObj
+        /// </summary>
+        private HObject _cachedFeatureCross;
 
         /// <summary>当前是否处于自定义交互模式（掩膜编辑），用于禁用 HMoveContent</summary>
         public bool IsCustomMode => IsMaskEditing;
@@ -282,9 +289,8 @@ namespace AVS_Modules_Settings.ViewModels
         {
             if (_halconWindow == null) return;
             ClearErasePreview();
-            StatusMessage = IsEraseMode
-                ? "擦除模式：按住鼠标左键拖动擦除已有掩膜"
-                : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
+            StatusMessage = IsEraseMode ? "擦除模式：按住鼠标左键拖动擦除已有掩膜" : "掩膜编辑：按住鼠标左键拖动绘制掩膜";
+            RebuildFeatureCrossCache();
             RefreshDisplayWithMask();
         }
 
@@ -378,6 +384,8 @@ namespace AVS_Modules_Settings.ViewModels
             StatusMessage = "掩膜已清除";
             _lastCreateRegion?.Dispose();
             _lastCreateRegion = null;
+            _cachedFeatureCross?.Dispose();
+            _cachedFeatureCross = null;
         }
 
         private void RefreshDisplayWithMask()
@@ -423,16 +431,39 @@ namespace AVS_Modules_Settings.ViewModels
             if (img != null && img.IsInitialized())
                 img.DispObj(_halconWindow);
         }
+
+        /// <summary>
+        /// 重算并缓存掩膜特征点十字；调用时机：创建模板后、FeatureScale 变化、进入掩膜编辑
+        /// </summary>
+        private void RebuildFeatureCrossCache()
+        {
+            // 换新缓存前先释放旧的
+            _cachedFeatureCross?.Dispose();
+            _cachedFeatureCross = null;
+
+            if (_currentModelId == null) return;
+            var refRegion = GetFeatureRefRegion();
+            if (refRegion == null) return;
+
+            if (!_templateMatchingService.TryGetModelFeaturePoints(_currentModelId, refRegion, FeatureScale, out var rows, out var cols))
+                return;
+
+            if (rows == null || rows.Length == 0) return;
+
+            HOperatorSet.GenCrossContourXld(out _cachedFeatureCross,
+                new HTuple(rows), new HTuple(cols),
+                4, new HTuple(Math.PI / 4));
+        }
         #endregion
 
         #region 模板操作
         private void CreateModel()
         {
-            // 从 DrawingObject 同步最新 ROI 并生成 Region
+            // 从DrawingObject 同步最新 ROI 并生成 Region
             ActiveRoi?.SyncFromDrawingObject();
             ActiveRoi?.GenerateRegion();
 
-            // 优先用 ActiveRoi 的 Region，回退到旧的 _modelRegion
+            // 优先用ActiveRoi的 Region，回退到旧的 _modelRegion
             HObject roiRegion = (ActiveRoi?.Region != null && ActiveRoi.Region.IsInitialized() && ActiveRoi.Region.CountObj() > 0)
                 ? ActiveRoi.Region : _modelRegion;
             HObject finalRegion = ApplyMaskToRegion(roiRegion);
@@ -444,10 +475,8 @@ namespace AVS_Modules_Settings.ViewModels
             try
             {
                 HOperatorSet.ReduceDomain(CurrentImage, finalRegion, out HObject templateImage);
-
                 double.TryParse(CmAngleStart, out double angleStart);
                 double.TryParse(CmAngleExtent, out double angleExtent);
-                //string minContrastStr = CmMinContrast;
                 _currentModelId = _templateMatchingService.CreateShapeModel(templateImage, angleStart, angleExtent,
                     CmNumLevels, CmContrast, CmMinContrast, CmMetric, CmOptimization);
 
@@ -455,7 +484,8 @@ namespace AVS_Modules_Settings.ViewModels
                 FindModelCommand.RaiseCanExecuteChanged();
                 _lastCreateRegion?.Dispose();
                 _lastCreateRegion = finalRegion.Clone();
-                _templateMatchingService.DisplayModelFeaturePoints(_currentModelId, finalRegion, FeatureScale);
+                RebuildFeatureCrossCache();             // 计算缓存
+                RefreshDisplayWithMask();               // 重绘
             }
             catch (Exception ex)
             {
@@ -547,6 +577,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             OpenFileDialog ofd = new OpenFileDialog
             {
+                InitialDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config"),
                 Filter = "Shape Model|*.shm|All files|*.*",
                 Title = "加载模板"
             };
@@ -571,8 +602,10 @@ namespace AVS_Modules_Settings.ViewModels
         {
             _lastCreateRegion?.Dispose();
             _lastCreateRegion = null;
+            _cachedFeatureCross?.Dispose();
+            _cachedFeatureCross = null;
 
-            // 可选：把图像重绘一次，把残留的点擦掉
+            // 重绘可选
             if (_halconWindow != null && _currentImage != null && _currentImage.IsInitialized())
             {
                 _halconWindow.ClearWindow();
@@ -587,24 +620,11 @@ namespace AVS_Modules_Settings.ViewModels
         private void OverlayModelFeaturePoints()
         {
             if (_halconWindow == null) return;
-            if (_currentModelId == null) return;
-
-            var refRegion = GetFeatureRefRegion();   // 前面提到过的 fallback
-            if (refRegion == null) return;
-
-            if (!_templateMatchingService.TryGetModelFeaturePoints(
-                    _currentModelId, refRegion, FeatureScale,
-                    out var rows, out var cols))
-                return;
-
-            HOperatorSet.GenCrossContourXld(out HObject cross,
-                new HTuple(rows), new HTuple(cols),
-                4, new HTuple(Math.PI / 4));
+            if (_cachedFeatureCross == null || !_cachedFeatureCross.IsInitialized()) return;
 
             _halconWindow.SetColor("yellow");
             _halconWindow.SetLineWidth(1);
-            _halconWindow.DispObj(cross);
-            cross.Dispose();
+            _halconWindow.DispObj(_cachedFeatureCross);
         }
 
         private HObject GetFeatureRefRegion()

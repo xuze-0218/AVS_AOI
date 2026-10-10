@@ -25,12 +25,11 @@ namespace AVS_Modules_Settings.ViewModels
     public class TempAndCaliDebugViewModel : BindableBase
     {
         private readonly ITemplateMatchingService _matchingService;
-        //private readonly ICaliperService _caliperService;
-        private readonly IMetrologyService _metrologyService;
         private HWindow _halconWindow;
         private readonly ICameraConfigService _cameraService;
         private readonly IStationConfigService _stationConfigService;
         private readonly IEventAggregator _eventAggregator;
+        private readonly IParametersConfigService _parametersConfigService;
 
         #region 子ViewModel
         private TemplateMatchingViewModel _templateMatchingVM;
@@ -56,20 +55,19 @@ namespace AVS_Modules_Settings.ViewModels
         #endregion
 
         #region 构造函数
-        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService,
-            IMetrologyService metrologyService,
-            ICameraConfigService cameraService,
-            IStationConfigService stationConfigService,
-            IEventAggregator eventAggregator
+        public TempAndCaliDebugViewModel(ITemplateMatchingService matchingService, IMetrologyService metrologyService,
+            ICameraConfigService cameraService, IStationConfigService stationConfigService, IEventAggregator eventAggregator,
+            IParametersConfigService parametersConfigService
             )
         {
+            _parametersConfigService = parametersConfigService;
             _matchingService = matchingService;
             _cameraService = cameraService;
             _stationConfigService = stationConfigService;
             _eventAggregator = eventAggregator;
 
             TemplateMatchingVM = new TemplateMatchingViewModel(matchingService);
-            MetrologyVM = new MetrologyViewModel(metrologyService);
+            MetrologyVM = new MetrologyViewModel(metrologyService, _parametersConfigService);
             MetrologyVM.RequestMatch = () =>
             {
                 TemplateMatchingVM.FindModelCommand?.Execute();
@@ -122,7 +120,7 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _selectedStation, value);
         }
 
-        // 帧缓存 最新一帧的克隆
+        // 帧缓存 
         private readonly object _frameLock = new object();
         private readonly Dictionary<string, HObject> _latestFrames = new Dictionary<string, HObject>();
 
@@ -134,7 +132,7 @@ namespace AVS_Modules_Settings.ViewModels
             set => SetProperty(ref _cameraRoleName, value);
         }
 
-        // CameraRole → SerialNumber 缓存，避免每次都遍历 AllSettings
+        // CameraRole  SerialNumber 缓存，避免每次都遍历 AllSettings
         private readonly Dictionary<string, string> _roleToSn = new Dictionary<string, string>();
         public HWindow HalconWindow
         {
@@ -166,6 +164,43 @@ namespace AVS_Modules_Settings.ViewModels
                     //if (CaliperMeasureVM != null) CaliperMeasureVM.CurrentImage = value;
                     if (MetrologyVM != null) MetrologyVM.CurrentImage = value;
                 }
+            }
+        }
+
+        private HObject _rawImage = new HObject();
+
+        private bool _enableEnhance;
+        public bool EnableEnhance
+        {
+            get => _enableEnhance;
+            set
+            {
+                if (SetProperty(ref _enableEnhance, value))
+                    ApplyEnhancement();
+            }
+        }
+
+        private double _enhanceMult = 1.5;
+        /// <summary>scale_image 的 Mult 系数</summary>
+        public double EnhanceMult
+        {
+            get => _enhanceMult;
+            set
+            {
+                if (SetProperty(ref _enhanceMult, value))
+                    ApplyEnhancement();
+            }
+        }
+
+        private double _enhanceAdd = -50;
+        /// <summary>scale_image 的 Add 偏移</summary>
+        public double EnhanceAdd
+        {
+            get => _enhanceAdd;
+            set
+            {
+                if (SetProperty(ref _enhanceAdd, value))
+                    ApplyEnhancement();
             }
         }
 
@@ -342,7 +377,7 @@ namespace AVS_Modules_Settings.ViewModels
             }
             else
             {
-                // 如果无法匹配，退而求其次：使用 ROI 中心
+                // 如果无法匹配，使用 ROI 中心
                 MetrologyVM.ModelRefRow = _currentRoi.Y;
                 MetrologyVM.ModelRefCol = _currentRoi.X;
                 MetrologyVM.ModelRefAngle = _currentRoi.Angle;
@@ -364,8 +399,12 @@ namespace AVS_Modules_Settings.ViewModels
                     ImagePath = openFileDialog.FileName;
                     var image = _matchingService.LoadImage(ImagePath);
                     if (image != null)
-                        CurrentImage = image.Clone();
-                    RedrawImage();
+                    {
+                        _rawImage?.Dispose();
+                        _rawImage = image.Clone();
+                        MetrologyVM?.ClearResults();
+                        ApplyEnhancement();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -385,7 +424,7 @@ namespace AVS_Modules_Settings.ViewModels
             }
             SaveFileDialog saveFileDialog = new SaveFileDialog
             {
-                Filter = "Region Files|*.reg|All Files|*.*",
+                Filter = "Region Files|*.reg;*.hobj|All Files|*.*",
                 Title = "保存ROI文件"
             };
             if (saveFileDialog.ShowDialog() == true)
@@ -406,7 +445,7 @@ namespace AVS_Modules_Settings.ViewModels
         {
             OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                Filter = "Region Files|*.reg|All Files|*.*",
+                Filter = "Region Files|*.reg;*.hobj|All Files|*.*",
                 Title = "加载ROI文件"
             };
             if (openFileDialog.ShowDialog() == true)
@@ -427,6 +466,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void OnClearRoi()
         {
+            MetrologyVM?.ClearResults();
             _currentRoi.DetachDrawingObject();
             if (_currentRoi.Region != null && _currentRoi.Region.IsInitialized())
             {
@@ -483,10 +523,10 @@ namespace AVS_Modules_Settings.ViewModels
                 return;
             }
 
-            // 1) 缓存里有 → 直接取
+            //缓存里有: 直接取
             HObject frame = TryGetLatestFrame(sn);
 
-            // 2) 缓存空 → 尝试软触发 + 等待
+            //缓存空:尝试软触发 + 等待
             if (frame == null)
             {
                 if (!_cameraService.ExecuteSoftTrigger(sn))
@@ -510,7 +550,10 @@ namespace AVS_Modules_Settings.ViewModels
                 return;
             }
 
-            CurrentImage = frame;         // 生命周期按你现有 OnLoadImage 的写法来
+            _rawImage?.Dispose();
+            _rawImage = frame;             // frame 已经是新克隆的
+            MetrologyVM?.ClearResults();
+            ApplyEnhancement();
             ImagePath = $"CAM:{station.StationId}";
             CameraRoleName = station.CameraRole;
             StatusMessage = $"已从相机取图：{station.StationId} ({station.CameraRole})";
@@ -520,7 +563,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         /// <summary>
         /// 订阅 HImageDisplayEvent，缓存每台相机的最新一帧。
-        /// ★ 必须同步 Clone —— ProcessImagePointer 在 Publish 之后会 Dispose 原图。
+        /// 同步 Clone —— ProcessImagePointer 在 Publish 之后会 Dispose 原图。
         /// </summary>
         private void OnFrameReceived(CameraImagePayload payload)
         {
@@ -570,7 +613,8 @@ namespace AVS_Modules_Settings.ViewModels
                 StatusMessage = "请先退出掩膜编辑模式再绘制ROI";
                 return;
             }
-
+            //绘制新ROI前，先清掉上一次的测量结果
+            //MetrologyVM?.ClearResults();
             _currentRoi.DetachDrawingObject();
             _currentRoi.Style = type;
             _currentRoi.Color = color;
@@ -702,6 +746,7 @@ namespace AVS_Modules_Settings.ViewModels
 
         private void ClearDrawing()
         {
+            MetrologyVM?.ClearResults();
             _currentRoi.DetachDrawingObject();
             if (_halconWindow != null)
             {
@@ -732,6 +777,30 @@ namespace AVS_Modules_Settings.ViewModels
             _currentRoi.DetachDrawingObject();
             RedrawImage();
             StatusMessage = "ROI 已确认，绿色区域固定显示";
+        }
+
+
+        /// <summary>
+        /// 从 _rawImage 按当前增强参数生成 CurrentImage，转发给所有子 VM
+        /// </summary>
+        private void ApplyEnhancement()
+        {
+            if (_rawImage == null || !_rawImage.IsInitialized())
+                return;
+            try
+            {
+                HObject processed;
+                if (EnableEnhance)
+                    HOperatorSet.ScaleImage(_rawImage, out processed, EnhanceMult, EnhanceAdd);
+                else
+                    processed = _rawImage.Clone();
+                CurrentImage = processed;   // setter 会转发给 TemplateMatchingVM / MetrologyVM
+                RedrawImage();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"图像增强失败: {ex.Message}";
+            }
         }
         #endregion
 

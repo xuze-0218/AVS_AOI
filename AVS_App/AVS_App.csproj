@@ -6,6 +6,7 @@
 
 		<UseWPF>true</UseWPF>
 		<Platforms>AnyCPU;x64</Platforms>
+		<ApplicationIcon>bin\x64\Debug\net48\Config\favicon.ico</ApplicationIcon>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -13,6 +14,10 @@
 		<EmbeddedResource Remove="Modules\**" />
 		<None Remove="Modules\**" />
 		<Page Remove="Modules\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="bin\x64\Debug\net48\Config\favicon.ico" />
 	</ItemGroup>
 
 	<ItemGroup>
