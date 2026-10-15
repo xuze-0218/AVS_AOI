@@ -52,6 +52,8 @@ namespace AVS_Modules_Settings.ViewModels
         }
         public bool IsNotConnected => !IsConnected;
         public bool CanSoftTrigger => IsConnected && IsTriggerMode && IsCurrentCameraGrabbing;
+
+        public bool HasDebugImage => _currentDebugImage != null && _currentDebugImage.IsInitialized();
         #endregion
         #region 绑定的属性
         private List<string> _deviceList;
@@ -183,7 +185,11 @@ namespace AVS_Modules_Settings.ViewModels
                 {
                     _currentDebugImage.Dispose();
                 }
-                SetProperty(ref _currentDebugImage, value);
+                if (SetProperty(ref _currentDebugImage, value))
+                {
+                    RaisePropertyChanged(nameof(HasDebugImage));
+                    SaveImageCommand?.RaiseCanExecuteChanged();
+                }
             }
         }
 
@@ -197,7 +203,7 @@ namespace AVS_Modules_Settings.ViewModels
             SearchCommand = new DelegateCommand(ExecuteSearch).ObservesCanExecute(() => IsNotConnected);
             InitCommand = new DelegateCommand(ExecuteInit).ObservesCanExecute(() => IsNotConnected);
             CloseCommand = new DelegateCommand(ExecuteClose).ObservesCanExecute(() => IsConnected);
-
+            SaveImageCommand = new DelegateCommand(ExecuteSaveImage).ObservesCanExecute(() => HasDebugImage);
             SoftTriggerCommand = new DelegateCommand(ExecuteSoftTrigger).ObservesCanExecute(() => CanSoftTrigger);
             GetParamCommand = new DelegateCommand(ExecuteGetParam).ObservesCanExecute(() => IsConnected);
             SetParamCommand = new DelegateCommand(ExecuteSetParam).ObservesCanExecute(() => IsConnected);
@@ -272,6 +278,7 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand SoftTriggerCommand { get; }
         public DelegateCommand GetParamCommand { get; }
         public DelegateCommand SetParamCommand { get; }
+        public DelegateCommand SaveImageCommand { get; }
         public DelegateCommand TogglePreviewCommand { get; set; }
         #endregion
 
@@ -368,6 +375,65 @@ namespace AVS_Modules_Settings.ViewModels
                     _cameraConfigService.UpdateCameraSetting(_currentConfig);
                 }
                 StatusMessage = "参数已保存到本地";
+            }
+        }
+
+        private void ExecuteSaveImage()
+        {
+            var image = _currentDebugImage;
+            if (image == null || !image.IsInitialized())
+            {
+                StatusMessage = "当前没有可保存的图像";
+                return;
+            }
+
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "保存当前图像",
+                Filter = "PNG 图像|*.png|BMP 图像|*.bmp|JPEG 图像|*.jpg;*.jpeg|TIFF 图像|*.tif;*.tiff",
+                FileName = $"{CameraRoleName}_{DateTime.Now:yyyyMMdd_HHmmss_fff}",
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                DefaultExt = ".png",
+                AddExtension = true,
+                OverwritePrompt = true
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            try
+            {
+                string ext = System.IO.Path.GetExtension(dlg.FileName);
+                ext = ext == null ? "" : ext.ToLowerInvariant();
+
+                // ★ 传统 switch 语句
+                string format;
+                switch (ext)
+                {
+                    case ".bmp":
+                        format = "bmp";
+                        break;
+                    case ".jpg":
+                    case ".jpeg":
+                        format = "jpeg 90";
+                        break;
+                    case ".tif":
+                    case ".tiff":
+                        format = "tiff";
+                        break;
+                    default:
+                        format = "png";
+                        break;
+                }
+
+                HOperatorSet.WriteImage(image, format, 0, dlg.FileName);
+                StatusMessage = $"图像已保存: {System.IO.Path.GetFileName(dlg.FileName)}";
+                _logger.Information("调试图像已保存: {Path}", dlg.FileName);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"保存失败: {ex.Message}";
+                _logger.Error(ex, "调试图像保存失败");
+                MessageBox.Show($"保存图像失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         private void SyncConfigToUI()

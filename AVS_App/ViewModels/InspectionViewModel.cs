@@ -97,8 +97,9 @@ namespace AVS_App.ViewModels
                     CameraRoleName = cam.CameraRole,
                     PhysicalSN = cam.SerilalNum
                 };
-                item.InspectTestCommand = new DelegateCommand(() => OnTestRequested(item, false));
-                item.CalibTestCommand = new DelegateCommand(() => OnTestRequested(item, true));
+                item.InspectTestCommand = new DelegateCommand(() => OnTestRequested(item, LocalTestMode.Inspect));
+                item.CalibTestCommand = new DelegateCommand(() => OnTestRequested(item, LocalTestMode.Calibrate));
+                item.VerifyTestCommand = new DelegateCommand(() => OnTestRequested(item, LocalTestMode.Verify));
                 CameraDisplayList.Add(item);
             }
 
@@ -107,7 +108,7 @@ namespace AVS_App.ViewModels
                             CameraDisplayList.Count <= 4 ? 2 : 3;
         }
 
-        private async void OnTestRequested(CameraDisplayItem item, bool isCalib)
+        private async void OnTestRequested(CameraDisplayItem item, LocalTestMode mode)
         {
             if (item == null || string.IsNullOrEmpty(item.CameraRoleName))
                 return;
@@ -117,29 +118,62 @@ namespace AVS_App.ViewModels
                 _logger.Warning("未找到相机角色 {Role} 对应的工位配置", item.CameraRoleName);
                 return;
             }
+            string title;
+            bool multiselect;
+            switch (mode)
+            {
+                case LocalTestMode.Verify:
+                    title = "选择点检图片";
+                    multiselect = false;
+                    break;
+
+                case LocalTestMode.Calibrate:
+                    title = "选择标定图片";
+                    multiselect = false;
+                    break;
+                default: // 检测
+                    title = "选择检测图片（按拍照顺序多选）";
+                    multiselect = true;
+                    break;
+            }
 
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Title = isCalib ? "选择标定图片（一张）" : "选择检测图片（按拍照顺序多选）",
-                Multiselect = !isCalib,
+                Title = title,
+                Multiselect = multiselect,
                 Filter = "图像文件|*.bmp;*.jpg;*.jpeg;*.png;*.tif;*.tiff|所有文件|*.*"
             };
-            if (dialog.ShowDialog() == true)
+            if (dialog.ShowDialog() != true) return;
+
+            var paths = dialog.FileNames.ToList();
+            LocalTestResult result;
+            string typeName;
+
+            switch (mode)
             {
-                var paths = dialog.FileNames.ToList();
-                LocalTestResult result = isCalib
-                    ? await _localTestService.RunCalibrationTestAsync(station.StationId, paths)
-                    : await _localTestService.RunInspectTestAsync(station.StationId, paths);
-                if (result.Success)
-                {
-                    _logger.Information("本地测试成功：工位={StationId}, 类型={Type}, 消息={Message}, 结果数据={ResultData}",
-                        station.StationId, isCalib ? "标定" : "检测", result.Message, result.ResultData ?? "无");
-                }
-                else
-                {
-                    _logger.Warning("本地测试失败：工位={StationId}, 类型={Type}, 消息={Message}",
-                        station.StationId, isCalib ? "标定" : "检测", result.Message);
-                }
+                case LocalTestMode.Inspect:
+                    result = await _localTestService.RunInspectTestAsync(station.StationId, paths);
+                    typeName = "检测";
+                    break;
+                case LocalTestMode.Calibrate:
+                    result = await _localTestService.RunCalibrationTestAsync(station.StationId, paths, isVerify: false);
+                    typeName = "标定";
+                    break;
+                default: // Verify
+                    result = await _localTestService.RunCalibrationTestAsync(station.StationId, paths, isVerify: true);
+                    typeName = "点检";
+                    break;
+            }
+
+            if (result.Success)
+            {
+                _logger.Information("本地测试成功：工位={StationId}, 类型={Type}, 消息={Message}, 结果数据={ResultData}",
+                    station.StationId, typeName, result.Message, result.ResultData ?? "无");
+            }
+            else
+            {
+                _logger.Warning("本地测试失败：工位={StationId}, 类型={Type}, 消息={Message}",
+                    station.StationId, typeName, result.Message);
             }
 
         }

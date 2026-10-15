@@ -54,6 +54,10 @@ namespace AVS_Core.Services
         Task<string> GetResultDataAsync(string stationId, int startPole, int endPole, int msgPoleCapacity, CancellationToken ct = default);
 
         /// <summary>
+        /// 标定/点检：异步等待图像处理完成，返回 "01/02 + X + Y"
+        /// </summary>
+        Task<string> GetCalibResultDataAsync(string stationId, int timeoutMs = 30000, CancellationToken ct = default);
+        /// <summary>
         /// 重置指定工位的会话
         /// </summary>
         void Reset(string stationId);
@@ -233,6 +237,7 @@ namespace AVS_Core.Services
                 case SessionWorkType.Verify:
                     state.CalibResult = "00";
                     state.CalibData = "+0000000+0000000";
+                    state.CalibTcs = new TaskCompletionSource<string>();
                     break;
             }
             _sessions[stationId] = state;
@@ -349,6 +354,28 @@ namespace AVS_Core.Services
             return string.Concat(results);
         }
 
+
+        public async Task<string> GetCalibResultDataAsync(string stationId, int timeoutMs = 30000, CancellationToken ct = default)
+        {
+            if (!_sessions.TryGetValue(stationId, out var state) || !state.IsActive)
+                return GenerateErrorResult(state?.WorkType ?? SessionWorkType.Inspect);
+
+            // 兼容：如果 TCS 未初始化（旧会话），直接返回当前值
+            if (state.CalibTcs == null)
+                return state.CalibResult + state.CalibData;
+
+            var timeoutTask = Task.Delay(timeoutMs, ct);
+            var completed = await Task.WhenAny(state.CalibTcs.Task, timeoutTask).ConfigureAwait(false);
+
+            if (completed == state.CalibTcs.Task)
+            {
+                _logger.Information("标定/点检结果就绪，工位 {StationId}，结果 {Result}", stationId, state.CalibResult);
+                return await state.CalibTcs.Task;
+            }
+
+            _logger.Warning("标定/点检结果等待超时({Timeout}ms)，工位 {StationId}", timeoutMs, stationId);
+            return "02+0000000+0000000";
+        }
         private string GenerateEmptyResult(int capacity) => string.Concat(Enumerable.Repeat("00" + new string('0', 48), capacity));
 
         public async Task PreloadAllStationsAsync()
@@ -543,6 +570,7 @@ namespace AVS_Core.Services
                 state.CalibResult = "02";
                 state.CalibData = "+0000000+0000000";
             }
+            state.CalibTcs?.TrySetResult(state.CalibResult + state.CalibData);
         }
 
         private string GenerateErrorResult(SessionWorkType type)
@@ -598,6 +626,8 @@ namespace AVS_Core.Services
         /// </summary>
         public string CalibResult { get; set; } = "00";  // 结果 01 ok/02 ng
         public string CalibData { get; set; } = "+0000000+0000000"; // X+Y 坐标
+
+        public TaskCompletionSource<string> CalibTcs { get; set; }
 
         public void Dispose()
         {

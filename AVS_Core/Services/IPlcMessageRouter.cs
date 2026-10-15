@@ -108,7 +108,7 @@ namespace AVS_Core.Services
                             response = await HandleCalibInit(connectionPlcId, sessionConfig, isverify);
                             break;
                         case "0002":
-                            response = HandleCalibResult(connectionPlcId, sessionConfig);
+                            response = await HandleCalibResult(connectionPlcId, sessionConfig);
                             break;
                         default:
                             response = CreateErrorResponse(sessionConfig, "Unknown step");
@@ -228,9 +228,18 @@ namespace AVS_Core.Services
             return _protocolEngine.BuildOutput(config.OutputFields);
         }
 
-        private string HandleCalibResult(string stationId, SessionConfig config)
+        private async Task<string> HandleCalibResult(string stationId, SessionConfig config)
         {
-            string calibResult = _sessionService.GetResultData(stationId);
+            string calibResult;
+            try
+            {
+                calibResult = await _sessionService.GetCalibResultDataAsync(stationId, 30000);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "获取标定/点检结果失败，工位 {StationId}", stationId);
+                return CreateErrorResponse(config, "Get calib result failed");
+            }
             if (string.IsNullOrEmpty(calibResult) || calibResult.Length < 18)
             {
                 _logger.Error("标定结果数据无效: {Data}", calibResult ?? "null");

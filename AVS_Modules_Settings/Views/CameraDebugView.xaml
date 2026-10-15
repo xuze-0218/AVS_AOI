@@ -4,11 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:comm="clr-namespace:AVS_Common;assembly=AVS_Common"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:halcon="clr-namespace:HalconDotNet;assembly=halcondotnet"
-    xmlns:local="clr-namespace:AVS_Modules_Settings.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
-    xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
     d:DesignHeight="650"
     d:DesignWidth="850"
     prism:ViewModelLocator.AutoWireViewModel="True"
@@ -184,6 +181,13 @@
                             Margin="5,0,5,5"
                             Command="{Binding SoftTriggerCommand}"
                             Content="发送一次软触发"
+                            Style="{StaticResource ModernButton}" />
+                        <Button
+                            Margin="5,0,5,5"
+                            Background="#FFE8CC"
+                            BorderBrush="#FFDDAA"
+                            Command="{Binding SaveImageCommand}"
+                            Content="📷 保存当前图像"
                             Style="{StaticResource ModernButton}" />
                     </StackPanel>
                 </GroupBox>

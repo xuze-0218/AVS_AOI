@@ -954,6 +954,7 @@ namespace AVS_Modules_Settings.ViewModels
                 }
 
                 File.WriteAllText(_productParamFilePath, sb.ToString(), Encoding.UTF8);
+                _configService.NotifyChanged(SelectedSection);
                 _logger.Information("产品参数已保存到 {Path}", _productParamFilePath);
             }
             catch (Exception ex)
@@ -964,7 +965,7 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         // CSV转义：如果字段包含逗号、引号或换行，用双引号包裹并替换内部引号
-        private  string CsvEscape(string field)
+        private string CsvEscape(string field)
         {
             if (string.IsNullOrEmpty(field))
                 return string.Empty;
@@ -1039,7 +1040,7 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         // 解析CSV行，支持双引号转义
-        private  string[] ParseCsvLine(string line)
+        private string[] ParseCsvLine(string line)
         {
             var fields = new List<string>();
             bool inQuotes = false;
@@ -1158,8 +1159,8 @@ namespace AVS_Modules_Settings.ViewModels
 
                     sb.AppendLine($"{category},{name},{description},{value}");
                 }
-
                 File.WriteAllText(_imageParamFilePath, sb.ToString(), Encoding.UTF8);
+                _configService.NotifyChanged(SelectedSection);
                 _logger.Information("图像参数已保存到 {Path}", _imageParamFilePath);
             }
             catch (Exception ex)

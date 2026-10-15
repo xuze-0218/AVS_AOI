@@ -60,6 +60,12 @@ namespace AVS_Core.Services
         private string paramDir = string.Empty;
         private HDevProcedureCall _cropCall, _measureCall, _caliCall;
 
+        // 参数变更标记
+        private volatile bool _paramsDirty = false;
+        private readonly object _reloadLock = new object();
+        private HDevProcedure _measureProc;     // 保留过程对象引用用于 Dispose
+        private string _measureProcName;        // 当前用的 measure 过程名
+
         public TwoDVisionProvider(ILogger logger,
             IStationConfigService stationConfig,
             IParametersConfigService parametersConfig,
@@ -83,11 +89,13 @@ namespace AVS_Core.Services
             _cameraConfigService = cameraConfigService;
             _csvService = csvService;
             _aiDrive = aiDrive;
+            _paramService.ConfigChanged += OnConfigChanged;
         }
 
 
         public Task<string> ExecuteCalibrationAsync(HObject image)
         {
+            EnsureHalconParamsFresh();
             var p = _paramService.GetStationParams(_stationId);
             HTuple matchParam = new HTuple();
             HOperatorSet.TupleConcat(matchParam, p.AngleStart, out matchParam);
@@ -170,6 +178,7 @@ namespace AVS_Core.Services
         /// <returns></returns>
         public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
+            EnsureHalconParamsFresh();
             var stopwatch = Stopwatch.StartNew();
             var p = _paramService.GetStationParams(_stationId);
             string result = "01";
@@ -345,7 +354,7 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteVerificationAsync(HObject image)
         {
-
+            EnsureHalconParamsFresh();
             var p = _paramService.GetStationParams(_stationId);
             HTuple matchParam = new HTuple();
             HOperatorSet.TupleConcat(matchParam, p.AngleStart, out matchParam);
@@ -457,36 +466,111 @@ namespace AVS_Core.Services
             //    _backgroundWindow.SetLineWidth(2);
             //}
             //_windowHandle = _backgroundWindow;   //后续所有 HALCON 过程都走 buffer
-
             //_engineProvider.GetEngine(); // 确保Halcon引擎已初始化
             var p = _paramService.GetStationParams(_stationId);
 
-            paramDir = p.IsSquareBarWeldMark
-                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamA.json")
-                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CircProductParamA.json");
+            //paramDir = p.IsSquareBarWeldMark
+            //    ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamA.json")
+            //    : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CircProductParamA.json");
             //加载并执行 LoadParam
-            var loadProc = new HDevProcedure("LoadParam");
-            var loadCall = new HDevProcedureCall(loadProc);
-            loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
-            loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
-            loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-            loadCall.Execute();
-            loadCall.Dispose();
-            loadProc.Dispose();
-            //初始化Crop2d
             var cropProc = new HDevProcedure("Crop2d");
             _cropCall = new HDevProcedureCall(cropProc);
-            //bool isCirWeldMark = _paramService.GetBool("ProductParam", "isCirWeldMark");
-            //初始化Measure（根据产品类型选择）
-            var measureProcName = p.IsCirWeldMark ? "Measure2d" : "MeasureSB2D";
-            var measureProc = new HDevProcedure(measureProcName);
-            _measureCall = new HDevProcedureCall(measureProc);
 
-            //标定
             var caliProc = new HDevProcedure("Cali2d");
             _caliCall = new HDevProcedureCall(caliProc);
+
+            try
+            {
+                ReloadHalconParams();
+                _paramsDirty = false;
+                _logger.Information("{StationId}工位2D视觉初始化成功（参数预加载完成）", _stationId);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "{StationId}工位2D参数预加载失败，将在首次执行时重试", _stationId);
+                _paramsDirty = true;
+            }
+
+            //_paramsDirty = true;
             await Task.CompletedTask;
-            _logger.Information("{StationId}工位2D视觉初始化成功", _stationId);
+            //_logger.Information("{StationId}工位2D视觉初始化成功", _stationId);
+        }
+
+        /// <summary>
+        /// 参数保存后回调：只设脏标记，真正 reload 推迟到执行线程
+        /// </summary>
+        private void OnConfigChanged(string moduleName)
+        {
+            // 空字符串 = 全部变更
+            if (!string.IsNullOrEmpty(moduleName) && moduleName != _stationId && moduleName != "Global")
+                return;
+            _paramsDirty = true;
+            _logger.Debug("[{Station}] 参数变更(module={Module})，下次执行将刷新 Halcon 参数", _stationId, moduleName);
+        }
+
+        /// <summary>
+        /// 重新从配置读参数，刷新 Halcon global，并按需重建 measure 过程。
+        /// </summary>
+        private void ReloadHalconParams()
+        {
+            var p = _paramService.GetStationParams(_stationId);
+            string newParamDir = p.IsSquareBarWeldMark
+                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamA.json")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CircProductParamA.json");
+            // 重新加载到 Halcon global
+            try
+            {
+                using (var loadProc = new HDevProcedure("LoadParam"))
+                using (var loadCall = new HDevProcedureCall(loadProc))
+                {
+                    loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
+                    loadCall.SetInputCtrlParamTuple("ParamDir", newParamDir);
+                    loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
+                    loadCall.Execute();
+                }
+                _logger.Debug("[{Station}] Halcon 参数已刷新: {Dir}", _stationId, newParamDir);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "[{Station}] Halcon 参数刷新失败", _stationId);
+                return;
+            }
+
+            //重建 _measureCall
+            var newMeasureProcName = p.IsCirWeldMark ? "Measure2d" : "MeasureSB2D";
+            if (_measureProc == null || _measureProcName != newMeasureProcName)
+            {
+                try
+                {
+                    _measureCall?.Dispose();
+                    _measureProc?.Dispose();
+                }
+                catch { }
+
+                _measureProc = new HDevProcedure(newMeasureProcName);
+                _measureCall = new HDevProcedureCall(_measureProc);
+                _measureProcName = newMeasureProcName;
+                _logger.Information("[{Station}] 测量过程已切换: {Proc}", _stationId, newMeasureProcName);
+            }
+
+            paramDir = newParamDir;
+        }
+
+        /// <summary>
+        /// 执行前检查脏标记
+        /// </summary>
+        private void EnsureHalconParamsFresh()
+        {
+            if (!_paramsDirty) return;
+
+            lock (_reloadLock)
+            {
+                if (_paramsDirty)
+                {
+                    ReloadHalconParams();
+                    _paramsDirty = false;
+                }
+            }
         }
 
         /// <summary>
@@ -603,6 +687,8 @@ namespace AVS_Core.Services
         //private readonly IWindowHandleManager _handleManager;
         private HDevProcedure _cropProc, _measureProc, _planeFitProc;
         private HDevProcedureCall _cropCall, _measureCall, _planeFitCall;
+        private volatile bool _paramsDirty = false;
+        private readonly object _reloadLock = new object();
 
         public ThreeDVisionProvider(ILogger logger,
             IStationConfigService stationConfig,
@@ -627,10 +713,12 @@ namespace AVS_Core.Services
             _cameraConfigService = cameraConfigService;
             _csvService = csvService;
             _aiDrive = aiDrive;
+            _paramService.ConfigChanged += OnConfigChanged;
         }
 
         public Task<string> ExecuteCalibrationAsync(HObject image)
         {
+            EnsureHalconParamsFresh();
             //读取ROI区域
             var p = _paramService.GetStationParams(_stationId);
             string recipePath = p.RecipePath;
@@ -683,6 +771,7 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteVerificationAsync(HObject image)
         {
+            EnsureHalconParamsFresh();
             var p = _paramService.GetStationParams(_stationId);
             string recipePath = p.RecipePath;
             if (string.IsNullOrEmpty(recipePath))
@@ -802,6 +891,7 @@ namespace AVS_Core.Services
 
         public Task<string> ExecuteInspectAsync(HObject image, int poleNum, InspectionParams param)
         {
+            EnsureHalconParamsFresh();
             var stopwatch = Stopwatch.StartNew();
             var p = _paramService.GetStationParams(_stationId);
             string result = "01";
@@ -992,76 +1082,142 @@ namespace AVS_Core.Services
             _stationId = config.StationId;
             _aiModelId = string.IsNullOrEmpty(config.AiModelStationId) ? config.StationId : config.AiModelStationId;
             _windowHandle = await _handleRegistry.WaitForHandleAsync(config.CameraRole);
-            //_engineProvider.GetEngine();
-
-            var p = _paramService.GetStationParams(_stationId);
-            paramDir = p.IsSquareBarWeldMark
-                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamB.json")
-                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CircProductParamB.json");
-
-            var cameraSetting = _cameraConfigService.AllSettings.FirstOrDefault(s => s.CameraRole == config.CameraRole);
-            if (cameraSetting == null)
-            {
-                _logger.Error("未找到相机角色 {Role} 的配置", config.CameraRole);
-                throw new InvalidOperationException($"未找到相机角色 {config.CameraRole} 的配置");
-            }
-            CameraBrand cameraBrand = (CameraBrand)cameraSetting.CameraType;
-            bool isLmi = cameraBrand == CameraBrand.LMI3D;
 
             try
             {
-                // 释放旧的过程对象
-                _cropCall?.Dispose();
-                _cropProc?.Dispose();
-                _planeFitCall?.Dispose();
-                _planeFitProc?.Dispose();
-                _measureCall?.Dispose();
-                _measureProc?.Dispose();
+                ReloadHalconParams();
+                _paramsDirty = false;
+                _logger.Information("[{Station}] 参数预加载完成", _stationId);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "[{Station}] 预加载失败，将在首次执行时重试", _stationId);
+                _paramsDirty = true;    // 失败保留脏标记
+            }
+            _logger.Information("{StationId}工位3D视觉初始化成功", _stationId);
+        }
 
-                // 加载 LoadParam
+        /// <summary>参数保存后回调：只设脏标记</summary>
+        private void OnConfigChanged(string moduleName)
+        {
+            if (!string.IsNullOrEmpty(moduleName)
+                && moduleName != _stationId
+                && moduleName != "Global")
+                return;
+
+            _paramsDirty = true;
+            _logger.Debug("[{Station}] 3D参数变更(module={Module})，下次执行将刷新",
+                _stationId, moduleName);
+        }
+
+        /// <summary>执行前检查脏标记</summary>
+        private void EnsureHalconParamsFresh()
+        {
+            if (!_paramsDirty) return;
+
+            lock (_reloadLock)
+            {
+                if (_paramsDirty)
+                {
+                    ReloadHalconParams();
+                    _paramsDirty = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 重新加载参数
+        /// </summary>
+        private void ReloadHalconParams()
+        {
+            var p = _paramService.GetStationParams(_stationId);
+
+            string newParamDir = p.IsSquareBarWeldMark
+                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "SBProductParamB.json")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "CircProductParamB.json");
+
+            //加载LoadParam
+            try
+            {
                 using (var loadProc = new HDevProcedure("LoadParam"))
                 using (var loadCall = new HDevProcedureCall(loadProc))
                 {
                     loadCall.SetInputCtrlParamTuple("WindowHandle", _windowHandle);
-                    loadCall.SetInputCtrlParamTuple("ParamDir", paramDir);
+                    loadCall.SetInputCtrlParamTuple("ParamDir", newParamDir);
                     loadCall.SetInputCtrlParamTuple("ParamSide", _stationId);
-                    //loadCall.Execute();
+                    loadCall.Execute();
                 }
-
-                // 初始化 Crop3d
-                string cropProcName = isLmi ? "Crop3d" : "Crop3d_HK";
-                _cropProc = new HDevProcedure(cropProcName);
-                _cropCall = new HDevProcedureCall(_cropProc);
-
-                bool use3DSegmentation = p.IsAiCheck && !p.IsSquareBarWeldMark && p.Is3DSegmentation;
-
-                if (p.IsPlaneCheck)
-                {
-                    string procName;
-                    if (p.IsSquareBarWeldMark)
-                        procName = "PlaneFitSB3D";
-                    else if (!isLmi) // HK
-                        procName = use3DSegmentation ? "PlaneFit3DHKML" : "PlaneFit3DHK";
-                    else // LMI
-                        procName = use3DSegmentation ? "PlaneFit3DML" : "PlaneFit3D";
-
-                    _planeFitProc = new HDevProcedure(procName);
-                    _planeFitCall = new HDevProcedureCall(_planeFitProc);
-                }
-                else
-                {
-                    string procName = p.IsSquareBarWeldMark ? "MeasureSB3d" : "Measure3d";
-                    _measureProc = new HDevProcedure(procName);
-                    _measureCall = new HDevProcedureCall(_measureProc);
-                }
+                _logger.Debug("[{Station}] 3D Halcon 参数已刷新: {Dir}", _stationId, newParamDir);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "3D视觉提供者初始化失败，工位：{StationId}", _stationId);
-                throw;
+                _logger.Error(ex, "[{Station}] 3D Halcon 参数刷新失败", _stationId);
+                return;
+            }
+
+            var cameraSetting = _cameraConfigService.AllSettings
+                .FirstOrDefault(s => s.CameraRole == _stationConfig.GetStation(_stationId).CameraRole);
+            if (cameraSetting == null)
+            {
+                _logger.Error("[{Station}] 未找到相机角色配置", _stationId);
+                return;
+            }
+            bool isLmi = (CameraBrand)cameraSetting.CameraType == CameraBrand.LMI3D;
+            bool use3DSegmentation = p.IsAiCheck && !p.IsSquareBarWeldMark && p.Is3DSegmentation;
+
+            string cropProcName = isLmi ? "Crop3d" : "Crop3d_HK";
+
+            string measureOrPlaneProcName;
+            bool usePlaneFit = p.IsPlaneCheck;
+            if (usePlaneFit)
+            {
+                if (p.IsSquareBarWeldMark) measureOrPlaneProcName = "PlaneFitSB3D";
+                else if (!isLmi) measureOrPlaneProcName = use3DSegmentation ? "PlaneFit3DHKML" : "PlaneFit3DHK";
+                else measureOrPlaneProcName = use3DSegmentation ? "PlaneFit3DML" : "PlaneFit3D";
+            }
+            else
+            {
+                measureOrPlaneProcName = p.IsSquareBarWeldMark ? "MeasureSB3d" : "Measure3d";
+            }
+
+            //释放旧过程
+            try
+            {
+                _cropCall?.Dispose(); _cropProc?.Dispose();
+                _measureCall?.Dispose(); _measureProc?.Dispose();
+                _planeFitCall?.Dispose(); _planeFitProc?.Dispose();
+            }
+            catch { }
+
+            try
+            {
+                _cropProc = new HDevProcedure(cropProcName);
+                _cropCall = new HDevProcedureCall(_cropProc);
+
+                if (usePlaneFit)
+                {
+                    _planeFitProc = new HDevProcedure(measureOrPlaneProcName);
+                    _planeFitCall = new HDevProcedureCall(_planeFitProc);
+                    _measureProc = null;
+                    _measureCall = null;
+                }
+                else
+                {
+                    _measureProc = new HDevProcedure(measureOrPlaneProcName);
+                    _measureCall = new HDevProcedureCall(_measureProc);
+                    _planeFitProc = null;
+                    _planeFitCall = null;
+                }
+
+                paramDir = newParamDir;
+                _logger.Information("[{Station}] 3D 过程已重建: Crop={Crop}, Main={Main}",
+                    _stationId, cropProcName, measureOrPlaneProcName);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "[{Station}] 3D 过程重建失败", _stationId);
             }
         }
-
         private void BoardCalibrate(HObject img, HObject roiA, HObject roiB, double resoX, double resoY, double resoZ, out double heightValue, out string result, out string resultData)
         {
 

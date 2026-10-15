@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -28,6 +29,11 @@ namespace AVS_Service.Services
         string GetString(string moduleName, string paramName, string defaultValue = "");
         bool GetBool(string moduleName, string paramName, bool defaultValue = false);
         StationParamsSnapshot GetStationParams(string stationId);
+
+        event Action<string> ConfigChanged;
+
+        /// <summary>手动通知参数已变更（不改 ConfigParas.json，只发事件）</summary>
+        void NotifyChanged(string moduleName = "");
     }
 
     public class ParametersConfigService : IParametersConfigService
@@ -36,6 +42,14 @@ namespace AVS_Service.Services
         public string CurrentRecipePath { get; private set; }
         public ObservableCollection<ParametersConfig> ConfigParams { get; private set; } = new ObservableCollection<ParametersConfig>();
 
+        public event Action<string> ConfigChanged;
+
+        /// <summary>手动通知参数已变更（不改 ConfigParas.json，只发事件）</summary>
+        public void NotifyChanged(string moduleName = "")
+        {
+            try { ConfigChanged?.Invoke(moduleName ?? ""); }
+            catch (Exception ex) { Log.Error(ex, "ConfigChanged 事件处理异常"); }
+        }
 
         public ParametersConfigService()
         {
@@ -149,11 +163,11 @@ namespace AVS_Service.Services
             //相机维度
             AddDefault("Global", "InspectDimensionCount", "2", ParamOutputType.INT, "相机维度");
             // ---------- CSV保存路径 ----------
-            AddDefault("Global", "CsvSaveDir", "", ParamOutputType.STRING,"Csv保存路径");
+            AddDefault("Global", "CsvSaveDir", "", ParamOutputType.STRING, "Csv保存路径");
             // ---------- 图像保存路径 ----------
             AddDefault("Global", "ImageSaveDir", "", ParamOutputType.STRING, "图像保存路径");
-            AddDefault("Global", "ImageCompressRatio", "100", ParamOutputType.INT,"图像压缩比例");
-            AddDefault("Global", "SaveOrnImgDays", "30", ParamOutputType.INT,"保存原始图像天数");
+            AddDefault("Global", "ImageCompressRatio", "100", ParamOutputType.INT, "图像压缩比例");
+            AddDefault("Global", "SaveOrnImgDays", "30", ParamOutputType.INT, "保存原始图像天数");
             AddDefault("Global", "SaveRenImgDays", "30", ParamOutputType.INT, "保存结果图像天数");
 
             // ---------- 2D 相机 ----------
@@ -201,13 +215,15 @@ namespace AVS_Service.Services
             {
                 var json = JsonConvert.SerializeObject(ConfigParams, Formatting.Indented);
                 File.WriteAllText(_configPath, json);
-                return true;
+
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "配置保存失败");
                 return false;
             }
+            ConfigChanged?.Invoke("");
+            return true;
         }
 
         private ParametersConfig FindParam(string moduleName, string paramName)

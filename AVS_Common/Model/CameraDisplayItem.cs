@@ -50,7 +50,7 @@ namespace AVS_Common.Model
         /// <summary>
         /// 处理后的图像
         /// </summary>
-        private HObject _processedImage;       
+        private HObject _processedImage;
         public HObject ProcessedImage
         {
             get => _processedImage;
@@ -89,11 +89,19 @@ namespace AVS_Common.Model
         /// 标定测试命令
         /// </summary>
         public ICommand CalibTestCommand { get; set; }
+        public ICommand VerifyTestCommand { get; set; }
 
         public void Dispose()
         {
             RawImage?.Dispose();
             ProcessedImage?.Dispose();
         }
+    }
+
+    public enum LocalTestMode
+    {
+        Inspect,      // 检测
+        Calibrate,    // 标定
+        Verify        // 点检
     }
 }
