@@ -75,6 +75,7 @@ namespace AVS_App
             containerRegistry.RegisterSingleton<IHistoryDataService, HistoryDataService>();
             containerRegistry.RegisterSingleton<ICsvSaverService, CsvSaverService>();
             containerRegistry.RegisterSingleton<IImageSaveService, ImageSaveService>();
+            containerRegistry.RegisterSingleton<IImageCleanupService, ImageCleanupService>();
 
             containerRegistry.RegisterSingleton<ICaliperService, CaliperService>();
             containerRegistry.RegisterSingleton<ITemplateMatchingService, TemplateMatchingService>();
@@ -156,8 +157,16 @@ namespace AVS_App
             try
             {
                 var startupService = Container.Resolve<IApplicationStartupService>();
-                //同步等待关闭相机
-                startupService.ShutdownAsync().GetAwaiter().GetResult();
+                //Task.Run避免死锁；最多等15秒，超时强制退出
+                var task = Task.Run(() => startupService.ShutdownAsync());
+                if (!task.Wait(TimeSpan.FromSeconds(15)))
+                {
+                    Log.Warning("ShutdownAsync 超时（15秒），强制退出");
+                }
+                else
+                {
+                    Log.Information("ShutdownAsync 正常完成");
+                }
             }
             catch (Exception ex)
             {

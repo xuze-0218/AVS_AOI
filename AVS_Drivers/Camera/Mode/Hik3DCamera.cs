@@ -28,6 +28,40 @@ namespace AVS_Drivers.Camera.Mode
         {
         }
         #region 设备枚举与初始化
+        //public override List<string> GetListEnum()
+        //{
+        //    var snList = new List<string>();
+        //    try
+        //    {
+        //        uint devNum = 0;
+        //        int nRet = Mv3dLpSDK.MV3D_LP_GetDeviceNumber(ref devNum);
+        //        if (nRet != Mv3dLpSDK.MV3D_LP_OK || devNum == 0)
+        //            return snList;
+
+        //        var deviceInfoArray = new MV3D_LP_DEVICE_INFO[devNum];
+        //        for (int i = 0; i < devNum; i++)
+        //            deviceInfoArray[i] = new MV3D_LP_DEVICE_INFO();
+
+        //        uint filledCount = devNum;
+        //        nRet = Mv3dLpSDK.MV3D_LP_GetDeviceList(deviceInfoArray[0], devNum, ref filledCount);
+        //        if (nRet != Mv3dLpSDK.MV3D_LP_OK)
+        //            return snList;
+
+        //        for (int i = 0; i < filledCount; i++)
+        //        {
+        //            string sn = deviceInfoArray[i].chSerialNumber?.TrimEnd('\0');
+        //            if (!string.IsNullOrEmpty(sn))
+        //                snList.Add(sn);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine($"[Hik3DCamera] EnumDevices exception: {ex.Message}");
+        //        if (ex.InnerException != null)
+        //            Console.WriteLine("内部异常: " + ex.InnerException.Message);
+        //    }
+        //    return snList;
+        //}
         public override List<string> GetListEnum()
         {
             var snList = new List<string>();
@@ -37,19 +71,18 @@ namespace AVS_Drivers.Camera.Mode
                 int nRet = Mv3dLpSDK.MV3D_LP_GetDeviceNumber(ref devNum);
                 if (nRet != Mv3dLpSDK.MV3D_LP_OK || devNum == 0)
                     return snList;
-
-                var deviceInfoArray = new MV3D_LP_DEVICE_INFO[devNum];
+                var m_stVector = new MV3D_LP_DEVICE_INFO_VECTOR((int)devNum);
                 for (int i = 0; i < devNum; i++)
-                    deviceInfoArray[i] = new MV3D_LP_DEVICE_INFO();
+                    m_stVector.Add ( new MV3D_LP_DEVICE_INFO());
 
                 uint filledCount = devNum;
-                nRet = Mv3dLpSDK.MV3D_LP_GetDeviceList(deviceInfoArray[0], devNum, ref filledCount);
+                nRet = Mv3dLpSDK.MV3D_LP_GetDeviceList(m_stVector[0], devNum, ref filledCount);
                 if (nRet != Mv3dLpSDK.MV3D_LP_OK)
                     return snList;
 
                 for (int i = 0; i < filledCount; i++)
                 {
-                    string sn = deviceInfoArray[i].chSerialNumber?.TrimEnd('\0');
+                    string sn = m_stVector[i].chSerialNumber?.TrimEnd('\0');
                     if (!string.IsNullOrEmpty(sn))
                         snList.Add(sn);
                 }

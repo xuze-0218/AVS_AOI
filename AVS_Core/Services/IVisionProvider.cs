@@ -1,8 +1,6 @@
-﻿using AVS_Common.Events;
-using AVS_Common.Services;
+﻿using AVS_Common.Services;
 using AVS_Core.Models;
 using AVS_Drivers.Camera.Common.Enum;
-using AVS_Service;
 using AVS_Service.Events;
 using AVS_Service.Models;
 using AVS_Service.Services;
@@ -15,7 +13,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 
 namespace AVS_Core.Services
 {
@@ -550,7 +547,6 @@ namespace AVS_Core.Services
                 _measureProc = new HDevProcedure(newMeasureProcName);
                 _measureCall = new HDevProcedureCall(_measureProc);
                 _measureProcName = newMeasureProcName;
-                _logger.Information("[{Station}] 测量过程已切换: {Proc}", _stationId, newMeasureProcName);
             }
 
             paramDir = newParamDir;

@@ -44,6 +44,7 @@ namespace AVS_Core.Services
         private readonly ICommunicationService _communicationService;
         private readonly ICameraConfigService _cameraConfigService;
         private readonly IStationConfigService _stationConfigService;
+        private readonly IImageCleanupService _imageCleanupService;
         private readonly ILogger _logger;
 
         public ApplicationStartupService(
@@ -55,7 +56,8 @@ namespace AVS_Core.Services
             ICommunicationService communicationService,
             IStationConfigService stationConfigService,
             IWindowHandleRegistry windowHandleRegistry,
-            ICameraConfigService cameraConfigService)
+            ICameraConfigService cameraConfigService,
+            IImageCleanupService imageCleanupService)
         {
             _logger = logger;
             _aiDriveService = aiDriveService;
@@ -66,6 +68,7 @@ namespace AVS_Core.Services
             _windowHandleRegistry = windowHandleRegistry;
             _communicationService = communicationService;
             _cameraConfigService = cameraConfigService;
+            _imageCleanupService = imageCleanupService;
         }
 
         public async Task InitializeAsync()
@@ -100,32 +103,33 @@ namespace AVS_Core.Services
                     await StartStationsAsync(stationsSnapshot).ConfigureAwait(false);
                 }).ConfigureAwait(false);
                 StartCameraInitialization();
+                _imageCleanupService.Start();
                 _ = Task.Run(async () =>
-            {
-                try
                 {
-                    if (_backgroundInitializationTask != null)
-                        await _backgroundInitializationTask.ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "等待相机初始化完成失败");
-                }
-
-                int camCount = _cameraConfigService.ConnectedCameras.Count;
-                bool isReady = camCount > 0;
-                _logger.Information("应用初始化全部完成，已连接相机 {Count} 台，isReady={Ready}",
-                    camCount, isReady);
-
-                var dispatcher = System.Windows.Application.Current?.Dispatcher;
-                if (dispatcher != null)
-                {
-                    await dispatcher.InvokeAsync(() =>
+                    try
                     {
-                        _eventAggregator.GetEvent<ApplicationStartupCompletedEvent>().Publish(isReady);
-                    }).Task;
-                }
-            });
+                        if (_backgroundInitializationTask != null)
+                            await _backgroundInitializationTask.ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "等待相机初始化完成失败");
+                    }
+
+                    int camCount = _cameraConfigService.ConnectedCameras.Count;
+                    bool isReady = camCount > 0;
+                    _logger.Information("应用初始化全部完成，已连接相机 {Count} 台，isReady={Ready}",
+                        camCount, isReady);
+
+                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                    if (dispatcher != null)
+                    {
+                        await dispatcher.InvokeAsync(() =>
+                        {
+                            _eventAggregator.GetEvent<ApplicationStartupCompletedEvent>().Publish(isReady);
+                        }).Task;
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -300,53 +304,76 @@ namespace AVS_Core.Services
 
         public async Task ShutdownAsync()
         {
+            _logger.Information("开始执行应用关闭流程");
+
+            // ----------取消消息订阅 ----------
             try
             {
-                //取消消息订阅
                 if (_messageHandlerSubscribed)
                 {
                     _communicationService.MessageReceived -= OnMessageReceived;
                     _messageHandlerSubscribed = false;
+                    _logger.Debug("消息订阅已取消");
                 }
+            }
+            catch (Exception ex) { _logger.Error(ex, "取消消息订阅异常"); }
 
-                //取消图像订阅
+            // ----------图像清理服务 ----------
+            try
+            {
+                var stopTask = _imageCleanupService.StopAsync();
+                var timeout = Task.Delay(TimeSpan.FromSeconds(3));
+                var completed = await Task.WhenAny(stopTask, timeout).ConfigureAwait(false);
+                if (completed == timeout)
+                    _logger.Warning("图像清理服务停止超时（3秒），继续关闭流程");
+                else
+                    _logger.Debug("图像清理服务已停止");
+            }
+            catch (Exception ex) { _logger.Error(ex, "停止图像清理服务异常"); }
+
+            // ----------取消事件订阅 ----------
+            try
+            {
                 if (_imageEventToken != null)
                 {
-                    _logger.Debug("取消图像事件订阅");
                     _eventAggregator.GetEvent<HImageDisplayEvent>().Unsubscribe(_imageEventToken);
                     _imageEventToken = null;
                     _logger.Debug("图像事件订阅已取消");
                 }
-
                 if (_stationChangedToken != null)
                 {
                     _eventAggregator.GetEvent<StationConfigChangedEvent>().Unsubscribe(_stationChangedToken);
                     _stationChangedToken = null;
+                    _logger.Debug("工位配置变更订阅已取消");
                 }
                 if (_aiChangedToken != null)
                 {
                     _eventAggregator.GetEvent<AiModelConfigChangedEvent>().Unsubscribe(_aiChangedToken);
                     _aiChangedToken = null;
+                    _logger.Debug("AI 模型配置变更订阅已取消");
                 }
+            }
+            catch (Exception ex) { _logger.Error(ex, "取消事件订阅异常"); }
 
-                // 等待后台初始化任务
+            // ----------等待后台初始化任务 ----------
+            try
+            {
                 if (_backgroundInitializationTask != null && !_backgroundInitializationTask.IsCompleted)
                 {
                     _logger.Debug("等待后台初始化任务完成...");
-                    var timeoutTask = Task.Delay(5000);
-                    var completedTask = await Task.WhenAny(_backgroundInitializationTask, timeoutTask).ConfigureAwait(false);
-                    if (completedTask == timeoutTask)
-                    {
-                        _logger.Warning("后台初始化任务超时未完成，强制继续关闭流程");
-                    }
+                    var timeout = Task.Delay(TimeSpan.FromSeconds(5));
+                    var completed = await Task.WhenAny(_backgroundInitializationTask, timeout).ConfigureAwait(false);
+                    if (completed == timeout)
+                        _logger.Warning("后台初始化任务超时（5秒），继续关闭流程");
                     else
-                    {
                         _logger.Debug("后台初始化任务已完成");
-                    }
                 }
+            }
+            catch (Exception ex) { _logger.Error(ex, "等待后台初始化任务异常"); }
 
-                // 释放所有相机
-                _logger.Debug("开始释放所有相机资源...");
+            // ----------断相机 ----------
+            try
+            {
                 var connectedSNs = _cameraConfigService.ConnectedCameras.Keys.ToList();
                 _logger.Information("准备断开 {Count} 台相机: {SNs}", connectedSNs.Count, string.Join(", ", connectedSNs));
                 foreach (var sn in connectedSNs)
@@ -354,32 +381,48 @@ namespace AVS_Core.Services
                     _logger.Information("开始断开相机 {SN} ...", sn);
                     try
                     {
-                        _cameraConfigService.DisconnectCamera(sn);
-                        _logger.Information("相机 {SN} 断开完成", sn);
+                        // DisconnectCamera 内部有 StopCameraGrabbing 的 Wait(3秒)
+                        var disconnectTask = Task.Run(() => _cameraConfigService.DisconnectCamera(sn));
+                        var timeout = Task.Delay(TimeSpan.FromSeconds(5));
+                        var completed = await Task.WhenAny(disconnectTask, timeout).ConfigureAwait(false);
+                        if (completed == timeout)
+                            _logger.Warning("断开相机 {SN} 超时（5秒），继续", sn);
+                        else
+                            _logger.Information("相机 {SN} 断开完成", sn);
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "断开相机 {SN} 异常", sn);
-                    }
+                    catch (Exception ex) { _logger.Error(ex, "断开相机 {SN} 异常", sn); }
                 }
                 _logger.Information("所有相机断开流程结束");
+            }
+            catch (Exception ex) { _logger.Error(ex, "断开相机流程异常"); }
 
-                // 停止通讯服务
-                _logger.Debug("停止通讯服务");
+            // ---------- 通讯 ----------
+            try
+            {
+                _logger.Debug("开始停止通讯服务");
                 foreach (var station in _stationConfigService.Stations)
                 {
                     _logger.Debug("停止工位 {StationId} 通讯", station.StationId);
                     try
                     {
-                        _communicationService?.Stop(station.StationId);
-                        _logger.Debug("工位 {StationId} 通讯已停止", station.StationId);
+                        // Stop 内部可能有自动重连 / socket 关闭等待，用 Task.Run 包裹 + 超时
+                        var stopTask = Task.Run(() => _communicationService?.Stop(station.StationId));
+                        var timeout = Task.Delay(TimeSpan.FromSeconds(2));
+                        var completed = await Task.WhenAny(stopTask, timeout).ConfigureAwait(false);
+                        if (completed == timeout)
+                            _logger.Warning("停止工位 {StationId} 通讯超时（2秒），继续", station.StationId);
+                        else
+                            _logger.Debug("工位 {StationId} 通讯已停止", station.StationId);
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "停止工位 {StationId} 通讯异常", station.StationId);
-                    }
+                    catch (Exception ex) { _logger.Error(ex, "停止工位 {StationId} 通讯异常", station.StationId); }
                 }
-                // 清理所有会话队列，释放残留图像
+                _logger.Information("所有通讯服务停止流程结束");
+            }
+            catch (Exception ex) { _logger.Error(ex, "停止通讯服务流程异常"); }
+
+            // ----------重置会话（释放残留图像队列） ----------
+            try
+            {
                 foreach (var station in _stationConfigService.Stations)
                 {
                     try
@@ -387,25 +430,20 @@ namespace AVS_Core.Services
                         _sessionService.Reset(station.StationId);
                         _logger.Information("工位 {StationId} 会话已重置", station.StationId);
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "重置工位 {StationId} 会话失败", station.StationId);
-                    }
+                    catch (Exception ex) { _logger.Error(ex, "重置工位 {StationId} 会话失败", station.StationId); }
                 }
-                _logger.Information("所有通讯服务已停止");
+            }
+            catch (Exception ex) { _logger.Error(ex, "重置会话流程异常"); }
 
-                // 延迟和GC
+            // ----------等待后台任务退出+ GC ----------
+            try
+            {
                 await Task.Delay(300).ConfigureAwait(false);
-
-                // 确保Halcon非托管内存被回收
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 _logger.Information("应用关闭流程完成");
             }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "应用关闭过程中出错");
-            }
+            catch (Exception ex) { _logger.Error(ex, "关闭收尾异常"); }
         }
     }
 }

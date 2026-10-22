@@ -1,10 +1,10 @@
 ﻿using AVS_Common.Events;
-using AVS_Service;
 using AVS_Service.Models;
 using AVS_Service.Services;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Mvvm;
+using Serilog;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -20,6 +20,7 @@ namespace AVS_Modules_Settings.ViewModels
         private readonly ICameraConfigService _cameraConfigService;
         private readonly IParametersConfigService _paramService;
         private readonly IEventAggregator _eventAggregator;
+        private readonly ILogger _logger;
 
         public ObservableCollection<StationConfig> Stations => _stationConfigService.Stations;
         public ObservableCollection<string> AvailableCameraRoles { get; private set; } = new ObservableCollection<string>();
@@ -51,12 +52,14 @@ namespace AVS_Modules_Settings.ViewModels
             IStationConfigService stationConfigService,
             ICameraConfigService cameraConfigService,
             IParametersConfigService paramService,
-            IEventAggregator eventAggregator)
+            IEventAggregator eventAggregator,
+            ILogger logger)
         {
             _eventAggregator = eventAggregator;
             _stationConfigService = stationConfigService;
             _cameraConfigService = cameraConfigService;
             _paramService = paramService;
+            _logger = logger;
 
             _eventAggregator.GetEvent<SectionsChangedEvent>().Subscribe(() =>
             {
@@ -96,16 +99,15 @@ namespace AVS_Modules_Settings.ViewModels
         private void RefreshCameraRoles()
         {
             var roles = _cameraConfigService.AllSettings
-              ?.Select(c => c.CameraRole)
+              ?.Where(c => !string.IsNullOrEmpty(c.SerilalNum))
+              .Select(c => c.CameraRole)
               .Where(r => !string.IsNullOrEmpty(r))
               .Distinct()
               .ToList() ?? new List<string>();
 
             AvailableCameraRoles.Clear();
             foreach (var role in roles)
-            {
                 AvailableCameraRoles.Add(role);
-            }
         }
 
         private void RefreshProductSections()
@@ -225,6 +227,15 @@ namespace AVS_Modules_Settings.ViewModels
             RefreshCameraRoles();
             RefreshProductSections();
             var cameraRoles = AvailableCameraRoles.ToList();
+            var dupGroups = _cameraConfigService.AllSettings
+                .Where(c => !string.IsNullOrEmpty(c.SerilalNum) && !string.IsNullOrEmpty(c.CameraRole))
+                .GroupBy(c => c.CameraRole)
+                .Where(g => g.Count() > 1).ToList();
+            foreach (var g in dupGroups)
+            {
+                _logger?.Warning("相机角色 {Role} 被 {Count} 个相机使用（SN: {SNs}），工位映射可能错乱，请修改角色名",
+                    g.Key, g.Count(), string.Join(", ", g.Select(x => x.SerilalNum)));
+            }
             // 移除不再存在的相机角色配置
             var toRemove = Stations.Where(s => !cameraRoles.Contains(s.CameraRole)).ToList();
             foreach (var item in toRemove)

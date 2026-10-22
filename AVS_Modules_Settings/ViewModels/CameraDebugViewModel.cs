@@ -14,8 +14,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace AVS_Modules_Settings.ViewModels
 {
@@ -26,6 +24,8 @@ namespace AVS_Modules_Settings.ViewModels
         private CameraSettingModel _currentConfig;
         private IEventAggregator _eventAggregator;
         private ICameraConfigService _cameraConfigService;
+        private readonly IStationConfigService _stationConfigService;
+        private readonly IParametersConfigService _paramService;
         private bool _isBorrowedCamera = false;
         private bool _isActiveView = false; // 标记当前页面是否处于激活显示状态
         /// <summary>
@@ -77,11 +77,17 @@ namespace AVS_Modules_Settings.ViewModels
 
                     int idx = DeviceList.IndexOf(value);
                     _currentConfig = _cameraConfigService.GetCameraSettingBySnOrIndex(value, idx);
-                    if (_currentConfig != null)
+                    if (_currentConfig == null)
                     {
-                        _currentConfig.CameraType = (int)SelectedBrand;
-                        SyncConfigToUI();
+                        //临时新建,点击"设置参数"才保存）
+                        _currentConfig = new CameraSettingModel
+                        {
+                            SerilalNum = value,
+                            CamSelectIndex = idx
+                        };
                     }
+                    _currentConfig.CameraType = (int)SelectedBrand;
+                    SyncConfigToUI();
 
                     bool isActuallyConnected = _cameraConfigService.ConnectedCameras != null &&
                                                _cameraConfigService.ConnectedCameras.ContainsKey(value);
@@ -194,10 +200,16 @@ namespace AVS_Modules_Settings.ViewModels
         }
 
         #endregion
-        public CameraDebugViewModel(IEventAggregator eventAggregator, ICameraConfigService cameraConfigService, ILogger logger)
+        public CameraDebugViewModel(IEventAggregator eventAggregator,
+            ICameraConfigService cameraConfigService,
+            IStationConfigService stationConfigService,
+            IParametersConfigService paramService,
+            ILogger logger)
         {
             _logger = logger;
+            _paramService = paramService;
             _eventAggregator = eventAggregator;
+            _stationConfigService = stationConfigService;
             _cameraConfigService = cameraConfigService;
 
             SearchCommand = new DelegateCommand(ExecuteSearch).ObservesCanExecute(() => IsNotConnected);
@@ -208,6 +220,7 @@ namespace AVS_Modules_Settings.ViewModels
             GetParamCommand = new DelegateCommand(ExecuteGetParam).ObservesCanExecute(() => IsConnected);
             SetParamCommand = new DelegateCommand(ExecuteSetParam).ObservesCanExecute(() => IsConnected);
             TogglePreviewCommand = new DelegateCommand(ExecuteTogglePreview, () => IsConnected).ObservesCanExecute(() => IsConnected);
+            DeleteCommand = new DelegateCommand(ExecuteDeleteConfig);
             TriggerSources = new List<TriggerSource>((TriggerSource[])Enum.GetValues(typeof(TriggerSource)));
             SelectedTriggerSource = TriggerSource.Software;
             CameraBrands = Enum.GetValues(typeof(CameraBrand)).Cast<CameraBrand>().ToList();
@@ -273,6 +286,7 @@ namespace AVS_Modules_Settings.ViewModels
         public DelegateCommand SearchCommand { get; }
         public DelegateCommand InitCommand { get; }
         public DelegateCommand CloseCommand { get; }
+        public DelegateCommand DeleteCommand { get; }
         public DelegateCommand StartGrabCommand { get; }
         public DelegateCommand StopGrabCommand { get; }
         public DelegateCommand SoftTriggerCommand { get; }
@@ -324,6 +338,14 @@ namespace AVS_Modules_Settings.ViewModels
             if (!string.IsNullOrEmpty(realSn))
             {
                 _currentConfig = _cameraConfigService.GetCameraSettingBySnOrIndex(realSn, DeviceList.IndexOf(SelectedDevice));
+                if (_currentConfig == null)
+                {
+                    _currentConfig = new CameraSettingModel
+                    {
+                        SerilalNum = realSn,
+                        CamSelectIndex = DeviceList.IndexOf(SelectedDevice)
+                    };
+                }
                 _currentConfig.SerilalNum = realSn;
             }
             StatusMessage = $"相机已连接: {realSn}";
@@ -358,24 +380,30 @@ namespace AVS_Modules_Settings.ViewModels
         }
         private void ExecuteSetParam()
         {
-            if (_camera != null && IsConnected)
+            if (_camera == null || !IsConnected) return;
+
+            if (_currentConfig == null)
             {
-                _camera.SetExpouseTime((ushort)ExposureTime);
-                _camera.SetGain(Gain);
-                if (_currentConfig != null)
+                _currentConfig = new CameraSettingModel
                 {
-                    _currentConfig.ExposureTime = ExposureTime;
-                    _currentConfig.Gain = Gain;
-                    _currentConfig.SerilalNum = SelectedDevice;
-                    _currentConfig.IP = IP;
-                    _currentConfig.Port = Port;
-                    _currentConfig.CameraRole = CameraRoleName;
-                    _currentConfig.TriggerMode = IsTriggerMode ? TriggerMode.On : TriggerMode.Off;
-                    _currentConfig.TriggerSource = SelectedTriggerSource;
-                    _cameraConfigService.UpdateCameraSetting(_currentConfig);
-                }
-                StatusMessage = "参数已保存到本地";
+                    SerilalNum = SelectedDevice,
+                    CamSelectIndex = DeviceList.IndexOf(SelectedDevice)
+                };
             }
+
+            _camera.SetExpouseTime((ushort)ExposureTime);
+            _camera.SetGain(Gain);
+
+            _currentConfig.ExposureTime = ExposureTime;
+            _currentConfig.Gain = Gain;
+            _currentConfig.SerilalNum = SelectedDevice;
+            _currentConfig.IP = IP;
+            _currentConfig.Port = Port;
+            _currentConfig.CameraRole = CameraRoleName;
+            _currentConfig.TriggerMode = IsTriggerMode ? TriggerMode.On : TriggerMode.Off;
+            _currentConfig.TriggerSource = SelectedTriggerSource;
+            _cameraConfigService.UpdateCameraSetting(_currentConfig);   // 内部 Add + SaveSettings
+            StatusMessage = "参数已保存到本地";
         }
 
         private void ExecuteSaveImage()
@@ -514,6 +542,161 @@ namespace AVS_Modules_Settings.ViewModels
                 _cameraConfigService.StartCameraGrabbing(SelectedDevice, mode, isFromDebug: true);
                 StatusMessage = IsContinuousMode ? "连续采集中..." : "触发采集中，等待触发...";
             }
+        }
+
+        private void ExecuteDeleteConfig()
+        {
+            if (string.IsNullOrEmpty(SelectedDevice))
+            {
+                MessageBox.Show("请先选择要删除的相机。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string sn = SelectedDevice;
+            string role = _currentConfig?.CameraRole;
+            var stationIds = string.IsNullOrEmpty(role)
+                ? new List<string>()
+                : _stationConfigService.Stations
+                    .Where(s => s.CameraRole == role)
+                    .Select(s => s.StationId)
+                    .ToList();
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"确定要删除相机 [{sn}] 的本地配置吗？");
+            sb.AppendLine();
+            sb.AppendLine("将删除：");
+            sb.AppendLine($"  1. CameraSettings.json 中 SN = {sn} 的配置");
+            if (!string.IsNullOrEmpty(role))
+                sb.AppendLine($"  2. StationConfigs.json 中 CameraRole = {role} 的 {stationIds.Count} 个工位");
+            if (stationIds.Count > 0)
+                sb.AppendLine($"  3. 参数配置中 Section = {string.Join(", ", stationIds)} 的所有参数");
+            sb.AppendLine("  4. 实时检测界面中该相机的显示窗体");
+            sb.AppendLine();
+            sb.AppendLine("此操作不可恢复！");
+
+            if (MessageBox.Show(sb.ToString(), "删除确认",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                // 断开相机
+                if (_cameraConfigService.ConnectedCameras.ContainsKey(sn))
+                {
+                    _cameraConfigService.DisconnectCamera(sn);
+                    _logger.Information("删除配置前已断开相机 {SN}", sn);
+                }
+
+                //CameraSettings.json
+                _cameraConfigService.RemoveCameraSetting(sn);
+
+                //StationConfigs.json
+                if (!string.IsNullOrEmpty(role))
+                {
+                    var stationsToRemove = _stationConfigService.Stations
+                        .Where(s => s.CameraRole == role)
+                        .ToList();
+                    foreach (var s in stationsToRemove)
+                        _stationConfigService.Stations.Remove(s);
+                    if (stationsToRemove.Count > 0)
+                    {
+                        _stationConfigService.Save();
+                        _logger.Information("已从 StationConfigs 删除 {Count} 个角色为 {Role} 的工位",
+                            stationsToRemove.Count, role);
+                    }
+                }
+
+                //参数配置 Section
+                foreach (var sid in stationIds)
+                {
+                    var paramsToRemove = _paramService.ConfigParams
+                        .Where(p => p.ModuleName == sid)
+                        .ToList();
+                    if (paramsToRemove.Count == 0) continue;
+                    foreach (var p in paramsToRemove)
+                        _paramService.ConfigParams.Remove(p);
+                    _logger.Information("已删除工位 {StationId} 的 {Count} 个参数", sid, paramsToRemove.Count);
+                }
+                if (stationIds.Count > 0)
+                {
+                    _paramService.SaveConfig();
+                    _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+                }
+
+                // 通知InspectionView刷新
+                _eventAggregator.GetEvent<StationConfigChangedEvent>().Publish();
+
+                //刷新当前界面
+                DeviceList = new List<string>();
+                SelectedDevice = null;
+                _currentConfig = null;
+                _camera = null;
+                _isBorrowedCamera = false;
+                IsConnected = false;
+                StatusMessage = "本地配置已删除";
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "删除本地配置失败");
+                MessageBox.Show($"删除失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 从 CameraSettings.json 删除指定 SN 的相机配置
+        /// </summary>
+        private void RemoveCameraSetting(string sn)
+        {
+            var target = _cameraConfigService.AllSettings.FirstOrDefault(s => s.SerilalNum == sn);
+            if (target != null)
+            {
+                _cameraConfigService.AllSettings.Remove(target);
+                _cameraConfigService.SaveSettings();
+                _logger.Information("已从 CameraSettings 删除相机 {SN}", sn);
+            }
+            else
+            {
+                _logger.Warning("CameraSettings 中未找到相机 {SN}", sn);
+            }
+        }
+
+        /// <summary>
+        /// 从 StationConfigs.json 删除 CameraRole 对应的工位
+        /// </summary>
+        private StationConfig RemoveStationByCameraRole(string role)
+        {
+            var target = _stationConfigService.GetStationByCameraRole(role);
+            if (target != null)
+            {
+                _stationConfigService.Stations.Remove(target);
+                _stationConfigService.Save();
+                _logger.Information("已从 StationConfigs 删除工位 {StationId}（角色 {Role}）", target.StationId, role);
+            }
+            else
+            {
+                _logger.Warning("StationConfigs 中未找到角色 {Role} 的工位", role);
+            }
+            return target;
+        }
+
+        /// <summary>
+        /// 从参数配置删除指定 Section 的所有参数
+        /// </summary>
+        private void RemoveParamSection(string stationId)
+        {
+            var paramsToRemove = _paramService.ConfigParams
+                .Where(p => p.ModuleName == stationId)
+                .ToList();
+            if (paramsToRemove.Count == 0)
+            {
+                _logger.Warning("参数配置中未找到 Section {StationId}", stationId);
+                return;
+            }
+            foreach (var p in paramsToRemove)
+                _paramService.ConfigParams.Remove(p);
+            _paramService.SaveConfig();
+            _eventAggregator.GetEvent<SectionsChangedEvent>().Publish();
+            _logger.Information("已删除工位 {StationId} 的 {Count} 个参数", stationId, paramsToRemove.Count);
         }
         #endregion
         public void Dispose()

@@ -2,7 +2,6 @@
 using AVS_Common;
 using AVS_Common.Events;
 using AVS_Common.Model;
-using AVS_Service;
 using AVS_Service.Events;
 using AVS_Service.Models;
 using AVS_Service.Services;
@@ -117,6 +116,8 @@ namespace AVS_App.ViewModels
         public DelegateCommand StartAllCommand { get; set; }
         public DelegateCommand StopAllCommand { get; set; }
         public DelegateCommand LoginCommand { get; set; }
+
+        public DelegateCommand ClearStatisticsCommand { get; set; }
         public ObservableCollection<LogEventModel> LogSource => UiLogSink.LogCollection;
         public MainWindowViewModel(
             ILogger logger,
@@ -139,23 +140,36 @@ namespace AVS_App.ViewModels
             StartAllCommand = new DelegateCommand(async () => await ExecuteStartAllAsync(), CanStartAll);
             StopAllCommand = new DelegateCommand(async () => await ExecuteStopAllAsync(), CanStopAll);
             LoginCommand = new DelegateCommand(ShowLoginWindow);
+            ClearStatisticsCommand = new DelegateCommand(ClearStatistics);
             RefreshPlcStatus();
             _communicationService.ConnectionStatusChanged += (id, connected) =>
             {
-                Application.Current?.Dispatcher.Invoke(RefreshPlcStatus);
+                Application.Current?.Dispatcher.BeginInvoke(new Action(RefreshPlcStatus));
             };
 
             RefreshCameraStatus();
             _cameraConfigService.CameraStatusChanged += (sn, connected) =>
             {
-                Application.Current?.Dispatcher.Invoke(RefreshCameraStatus);
+                Application.Current?.Dispatcher.BeginInvoke(new Action(RefreshCameraStatus));
             };
             _cameraConfigService.CameraGrabbingStatusChanged += (sn, isGrabbing) =>
             {
-                Application.Current?.Dispatcher.Invoke(RefreshCameraGrabbingStatus);
+                Application.Current?.Dispatcher.BeginInvoke(new Action(RefreshCameraGrabbingStatus));
             };
             eventAggregator.GetEvent<PoleResultEvent>().Subscribe(OnPoleResult, ThreadOption.UIThread);
             _eventAggregator.GetEvent<ApplicationStartupCompletedEvent>().Subscribe(OnStartupCompleted, ThreadOption.UIThread);
+        }
+
+        private void ClearStatistics()
+        {
+            var result = MessageBox.Show("确定要清空当前检测统计吗？", "清空确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+
+            TotalCount = 0;
+            OkCount = 0;
+            NgCount = 0;
+            YieldRate = 0;
+            _logger.Information("检测统计已清空");
         }
 
         private void OnPoleResult(PoleResultPayload payload)

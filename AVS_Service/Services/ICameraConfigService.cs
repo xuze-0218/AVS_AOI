@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using Formatting = Newtonsoft.Json.Formatting;
 using System.Threading;
 using System.Linq;
-using AVS_Drivers.Camera.Mode;
 
 namespace AVS_Service.Services
 {
@@ -33,7 +32,21 @@ namespace AVS_Service.Services
         Task InitializeAllCameras();
         ICamera GetCameraInstance(string sn);
         CameraSettingModel GetCameraSetting(string sn);
+        /// <summary>
+        ///按SN或索引查找相机配置，找不到返回null不修改缓存。
+        /// </summary>
         CameraSettingModel GetCameraSettingBySnOrIndex(string sn, int index);
+        /// <summary>
+        /// 显式查询或新建：找不到时创建一条配置（SerilalNum=sn, CameraRole="DefaultCam"）加入缓存，
+        /// 但不自动保存。sn 为空时返回 null，不新建。
+        /// </summary>
+        CameraSettingModel GetOrCreateCameraSetting(string sn, int index);
+
+        /// <summary>
+        /// 删除指定 SN 的相机配置并保存。找不到返回 false。
+        /// </summary>
+        bool RemoveCameraSetting(string sn);
+
         bool ExecuteSoftTrigger(string identifier);
         void SetCameraAcquisitionMode(string sn, AcquisitionMode mode);
         void ApplySettingToDevice(string sn);
@@ -93,8 +106,18 @@ namespace AVS_Service.Services
                 if (camera != null && camera.InitDevice(sn))
                 {
                     _connectedCameras.Add(sn, camera);
-                    var setting = GetCameraSettingBySnOrIndex(sn, -1);
+                    //var setting = GetCameraSettingBySnOrIndex(sn, -1);
+                    //setting.CameraType = cameraType;
+                    //if (applySetting)
+                    //    ApplySettingToDevice(sn);
+                    var setting = GetOrCreateCameraSetting(sn, -1);
+                    if (setting == null)
+                    {
+                        _logger.Error("相机 {SN} 无法创建配置", sn);
+                        return false;
+                    }
                     setting.CameraType = cameraType;
+                    SaveSettings();   //首次连接时保存
                     if (applySetting)
                         ApplySettingToDevice(sn);
                     CameraStatusChanged?.Invoke(setting.SerilalNum, true);
@@ -155,6 +178,7 @@ namespace AVS_Service.Services
                 }
             }
         }
+
         /// <summary>
         /// 加载相机配置
         /// </summary>
@@ -163,7 +187,15 @@ namespace AVS_Service.Services
             try
             {
                 if (File.Exists(_configPath))
-                    _settingsCache = JsonConvert.DeserializeObject<List<CameraSettingModel>>(File.ReadAllText(_configPath)) ?? new List<CameraSettingModel>();
+                    _settingsCache = JsonConvert.DeserializeObject<List<CameraSettingModel>>(File.ReadAllText(_configPath))
+                                     ?? new List<CameraSettingModel>();
+                //删掉SerilalNum 为空的条目
+                int removed = _settingsCache.RemoveAll(s => string.IsNullOrEmpty(s.SerilalNum));
+                if (removed > 0)
+                {
+                    _logger.Warning("加载时清理了 {Count} 条无效相机配置（无 SN）", removed);
+                    SaveSettings();
+                }
             }
             catch (Exception ex) { _logger.Error(ex, "加载相机JSON配置失败"); }
         }
@@ -296,6 +328,7 @@ namespace AVS_Service.Services
                     if (info.PixelFormat == CamPixelFormat.Mono8)
                     {
                         HOperatorSet.GenImage1(out tempImage, "byte", info.Width, info.Height, ptr);
+
                     }
                     else if (info.PixelFormat == CamPixelFormat.Rgb8)
                     {
@@ -425,10 +458,9 @@ namespace AVS_Service.Services
             }
         }
 
-
         /// <summary>
         /// 处理图像（HObject 副本），发布事件后释放。
-        /// 注意：发布后即 Dispose，订阅者必须在 PublisherThread 上同步 Clone 后再使用。
+        /// 发布后即 Dispose，订阅者必须在 PublisherThread 上同步 Clone 后再使用。
         /// </summary>
         /// <param name="camera"></param>
         /// <param name="img"></param>
@@ -511,8 +543,11 @@ namespace AVS_Service.Services
                 camera.SetGain(setting.Gain);
             }
         }
+
         public void UpdateCameraSetting(CameraSettingModel setting)
         {
+            if (setting == null) return;
+
             var existing = _settingsCache.FirstOrDefault(x =>
                 (!string.IsNullOrEmpty(setting.SerilalNum) && x.SerilalNum == setting.SerilalNum) ||
                 (x.CamSelectIndex == setting.CamSelectIndex && string.IsNullOrEmpty(x.SerilalNum)));
@@ -527,6 +562,11 @@ namespace AVS_Service.Services
                 existing.TriggerMode = setting.TriggerMode;
                 existing.TriggerSource = setting.TriggerSource;
             }
+            else if (existing == null && !string.IsNullOrEmpty(setting.SerilalNum))
+            {
+                _settingsCache.Add(setting);
+                _logger.Information("新增相机配置: SN={SN}", setting.SerilalNum);
+            }
             SaveSettings();
 
             if (!string.IsNullOrEmpty(setting.SerilalNum) && _connectedCameras.TryGetValue(setting.SerilalNum, out var cam))
@@ -535,38 +575,57 @@ namespace AVS_Service.Services
                 cam.SetGain(setting.Gain);
             }
         }
+
         public CameraSettingModel GetCameraSettingBySnOrIndex(string sn, int index)
         {
-            CameraSettingModel setting = null;
             if (!string.IsNullOrEmpty(sn))
             {
-                setting = _settingsCache.FirstOrDefault(x => x.SerilalNum == sn);
+                var bySn = _settingsCache.FirstOrDefault(x => x.SerilalNum == sn);
+                if (bySn != null) return bySn;
             }
-            if (setting == null && index >= 0)
+            if (index >= 0)
             {
-                setting = _settingsCache.FirstOrDefault(x => x.CamSelectIndex == index);
+                var byIndex = _settingsCache.FirstOrDefault(x => x.CamSelectIndex == index);
+                if (byIndex != null) return byIndex;
             }
+            return null;   // 纯查询，不新建
+        }
 
-            // 如果还是没有，新建一个
-            if (setting == null)
-            {
-                setting = new CameraSettingModel
-                {
-                    SerilalNum = sn,
-                    // 如果 index 无效，自动分配一个最大的 index
-                    CamSelectIndex = index >= 0 ? index : (_settingsCache.Count > 0 ? _settingsCache.Max(x => x.CamSelectIndex) + 1 : 0)
-                };
-                _settingsCache.Add(setting);
-            }
-            else
-            {
-                if (string.IsNullOrEmpty(setting.SerilalNum) && !string.IsNullOrEmpty(sn))
-                {
-                    setting.SerilalNum = sn;
-                }
-            }
+        public CameraSettingModel GetOrCreateCameraSetting(string sn, int index)
+        {
+            var existing = GetCameraSettingBySnOrIndex(sn, index);
+            if (existing != null) return existing;
 
+            if (string.IsNullOrEmpty(sn)) return null;   // 无SN不新建
+
+            var setting = new CameraSettingModel
+            {
+                SerilalNum = sn,
+                // CameraRole 用默认值 "DefaultCam"
+                CamSelectIndex = index >= 0
+                    ? index
+                    : (_settingsCache.Count > 0 ? _settingsCache.Max(x => x.CamSelectIndex) + 1 : 0)
+            };
+            _settingsCache.Add(setting);
+            _logger.Debug("新建相机配置: SN={SN}, Index={Index}", sn, setting.CamSelectIndex);
             return setting;
+        }
+
+        public bool RemoveCameraSetting(string sn)
+        {
+            if (string.IsNullOrEmpty(sn)) return false;
+
+            var target = _settingsCache.FirstOrDefault(s => s.SerilalNum == sn);
+            if (target == null)
+            {
+                _logger.Warning("RemoveCameraSetting: 未找到 SN={SN}", sn);
+                return false;
+            }
+
+            _settingsCache.Remove(target);
+            SaveSettings();
+            _logger.Information("已删除相机配置: SN={SN}, Role={Role}", sn, target.CameraRole);
+            return true;
         }
     }
 
